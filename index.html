@@ -34,12 +34,10 @@
        competing with the car for attention. */
     position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%);
     display: flex; align-items: flex-end; gap: 10px;
-    /* Same panel as the grip and lap corners, so the cluster reads as one
-       instrument binnacle rather than two rings and some loose text floating
-       over the road. It also gives the gear strip something to sit on -- over
-       bare asphalt the numbers were unreadable. */
-    background: var(--panel); border-radius: 14px 14px 0 0;
-    padding: 12px 20px 0;
+    /* No panel behind these, deliberately. The dials read as instruments
+       floating over the road; boxing them in makes the whole bottom of the
+       screen a slab. The grip and help blocks are reference material and do
+       get a frame -- these are not. */
     /* Scales with the window so it keeps its proportions on any screen without
        ever growing tall enough to eat the road. */
     --d: clamp(150px, 17vw, 232px);
@@ -84,15 +82,20 @@
     padding-bottom: calc(var(--d) * 0.34); min-width: 92px;
   }
   .gearRow { display: flex; gap: 7px; align-items: baseline; }
-  .gearRow span { font-size: 15px; color: rgba(232,238,245,.42); font-weight: 600; }
+  .gearRow span {
+    font-size: 15px; color: rgba(232,238,245,.5); font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
+  }
   .gearRow span.on {
-    color: var(--accent); font-size: 27px; text-shadow: 0 0 16px rgba(255,210,63,.5);
+    color: var(--accent); font-size: 27px;
+    text-shadow: 0 0 16px rgba(255,210,63,.55), 0 1px 3px rgba(0,0,0,.9);
   }
   .gearBar {
     width: 88px; height: 3px; margin: 7px 0 5px; border-radius: 2px;
     background: linear-gradient(90deg, #2f6ea8, #e8eef5 45%, #e8eef5 55%, #c8322c);
   }
-  .mode { font-size: 9px; letter-spacing: 2px; color: var(--dim); }
+  .mode { font-size: 9px; letter-spacing: 2px; color: var(--dim);
+          text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 
   /* ---- grip: g-meter + balance, one panel bottom left ---- */
   #grip {
