@@ -29,7 +29,10 @@
 
   /* ---- twin-dial cluster, after the real A110's ---- */
   #dash {
-    position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    /* Sat low and partly past the bottom edge, the way a real binnacle is
+       cropped by the wheel -- it keeps the road clear and stops the cluster
+       competing with the car for attention. */
+    position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%);
     display: flex; align-items: flex-end; gap: 10px;
     /* Scales with the window so it keeps its proportions on any screen without
        ever growing tall enough to eat the road. */
@@ -59,24 +62,27 @@
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; pointer-events: none;
     line-height: 1;
+    /* Lifted by as much as the dial hangs off the bottom, so the numbers stay
+       on screen while the rings are cropped. */
+    padding-bottom: calc(var(--d) * 0.20);
   }
   .dial .big {
-    font-size: calc(var(--d) * 0.30); font-weight: 700; letter-spacing: -2px;
+    font-size: calc(var(--d) * 0.20); font-weight: 700; letter-spacing: -1px;
     font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px rgba(0,0,0,.8);
   }
-  #tach .big { font-size: calc(var(--d) * 0.17); color: var(--dim); letter-spacing: -1px; }
+  #tach .big { font-size: calc(var(--d) * 0.13); color: var(--dim); letter-spacing: 0; }
   .dial .cap { font-size: calc(var(--d) * 0.062); color: var(--dim); letter-spacing: 2px; }
   .dial .cap.top { margin-bottom: 2px; }
   #tach.redline .big { color: var(--danger); }
   .dial .scale {
-    position: absolute; left: 0; right: 0; bottom: -2px; text-align: center;
+    position: absolute; left: 0; right: 0; bottom: 34%; text-align: center;
     font-size: 10px; color: var(--dim); letter-spacing: 2px;
   }
 
   /* Gear strip, standing in for the real car's P R N D. */
   #centre {
     display: flex; flex-direction: column; align-items: center;
-    padding-bottom: calc(var(--d) * 0.16); min-width: 92px;
+    padding-bottom: calc(var(--d) * 0.34); min-width: 92px;
   }
   .gearRow { display: flex; gap: 7px; align-items: baseline; }
   .gearRow span { font-size: 15px; color: rgba(232,238,245,.30); font-weight: 600; }
