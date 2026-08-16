@@ -10,6 +10,19 @@
 
 import { ACTIONS, buttonName } from './bindings.js';
 
+/**
+ * Match a key by physical code, falling back to the character.
+ *
+ * `event.code` is the right thing to test -- it is layout-independent -- but
+ * it is not always populated. Some remote-desktop and automation paths deliver
+ * a keydown with `key` set and `code` empty, and a screen that exists to
+ * rescue broken input should not itself be unreachable when that happens.
+ */
+function isKey(e, code, char) {
+  if (e.code) return e.code === code;
+  return typeof e.key === 'string' && e.key.toLowerCase() === char;
+}
+
 export class PadPanel {
   constructor(input) {
     this.input = input;
@@ -21,6 +34,7 @@ export class PadPanel {
     this.rows = [];
 
     this._build();
+    this.syncHelp();
 
     document.getElementById('padClose').addEventListener('click', () => this.close());
     document.getElementById('padReset').addEventListener('click', () => {
@@ -34,7 +48,7 @@ export class PadPanel {
     // misbehaving pad will be stuck.
     window.addEventListener('keydown', (e) => {
       if (this.isOpen) { this.handleKey(e); e.preventDefault(); return; }
-      if (e.code === 'KeyB') { this.open(); e.preventDefault(); }
+      if (isKey(e, 'KeyB', 'b')) { this.open(); e.preventDefault(); }
     });
 
     // Polled rather than event-driven: the panel has to respond to a pad that
@@ -77,7 +91,20 @@ export class PadPanel {
     });
   }
 
+  /**
+   * Write the current bindings into the on-screen help.
+   *
+   * Called whenever they change, so the corner of the screen can never end up
+   * telling you to press a button that does something else now.
+   */
+  syncHelp() {
+    for (const el of document.querySelectorAll('#help [data-bind]')) {
+      el.textContent = buttonName(this.input.bindings.get(el.dataset.bind));
+    }
+  }
+
   refresh() {
+    this.syncHelp();
     const pad = this.input._findGamepad();
     this.nameEl.textContent = pad
       ? `${pad.id.slice(0, 52)}${pad.mapping === 'standard' ? '' : ' (non-standard mapping)'}`
@@ -128,14 +155,18 @@ export class PadPanel {
   /** Keyboard driving of the same panel, for when no pad is attached. */
   handleKey(e) {
     if (!this.isOpen) return false;
-    if (e.code === 'Escape' || e.code === 'KeyB') { this.close(); return true; }
-    if (e.code === 'ArrowUp') { this.selected = Math.max(0, this.selected - 1); this.refresh(); return true; }
-    if (e.code === 'ArrowDown') {
+    if (isKey(e, 'Escape', 'escape') || isKey(e, 'KeyB', 'b')) { this.close(); return true; }
+    if (isKey(e, 'ArrowUp', 'arrowup')) {
+      this.selected = Math.max(0, this.selected - 1);
+      this.refresh();
+      return true;
+    }
+    if (isKey(e, 'ArrowDown', 'arrowdown')) {
       this.selected = Math.min(ACTIONS.length - 1, this.selected + 1);
       this.refresh();
       return true;
     }
-    if (e.code === 'Enter' || e.code === 'Space') { this._listen(); return true; }
+    if (isKey(e, 'Enter', 'enter') || isKey(e, 'Space', ' ')) { this._listen(); return true; }
     return true;   // swallow everything else so the car cannot be driven blind
   }
 }

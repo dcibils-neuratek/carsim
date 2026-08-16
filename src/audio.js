@@ -86,13 +86,63 @@ export class EngineAudio {
         this.nodes[key] = { source, gain, ...def };
       }));
 
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      // The graph is built and live regardless of whether the context is
+      // actually running -- those are different problems and conflating them
+      // is what made audio die permanently.
       this.ready = true;
+      this._installUnlockHandlers();
+      await this.resumeIfPossible();
     } catch (err) {
       // Audio is a nicety; never let it stop the game.
       this.failed = true;
       console.warn('engine audio unavailable:', err);
     }
+  }
+
+  /** True when the graph exists but the browser has not let it start. */
+  get suspended() {
+    return Boolean(this.ctx) && this.ctx.state !== 'running';
+  }
+
+  /**
+   * Try to start the context. Safe to call as often as you like.
+   *
+   * A rejection here is NOT a failure -- it means the browser has not seen a
+   * user gesture yet. Treating it as one is what broke this: `resume()`
+   * rejected, the catch marked audio permanently failed, and `start()` then
+   * returned early forever after. Silence for the rest of the session.
+   */
+  async resumeIfPossible() {
+    if (!this.ctx || this.ctx.state === 'running') return;
+    try {
+      await this.ctx.resume();
+    } catch { /* no user gesture yet; the unlock handlers will retry */ }
+  }
+
+  /**
+   * Resume on the first real user gesture.
+   *
+   * GAMEPAD INPUT DOES NOT COUNT AS USER ACTIVATION in Chrome. Once the track
+   * menu became pad-navigable it was possible to reach the car having only
+   * ever touched the pad, at which point the page has no activation at all and
+   * the browser refuses to start any audio. Only a key, click or touch lifts
+   * it, so those are what we listen for.
+   */
+  _installUnlockHandlers() {
+    if (this._unlockBound) return;
+    this._unlockBound = true;
+    const unlock = () => {
+      this.resumeIfPossible().then(() => {
+        if (!this.suspended) {
+          window.removeEventListener('pointerdown', unlock);
+          window.removeEventListener('keydown', unlock);
+          window.removeEventListener('touchstart', unlock);
+        }
+      });
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    window.addEventListener('touchstart', unlock);
   }
 
   setMuted(muted) {

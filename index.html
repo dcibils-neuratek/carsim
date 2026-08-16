@@ -320,10 +320,14 @@
 
   <div id="debug"></div>
 
+  <!-- Pad buttons here are filled in from the live bindings, so rebinding
+       cannot leave the on-screen help telling you the wrong button. -->
   <div id="help">
-    <b>LS</b>/<b>A,D</b> steer &nbsp; <b>RT</b>/<b>W</b> gas &nbsp; <b>LT</b>/<b>S</b> brake &nbsp; <b>A</b>/<b>Space</b> handbrake<br>
-    <b>LB,RB</b>/<b>Shift,Ctrl</b> gears &nbsp; <b>Y</b>/<b>C</b> camera &nbsp; <b>Start</b>/<b>R</b> reset<br>
-    <b>`</b> debug &nbsp; <b>G</b> tuning panel &nbsp; <b>M</b> manual gearbox
+    <b>LS</b>/<b>A,D</b> steer &nbsp; <b data-bind="throttle"></b>/<b>W</b> gas &nbsp;
+    <b data-bind="brake"></b>/<b>S</b> brake &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake<br>
+    <b data-bind="shiftUp"></b>,<b data-bind="shiftDown"></b>/<b>Shift,Ctrl</b> gears &nbsp;
+    <b data-bind="camera"></b>/<b>C</b> camera &nbsp; <b data-bind="reset"></b>/<b>R</b> reset<br>
+    <b>`</b> debug &nbsp; <b>G</b> tuning &nbsp; <b>B</b> gamepad &nbsp; <b>M</b> manual gearbox
   </div>
 
   <div id="toast"></div>

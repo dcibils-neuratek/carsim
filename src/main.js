@@ -384,6 +384,13 @@ export async function boot() {
       // this is the first one we get.
       audio.start().then(() => {
         if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.buses);
+        // A gamepad button is not user activation as far as the browser is
+        // concerned, so arriving here having only touched the pad leaves audio
+        // blocked with nothing on screen to explain it. Say so -- any key or
+        // click lifts it, and the handlers in audio.js are already waiting.
+        if (audio.suspended) {
+          hud.toast('press any key to enable sound', 5000);
+        }
       });
       bootEl.classList.add('hidden');
       hud.toast(state.source === 'gamepad' ? `pad: ${input.describe()}` : 'keyboard — plug in a pad for analog control', 2600);

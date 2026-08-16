@@ -95,9 +95,18 @@ export function tyreMix(vehicle) {
       ratio(slipSpeed, t.slideStart, t.slideFull),
       ratio(longUtil, t.lockStart, t.lockFull),
     );
-    // The warning. Starts well before the limit, which is the entire point:
-    // by the time a tyre is audibly past it, the useful moment has gone.
-    const load = ratio(util, t.squealStart, t.squealFull);
+    // The warning, from two independent causes rather than one blended
+    // number. Cornering load is the one that means "about to lose the car";
+    // locking and wheelspin are a separate event with their own threshold.
+    //
+    // Blending them into a single combined-utilisation figure was tried and
+    // made the car squeal almost constantly, because ordinary acceleration
+    // spends most of a tyre's longitudinal capacity while nowhere near
+    // sliding. Kept apart, each can have the threshold it actually deserves.
+    const load = Math.max(
+      ratio(util, t.squealStart, t.squealFull),
+      ratio(longUtil, t.lockStart, t.lockFull),
+    );
     // Pitch climbs as the tyre loads up, then falls as it lets go. A rising
     // tone that suddenly drops and broadens reads as losing the car without
     // anyone having to be told what it means.

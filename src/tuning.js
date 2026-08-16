@@ -192,7 +192,12 @@ export const DEFAULTS = {
       // when it still has 40% of its grip in hand. Raise it and the car goes
       // quiet until it is too late; lower it and it squeals constantly and the
       // signal stops meaning anything.
-      squealStart: 0.58,
+      // 0.58 was too eager: the tyres sang through ordinary cornering and the
+      // signal stopped carrying information. A real tyre is quiet until it is
+      // genuinely close to letting go, so this starts at 82% of LATERAL
+      // capacity -- still comfortably before the limit, but silent for the
+      // vast majority of normal driving.
+      squealStart: 0.82,
       squealFull: 1.0,
 
       // Front and rear are deliberately far apart in pitch. This is what lets
@@ -213,8 +218,13 @@ export const DEFAULTS = {
       // Locking and wheelspin, read from longitudinal force saturation rather
       // than from speed, because Rapier's wheels spin kinematically and never
       // actually lock. 1.0 is exactly at the tyre's longitudinal capacity.
-      lockStart: 0.98,
-      lockFull: 1.20,
+      //
+      // Measured: a threshold stop at 1.35 g sits at 86-88% of capacity, and a
+      // first-gear launch spins the rears past 100%. 0.82 catches both while
+      // staying above ordinary braking, and matches squealStart -- the tyre
+      // speaks at the same fraction of its capacity in either direction.
+      lockStart: 0.82,
+      lockFull: 1.05,
       slideVolume: 1.7,   // sliding is louder than working hard
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
 

@@ -150,18 +150,22 @@ export class Telemetry {
         t.latUtil = 0; t.longUtil = 0; t.combined = 0;
       }
 
-      // The warning channel: how close this tyre is to letting go, in ANY
-      // direction. A tyre at its limit under braking is as close to sliding as
-      // one at its limit in a corner, and both should warn you.
+      // The warning channel is LATERAL utilisation, and deliberately not the
+      // combined figure.
       //
-      // Clamped, because the two directions are not budgeted the same way.
-      // Bullet clamps the side impulse at mu * load * dt, but drive torque
-      // goes through a rolling-friction path that is not held to that limit --
-      // measured at ~120% longitudinal under full throttle in first. Letting
-      // that through unclamped would peg the warning during any hard launch.
+      // Combining them seems right -- a tyre at its limit is at its limit
+      // whichever direction it is being pushed -- but it makes the car squeal
+      // almost constantly. Ordinary acceleration spends a large fraction of a
+      // tyre's longitudinal capacity without being anywhere near sliding, so a
+      // combined number sits high during perfectly normal driving and the
+      // warning stops meaning anything.
+      //
+      // Lateral is the one that maps to "about to lose the car". Locking and
+      // wheelspin are real too, but they are a different event with a
+      // different threshold, and the audio treats them separately via longUtil.
       t.combined = Math.min(t.combined, 1);
-      t.utilisation = t.combined;
-      t.atLimit = t.combined >= AT_LIMIT;
+      t.utilisation = t.latUtil;
+      t.atLimit = t.latUtil >= AT_LIMIT;
 
       const isFront = i === 0 || i === 1;
       if (isFront) front = Math.max(front, t.utilisation);

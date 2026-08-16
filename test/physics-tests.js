@@ -324,6 +324,7 @@ export async function runAll(el) {
   await testTyreAudioWarning(ctx, r);
   await testTyreAudioLevels(r);
   await testBrakingSquealsToo(ctx, r);
+  await testTyresAreQuietNormally(ctx, r);
   await testHandbrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
@@ -754,9 +755,14 @@ async function testTyreAudioWarning(ctx, r) {
 
   // Silence while the car is comfortably within grip. A tyre that sings all
   // the time carries no information -- the signal has to have an off state.
-  const quiet = mixes.filter((m) => m.util < 0.4).every((m) => m.mix.front.gain < 0.001);
-  r.check('silent well inside the limit', quiet,
-    'no squeal below 40% utilisation');
+  // The bar that matters for "is it annoying". Squealing through ordinary
+  // cornering is the failure this threshold exists to catch: it was reported
+  // from the driver's seat once already, when the warning was keyed on
+  // combined rather than lateral utilisation.
+  const quietBelow = 0.7;
+  const quiet = mixes.filter((m) => m.util < quietBelow).every((m) => m.mix.front.gain < 0.001);
+  r.check('silent through ordinary cornering', quiet,
+    `no squeal below ${(quietBelow * 100).toFixed(0)}% lateral utilisation`);
 
   // Front and rear have to be tellable apart, or "which end let go" is not
   // information the player can act on.
@@ -767,7 +773,9 @@ async function testTyreAudioWarning(ctx, r) {
 
   // Past the limit the character must change, not just the volume: that is
   // what separates "loaded" from "gone" by ear.
-  const gripping = tyreMix(fakeVehicle({ frontUtil: 0.8, rearUtil: 0.8, slipSpeed: 0 }));
+  // Loaded enough to be audible, but not sliding -- the comparison is only
+  // meaningful if both states are actually making a sound.
+  const gripping = tyreMix(fakeVehicle({ frontUtil: 0.95, rearUtil: 0.95, slipSpeed: 0 }));
   const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 5 }));
   r.check('timbre opens up once sliding',
     sliding.front.q < gripping.front.q * 0.5 && sliding.front.freq < gripping.front.freq,
@@ -775,6 +783,47 @@ async function testTyreAudioWarning(ctx, r) {
     `${gripping.front.freq.toFixed(0)} -> ${sliding.front.freq.toFixed(0)} Hz`);
 
   r.log(`  warning window ${warningMs.toFixed(0)} ms before saturation`);
+}
+
+/**
+ * How much of a normal lap is spent squealing?
+ *
+ * The check that would have caught the worst tyre-audio regression this
+ * project has had. Every other audio test asks "does it make a noise when it
+ * should"; none of them asked "is it quiet when it should be", and the answer
+ * turned out to be no -- the car sang almost continuously, which makes the
+ * warning worthless because it never stops.
+ *
+ * The autopilot is a moderate driver: it holds about 6 m/s^2 of lateral
+ * acceleration, well inside the tyres. A lap of that should be nearly silent.
+ */
+async function testTyresAreQuietNormally(ctx, r) {
+  r.section('tyres are quiet in normal driving');
+  const { vehicle, track } = ctx;
+  vehicle.reset(track.spawnAt(0.985));
+
+  const drive = makeAutopilot(track);
+  let audible = 0;
+  let samples = 0;
+  let peak = 0;
+
+  await run(ctx, 5200, drive, (v) => {
+    if (Math.abs(v.speed) < 4) return;
+    const mix = tyreMix(v);
+    const gain = Math.max(mix.front.gain, mix.rear.gain);
+    peak = Math.max(peak, gain);
+    if (gain > 0.02) audible++;
+    samples++;
+  });
+
+  const fraction = samples > 0 ? audible / samples : 0;
+  r.results.tyreQuiet = { fraction, peak, samples };
+
+  r.check('a moderate lap is mostly silent',
+    fraction < 0.25,
+    `audible for ${(fraction * 100).toFixed(0)}% of the lap`);
+
+  r.log(`  ${(fraction * 100).toFixed(0)}% audible over ${samples} samples, peak gain ${peak.toFixed(2)}`);
 }
 
 /**
