@@ -327,6 +327,45 @@ export async function boot() {
     carCamera.snap();
   }
 
+  /**
+   * Render wireframe: the triangles actually being drawn.
+   *
+   * Distinct from P, which shows Rapier's colliders -- what the physics sees.
+   * This is what the GPU sees, and it is the view that makes a model's real
+   * cost obvious: the car carried 954 meshes and a quarter of a million
+   * triangles for a while without that being visible from any other angle.
+   *
+   * Reports the frame's draw calls and triangles with it, since those are the
+   * numbers you actually act on and the renderer already counts them.
+   */
+  let wireframe = false;
+  function toggleWireframe() {
+    wireframe = !wireframe;
+    scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        // Lines have no wireframe of their own, and forcing the flag onto the
+        // collider debug view would silently do nothing.
+        if (m && 'wireframe' in m) m.wireframe = wireframe;
+      }
+    });
+    if (!wireframe) return 'wireframe off';
+    // Counted from the geometry rather than read off renderer.info, which is
+    // only populated after a render and so reports zero at the moment the key
+    // is pressed.
+    let meshes = 0;
+    let tris = 0;
+    scene.traverse((o) => {
+      if (!o.isMesh || !o.geometry || !o.visible) return;
+      const g = o.geometry;
+      const count = g.index ? g.index.count : g.attributes.position?.count ?? 0;
+      meshes++;
+      tris += count / 3;
+    });
+    return `wireframe — ${meshes} meshes, ${(tris / 1000).toFixed(0)}k tris`;
+  }
+
   function respawn(atProgress) {
     const progress = atProgress ?? track.project(vehicle.position()).progress;
     vehicle.reset(track.spawnAt(progress));
@@ -348,6 +387,7 @@ export async function boot() {
     if (e.code === 'Backquote') hud.toast(hud.toggleDebug() ? 'debug on' : 'debug off');
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
+    if (e.code === 'KeyO') hud.toast(toggleWireframe());
     if (e.code === 'KeyK') { skidmarks.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
     if (e.code === 'KeyN') {

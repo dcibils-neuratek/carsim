@@ -10,7 +10,10 @@
     --dim: #8fa3b8;
     --accent: #ffd23f;
     --danger: #ff4d4d;
-    --panel: rgba(10, 16, 24, 0.62);
+    /* Was 0.62, which vanished against a sunlit road -- the panels read as a
+       faint smudge and the thin marks inside them disappeared entirely. These
+       sit over bright grass and asphalt, so they have to hold their own. */
+    --panel: rgba(8, 13, 20, 0.82);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -116,8 +119,8 @@
 
   #gmeter { position: relative; padding: 10px 12px 2px; }
   #gmeter svg { width: 118px; height: 118px; display: block; margin: 0 auto; }
-  #gmeter .ring { fill: none; stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
-  #gmeter .cross { stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
+  #gmeter .ring { fill: none; stroke: rgba(232,238,245,.30); stroke-width: 1.4; }
+  #gmeter .cross { stroke: rgba(232,238,245,.22); stroke-width: 1.4; }
   #gDot { fill: var(--accent); }
   #gTrail { fill: rgba(255,210,63,.22); }
   #gLabel {
@@ -132,7 +135,7 @@
   #balance { padding: 4px 12px 11px; }
   #balanceBar {
     position: relative; height: 6px; border-radius: 4px;
-    background: rgba(232,238,245,.14); overflow: hidden;
+    background: rgba(232,238,245,.22); overflow: hidden;
   }
   #balanceFill {
     position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
@@ -145,8 +148,8 @@
   /* Labels under the ends they describe, so which way the bar has moved needs
      no explaining. */
   .ends {
-    display: flex; justify-content: space-between; margin-top: 5px;
-    font-size: 9px; letter-spacing: 1px; color: var(--dim);
+    display: flex; justify-content: space-between; margin-top: 6px;
+    font-size: 9px; letter-spacing: 1px; color: rgba(232,238,245,.62);
   }
   #balanceText { color: var(--fg); font-weight: 600; letter-spacing: .5px; }
 
@@ -172,7 +175,7 @@
 
   #minimap { padding: 2px 12px 9px; }
   #minimap svg { width: 100%; height: 96px; display: block; overflow: visible; }
-  #mmTrack { fill: none; stroke: rgba(232,238,245,.28); stroke-width: 5;
+  #mmTrack { fill: none; stroke: rgba(232,238,245,.38); stroke-width: 5;
              stroke-linejoin: round; stroke-linecap: round; }
   #mmDone  { fill: none; stroke: var(--accent); stroke-width: 5;
              stroke-linejoin: round; stroke-linecap: round; }
@@ -410,7 +413,8 @@
     <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
     <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>
     <div><b data-bind="camera"></b>/<b>C</b> cam &nbsp; <b>G</b> tune &nbsp; <b>B</b> pad &nbsp; <b>M</b> manual</div>
-    <div><b>`</b> debug &nbsp; <b>V</b> sound &nbsp; <b>N</b> music</div>
+    <div><b>`</b> debug &nbsp; <b>P</b> colliders &nbsp; <b>O</b> wireframe</div>
+    <div><b>V</b> sound &nbsp; <b>N</b> music &nbsp; <b>K</b> clear marks</div>
   </div>
 
   <div id="toast"></div>
