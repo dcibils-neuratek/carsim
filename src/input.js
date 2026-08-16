@@ -21,7 +21,7 @@ const KEY_PEDAL_RATE = 4.5;
 export class Input {
   constructor() {
     this.state = {
-      steer: 0, throttle: 0, brake: 0, handbrake: 0,
+      steer: 0, steerRaw: 0, throttle: 0, brake: 0, handbrake: 0,
       shiftUp: false, shiftDown: false,
       reset: false, camera: false, toggleGearbox: false,
       source: 'none',
@@ -95,7 +95,7 @@ export class Input {
       s.source = 'gamepad';
     } else if (s.source !== 'keyboard') {
       s.source = 'keyboard';
-      s.steer = 0; s.throttle = 0; s.brake = 0; s.handbrake = 0;
+      s.steer = 0; s.steerRaw = 0; s.throttle = 0; s.brake = 0; s.handbrake = 0;
     }
 
     // The keyboard stays live even with a pad attached, so you can nudge the
@@ -118,7 +118,10 @@ export class Input {
     const pressed = (i) => btn(i) > 0.5;
     const edge = (i) => pressed(i) && !((this._prevButtons[i] || 0) > 0.5);
 
-    s.steer = applySteerCurve(pad.axes[0] || 0);
+    // Keep the pre-curve value too: seeing raw against curved is how you
+    // tell a deadzone problem from a response-curve problem.
+    s.steerRaw = pad.axes[0] || 0;
+    s.steer = applySteerCurve(s.steerRaw);
 
     let throttle = btn(BTN.RT);
     let brake = btn(BTN.LT);
@@ -170,13 +173,17 @@ export class Input {
     this.kBrake = approach(this.kBrake, stop ? 1 : 0, KEY_PEDAL_RATE * dt);
 
     if (!hasGamepad) {
+      s.steerRaw = this.kSteer;
       s.steer = applySteerCurve(this.kSteer);
       s.throttle = this.kThrottle;
       s.brake = this.kBrake;
       s.handbrake = held('Space') ? 1 : 0;
     } else {
       // With a pad attached the keyboard can only add, never cancel.
-      if (Math.abs(this.kSteer) > 0.01) s.steer = applySteerCurve(this.kSteer);
+      if (Math.abs(this.kSteer) > 0.01) {
+        s.steerRaw = this.kSteer;
+        s.steer = applySteerCurve(this.kSteer);
+      }
       s.throttle = Math.max(s.throttle, this.kThrottle);
       s.brake = Math.max(s.brake, this.kBrake);
       s.handbrake = Math.max(s.handbrake, held('Space') ? 1 : 0);

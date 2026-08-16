@@ -211,6 +211,7 @@ triggers swap roles.
 | `src/trackcheck.js` | Is this circuit driveable? Shared by editor and tests |
 | `src/editor/` | The track editor: plan view, elevation, inspector, 3D preview |
 | `src/tuning.js` | Every physics constant, plus save/load |
+| `src/telemetry.js` | Per-wheel tyre load, force and friction utilisation |
 | `src/input.js` | Gamepad and keyboard |
 | `src/scene.js` | Renderer, lights, sky, car mesh |
 | `src/camera.js` | Chase / hood / orbit cameras |
@@ -276,6 +277,34 @@ collider's clearance must comfortably exceed `suspension.maxTravel`, or a bump
 bottoms the springs, grounds the chassis and pins the car. Buy clearance with
 `chassis.colliderOffsetY`, never by cutting suspension travel — grip scales with
 suspension load, so starving the springs of travel costs you all your traction.
+
+## Reading the tyres
+
+`` ` `` opens the telemetry, and the column that matters is **lat use**:
+per-wheel lateral friction utilisation, `|force| / (mu * load)`. It runs 0 to 1
+and hits 1 exactly when the tyre saturates.
+
+That column exists because of one awkward fact about the physics engine.
+Rapier's raycast vehicle has **no tyre slip curve** — it solves a lateral
+impulse that cancels sideways velocity, clamped at `mu * load`. A tyre here has
+full grip up to saturation and is saturated after it. There is no peak and no
+falloff to measure.
+
+The consequence is bigger than it sounds: **slip angle stays near zero until
+the car has already let go**. Measured on a skidpad ramp from a standstill to
+the limit, rear slip angle never exceeded **0.2°**, and was **0.16°** at the
+point lateral utilisation crossed 60%. Anything keyed off slip angle — tyre
+audio, camera, an assist — would fire only after the car was gone.
+
+Utilisation carries the information slip angle does not: it climbs smoothly,
+and about **40% of the approach to the limit** sits in a readable middle band.
+That is the warning channel, and `testUtilisationSignal` guards it.
+
+One asymmetry to know about: Bullet budgets the two directions separately, so
+only the *lateral* number is genuinely clamped to 1. The **spin** column
+(longitudinal) reads over 100% under wheelspin or a locked wheel — that is real
+and useful, but it is why the friction-ellipse figure is for reading rather
+than for driving anything from.
 
 ## Handling checks
 

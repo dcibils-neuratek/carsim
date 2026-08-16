@@ -12,6 +12,31 @@ const G_SCALE = 1.5;      // g at the outer ring of the g-meter
 
 function THREE_clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/** Force in kN, signed, at a fixed width so the columns line up. */
+function kN(newtons) {
+  return (newtons / 1000).toFixed(2).padStart(6);
+}
+
+/**
+ * A ten-cell bar for a 0..1 value.
+ *
+ * Numbers alone are close to useless for this: what you need to see at a
+ * glance is which tyre is filling up first and how fast, and a row of digits
+ * changing at 120 Hz does not show that. The bar does.
+ */
+function meter(v) {
+  const cells = 10;
+  const filled = THREE_clamp(Math.round(v * cells), 0, cells);
+  // The last two cells are the warning zone, so the bar reads as "nearly out
+  // of grip" before it reads as "out of grip".
+  let out = '';
+  for (let i = 0; i < cells; i++) {
+    if (i >= filled) out += '·';
+    else out += i >= cells - 2 ? '#' : '=';
+  }
+  return `[${out}]`;
+}
+
 function tachPoint(angleDeg, radius = 50) {
   const rad = (angleDeg * Math.PI) / 180;
   return `${(60 + Math.sin(rad) * radius).toFixed(2)} ${(60 - Math.cos(rad) * radius).toFixed(2)}`;
@@ -251,17 +276,45 @@ export class Hud {
     lines.push(`balance  ${(vehicle.balance * 180 / Math.PI).toFixed(1)}deg  ${vehicle.balance > 0.02 ? 'oversteer' : vehicle.balance < -0.02 ? 'understeer' : 'neutral'}`);
     lines.push(`rpm      ${vehicle.rpm.toFixed(0)}   gear ${vehicle.gearLabel}${TUNING.transmission.automatic ? ' (auto)' : ' (manual)'}`);
     lines.push(`torque   ${vehicle.engineTorque.toFixed(0)} Nm -> ${(vehicle.driveForce / 1000).toFixed(2)} kN at wheel`);
-    lines.push(`steer    ${deg(vehicle.steerAngle)} deg   input ${input.state.steer.toFixed(2)}`);
+    lines.push(
+      `steer    ${deg(vehicle.steerAngle)} deg   raw ${vehicle.telemetry.steerRaw.toFixed(2)} ` +
+      `-> curve ${vehicle.telemetry.steerCurved.toFixed(2)}`,
+    );
     lines.push(`pedals   gas ${input.state.throttle.toFixed(2)}  brake ${input.state.brake.toFixed(2)}  hand ${input.state.handbrake.toFixed(2)}`);
     lines.push('');
-    lines.push('wheel  contact  susp   grip');
+
+    // --- tyres --------------------------------------------------------------
+    //
+    // Utilisation is the important column and the reason this block exists.
+    // Rapier's tyres have no slip curve -- full grip until saturation, then
+    // saturated -- so slip angle stays near zero until the car has ALREADY
+    // let go. Utilisation is |force| / (mu * load): it climbs continuously
+    // from 0 and hits 1 exactly at the limit, so it is readable as a warning
+    // while there is still time to do something about it.
+    const t = vehicle.telemetry;
+    lines.push('wheel  susp   grip   load    lat     long   lat use        spin');
     for (let i = 0; i < 4; i++) {
       const w = vehicle.curr.wheels[i];
+      const tw = t.wheels[i];
       lines.push(
-        `  ${WHEEL_NAMES[i]}       ${w.contact ? ' Y ' : ' - '}   ` +
-        `${w.suspension.toFixed(3)}  ${vehicle.gripMult[i].toFixed(2)}`,
+        `  ${WHEEL_NAMES[i]}  ${w.contact ? ' ' : '~'}${w.suspension.toFixed(3)}  ` +
+        `${vehicle.gripMult[i].toFixed(2)}  ${kN(tw.load)}  ${kN(tw.lateral)}  ` +
+        `${kN(tw.longitudinal)}  ${meter(tw.utilisation)}` +
+        `${(tw.utilisation * 100).toFixed(0).padStart(4)}%` +
+        `${tw.atLimit ? ' LIM' : '    '}` +
+        // Longitudinal over 100% is wheelspin or a locked wheel: the drive
+        // path is not clamped the way the lateral one is.
+        `  ${(tw.longUtil * 100).toFixed(0).padStart(3)}%${tw.longUtil > 1.02 ? '!' : ' '}`,
       );
     }
+    lines.push(
+      `axle     front ${meter(t.frontUtil)} ${(t.frontUtil * 100).toFixed(0).padStart(3)}%   ` +
+      `rear ${meter(t.rearUtil)} ${(t.rearUtil * 100).toFixed(0).padStart(3)}%`,
+    );
+    lines.push(
+      `heading  ${deg(t.headingError)} deg off velocity   yaw ${t.yawRate.toFixed(2)} rad/s   ` +
+      `scrub ${t.slipSpeed.toFixed(2)} m/s`,
+    );
     lines.push(`airborne ${vehicle.airborne ? 'yes' : 'no'}`);
     lines.push('');
     lines.push(`lateral  ${projection.lateral.toFixed(2)} m from centerline`);

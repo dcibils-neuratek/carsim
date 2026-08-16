@@ -318,6 +318,7 @@ export async function runAll(el) {
   await testStraightLine(ctx, r);
   await testBraking(ctx, r);
   await testTopSpeed(ctx, r);
+  await testUtilisationSignal(ctx, r);
   await testHandbrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
@@ -607,6 +608,90 @@ async function testTopSpeed(ctx, r) {
   r.results.topSpeed = { peak, topGear };
   r.check('tops out near the A110\'s 250 km/h',
     peak > 230 && peak < 275, `${peak.toFixed(0)} km/h in gear ${topGear}`);
+}
+
+/**
+ * Gate 0 of the fun plan: is friction utilisation a usable warning channel?
+ *
+ * This is the measurement the whole "give the car a voice" phase rests on.
+ * Rapier's raycast vehicle has no tyre slip curve -- it solves a lateral
+ * impulse clamped at mu * load, so a tyre has full grip until saturation and
+ * is saturated after. The worry that follows is that SLIP ANGLE, which is what
+ * a driving game would normally drive tyre audio from, stays near zero until
+ * the car has already let go, and so cannot warn anybody about anything.
+ *
+ * A skidpad ramp settles it. Hold a constant steering angle, let the speed
+ * climb, and watch two numbers: utilisation, and rear slip angle. If
+ * utilisation climbs smoothly from zero while slip angle is still flat, then
+ * utilisation is the warning channel and slip angle is a lagging indicator of
+ * a crash that already happened.
+ */
+async function testUtilisationSignal(ctx, r) {
+  r.section('friction utilisation (fun plan, gate 0)');
+  const { world } = ctx;
+  const pad = makePad(world);
+  const car = new Vehicle(world, RAPIER, pad.spawn(8000));
+  const padCtx = { world, track: ctx.track, vehicle: car, grip: null };
+
+  await run(padCtx, 90);
+
+  // A GENTLE constant lock, and let speed do the work.
+  //
+  // Lateral demand is m*v^2/R, so on a wide circle it climbs slowly with speed
+  // and the tyre walks up its capacity over several seconds. The first version
+  // of this test used near-full lock, which saturates the tyres before the car
+  // has finished its first car-length -- and then reported that utilisation
+  // was a step function, when all it had actually measured was the part of the
+  // ramp above the limit.
+  const trace = [];
+  await run(padCtx, 4200, () => input({ throttle: 0.5, steer: 0.09 }), (v) => {
+    const t = v.telemetry;
+    trace.push({
+      speed: v.speedKmh,
+      util: t.peakUtil,
+      rearUtil: t.rearUtil,
+      slip: Math.abs(v.slipRear) * 180 / Math.PI,
+      gLat: Math.abs(v.gLat),
+    });
+  });
+  car.dispose();
+  pad.remove();
+
+  const moving = trace.filter((s) => s.speed > 12);
+  if (moving.length < 100) {
+    r.check('skidpad produced a usable trace', false, `${moving.length} samples`);
+    return;
+  }
+
+  const maxUtil = Math.max(...moving.map((s) => s.util));
+  const maxSlip = Math.max(...moving.map((s) => s.slip));
+
+  // The signal has to be READABLE BEFORE THE LIMIT, which means it must spend
+  // real time in the middle of its range rather than snapping 0 -> 1.
+  const inBand = moving.filter((s) => s.util > 0.25 && s.util < 0.9).length;
+  const bandFraction = inBand / moving.length;
+
+  // The load-up: where does slip angle sit when utilisation first crosses the
+  // 60% mark the plan wants the warning to start at?
+  const firstWarn = moving.find((s) => s.util >= 0.6);
+  const slipAtWarn = firstWarn ? firstWarn.slip : NaN;
+
+  r.results.utilisation = { maxUtil, maxSlip, bandFraction, slipAtWarn };
+
+  r.check('utilisation reaches the limit under load',
+    maxUtil > 0.9, `peak ${maxUtil.toFixed(2)}`);
+
+  r.check('utilisation is continuous, not a step',
+    bandFraction > 0.1,
+    `${(bandFraction * 100).toFixed(0)}% of the ramp sits between 25% and 90%`);
+
+  // The point of the whole exercise. A warning channel is only a warning if it
+  // fires while the tyre is still gripping.
+  r.check('utilisation warns before slip angle does',
+    Number.isFinite(slipAtWarn) && slipAtWarn < 2.0,
+    `rear slip is ${slipAtWarn.toFixed(2)} deg when utilisation first hits 60%`);
+
+  r.log(`  peak utilisation ${maxUtil.toFixed(2)}, peak rear slip ${maxSlip.toFixed(1)} deg`);
 }
 
 // The handbrake has to be a steering tool, not just a brake: pulling it should

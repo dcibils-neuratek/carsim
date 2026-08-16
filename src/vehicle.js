@@ -13,6 +13,7 @@
 
 import * as THREE from 'three';
 import { TUNING, torqueAt } from './tuning.js';
+import { Telemetry } from './telemetry.js';
 
 export const WHEEL = { FL: 0, FR: 1, RL: 2, RR: 3 };
 const FRONT_WHEELS = [WHEEL.FL, WHEEL.FR];
@@ -46,6 +47,9 @@ export class Vehicle {
     this.balance = 0;        // <0 understeer, >0 oversteer
     this._prevVel = new THREE.Vector3();
     this.airborne = false;
+    // Per-wheel tyre telemetry. Read-only on the simulation; everything that
+    // needs to know how hard a tyre is working goes through this.
+    this.telemetry = new Telemetry();
     this.lastAccel = 0;
     this._prevSpeed = 0;
 
@@ -196,6 +200,9 @@ export class Vehicle {
 
     this.controller.updateVehicle(dt);
     this._updateTelemetry(dt);
+    // After updateVehicle, so the impulses sampled are this step's.
+    this.telemetry.sample(this, dt);
+    this.telemetry.setSteerTrace(input.steerRaw ?? input.steer, input.steer);
     this._snapshot();
   }
 
