@@ -176,8 +176,17 @@ export function createGui({ onRebuild, onToast }) {
   cam.add(TUNING.camera, 'lookAhead', 0, 30, 0.5).onChange(save);
   cam.add(TUNING.camera, 'stiffness', 1, 25, 0.5).onChange(save);
   cam.add(TUNING.camera, 'velocityBlend', 0, 1, 0.02).name('drift follow').onChange(save);
+  cam.add(TUNING.camera, 'slideYawMax', 0, 0.7, 0.01).name('drift follow cap (rad)').onChange(save);
+  cam.add(TUNING.camera, 'rollFactor', 0, 0.6, 0.02).name('roll with chassis').onChange(save);
+  cam.add(TUNING.camera, 'accelPull', 0, 0.3, 0.005).name('push under g').onChange(save);
   cam.add(TUNING.camera, 'fovBase', 40, 100, 1).onChange(save);
   cam.add(TUNING.camera, 'fovGain', 0, 45, 1).onChange(save);
+  const shake = cam.addFolder('impact shake');
+  shake.add(TUNING.camera, 'shake', 0, 2, 0.02).name('amount').onChange(save);
+  shake.add(TUNING.camera, 'shakeFloor', 0, 400, 5).name('ignore jerk below').onChange(save);
+  shake.add(TUNING.camera, 'shakeMax', 0, 0.6, 0.01).name('max (m)').onChange(save);
+  shake.add(TUNING.camera, 'shakeDecay', 3, 40, 0.5).name('decay (1/s)').onChange(save);
+  shake.close();
   cam.close();
 
   const actions = {

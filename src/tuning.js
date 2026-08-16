@@ -328,6 +328,40 @@ export const DEFAULTS = {
     lookSpeed: 2.6,       // rad/s at full stick
     lookReturn: 3.5,      // how fast it recentres once you let go
     lookDeadzone: 0.15,   // a resting thumb must not drift the view
+
+    // How far the camera may lead a slide, in radians. velocityBlend decides
+    // how much of the drift angle it follows; this caps the result. Without a
+    // cap a big slide swings the view right off the road just as you need to
+    // see it -- which is the difference between a slide being exciting and
+    // being disorienting. ~15 deg is the most that stays readable.
+    slideYawMax: 0.26,
+
+    // Fraction of the chassis' roll the camera copies. Enough to feel the car
+    // lean on its outside springs; past about a quarter it stops reading as
+    // load and starts reading as nausea.
+    rollFactor: 0.20,
+
+    // Impact shake. Fed by upward acceleration at the chassis, which is what a
+    // kerb, a landing or a hard bump all look like -- one signal for the lot.
+    //
+    // Both numbers come from measurement rather than taste. A clean 150 km/h
+    // lap peaks at 17 m/s2 and never once passes 55, so the floor separates
+    // real hits from the suspension simply doing its job; drops of 0.4, 1.5
+    // and 5 m register 61, 119 and 402, which is the range the amount is
+    // scaled against -- a big landing should nearly reach shakeMax and a kerb
+    // should be felt without obscuring the road.
+    shakeFloor: 55,       // m/s^2 below which it is just the suspension working
+    shake: 0.52,          // shake per unit over the floor (x0.001 m/(m/s^2))
+    shakeMax: 0.22,       // and never more than this, or you cannot see to drive
+    shakeDecay: 18,       // 1/s: ~55 ms to 1/e, one hit gone inside 200 ms
+
+    // The camera falls back as the car pulls away from it and closes up under
+    // braking. The velocity feed-forward below deliberately cancels the steady
+    // trailing error, which is right -- but it also removes the sense of being
+    // shoved, so it is put back here as an explicit, bounded effect.
+    accelPull: 0.085,     // metres of extra distance per m/s^2
+    accelPullMax: 0.9,    // metres, either way
+    accelPullRate: 3.0,   // how fast that distance change follows (1/s)
   },
 };
 

@@ -37,6 +37,14 @@ export class CarCamera {
     this._target = new THREE.Vector3();
     this._fwd = new THREE.Vector3();
     this._up = new THREE.Vector3();
+    this._right = new THREE.Vector3();
+    this._view = new THREE.Vector3();
+
+    // Impact shake, and the vertical velocity it is differenced from.
+    this._shake = 0;
+    this._prevVy = 0;
+    // Smoothed camera-distance offset from longitudinal g.
+    this._pull = 0;
   }
 
   cycle() {
@@ -105,14 +113,43 @@ export class CarCamera {
     this._v.set(vel.x, 0, vel.z);
     const speed = this._v.length();
     let dirX = this._fwd.x, dirZ = this._fwd.z;
+    this.driftAngle = 0;
     if (speed > 4) {
       this._v.divideScalar(speed);
-      // Only blend when travelling forwards; reversing shouldn't spin the view.
       const alignment = this._v.x * this._fwd.x + this._v.z * this._fwd.z;
-      if (alignment > 0.2) {
-        const b = c.velocityBlend * Math.min((speed - 4) / 12, 1);
-        dirX = THREE.MathUtils.lerp(this._fwd.x, this._v.x, b);
-        dirZ = THREE.MathUtils.lerp(this._fwd.z, this._v.z, b);
+
+      // Fade the lead out only once the car is genuinely going BACKWARDS.
+      //
+      // This used to be a hard `alignment > 0.2` cutoff, which meant the lead
+      // vanished the instant the slide passed 78 degrees -- the camera
+      // snapping back to the nose at the exact moment the car was most
+      // sideways and you most needed to see where you were going. The cap
+      // already prevents the view swinging away, so the only case still worth
+      // guarding is reverse, where velocity is near-opposite to the nose and
+      // the drift angle flips sign across +/-180 degrees. That flip is what
+      // would spin the view, and this band is placed to be over well before
+      // it can happen.
+      const engaged = THREE.MathUtils.clamp((alignment + 0.35) / 0.30, 0, 1);
+      if (engaged > 0) {
+        // The drift angle: how far the car's PATH is off its NOSE.
+        //
+        // Worked out as an ANGLE and then rotated, rather than lerping the two
+        // direction vectors. A vector lerp has no angle in it to cap, and it
+        // also shortens toward nothing as the two directions separate -- so
+        // the effect quietly changed character exactly when the car was most
+        // sideways. Rotating by a clamped angle behaves the same for small
+        // slip and stays sane at large.
+        const cross = this._fwd.x * this._v.z - this._fwd.z * this._v.x;
+        const drift = Math.atan2(cross, alignment);
+        this.driftAngle = drift;
+
+        const lead = engaged * THREE.MathUtils.clamp(
+          drift * c.velocityBlend * Math.min((speed - 4) / 12, 1),
+          -c.slideYawMax, c.slideYawMax,
+        );
+        const cs = Math.cos(lead), sn = Math.sin(lead);
+        dirX = this._fwd.x * cs - this._fwd.z * sn;
+        dirZ = this._fwd.x * sn + this._fwd.z * cs;
       }
     }
     const len = Math.hypot(dirX, dirZ) || 1;
@@ -130,10 +167,19 @@ export class CarCamera {
       dirX = rx; dirZ = rz;
     }
 
+    // Being shoved. The car pulls away from the camera under power and runs
+    // back at it under braking -- bounded and smoothed, so it is a sensation
+    // rather than the camera surging about.
+    const pullTarget = THREE.MathUtils.clamp(
+      vehicle.lastAccel * c.accelPull, -c.accelPullMax, c.accelPullMax,
+    );
+    this._pull += (pullTarget - this._pull) * Math.min(c.accelPullRate * dt, 1);
+    const distance = c.distance + this._pull;
+
     this._desired.set(
-      carPos.x - dirX * c.distance,
-      carPos.y + c.height + this.lookPitch * c.distance,
-      carPos.z - dirZ * c.distance,
+      carPos.x - dirX * distance,
+      carPos.y + c.height + this.lookPitch * distance,
+      carPos.z - dirZ * distance,
     );
 
     // Cancel the follow lag.
@@ -169,9 +215,67 @@ export class CarCamera {
     this.lookAt.lerp(this._target, Math.min(k * 1.35, 1));
 
     this.camera.position.copy(this.position);
-    this.camera.up.set(0, 1, 0);
+
+    // Roll the horizon with the chassis, at a fraction of it. The car leaning
+    // on its outside springs is the clearest picture of where the load has
+    // gone, and copying a little of it puts that in the frame itself rather
+    // than only in the car.
+    this._up.set(0, 1, 0);
+    if (c.rollFactor !== 0) {
+      this._right.set(1, 0, 0).applyQuaternion(carGroup.quaternion);
+      const roll = Math.asin(THREE.MathUtils.clamp(this._right.y, -1, 1));
+      this._view.copy(this.lookAt).sub(this.position);
+      if (this._view.lengthSq() > 1e-6) {
+        this._view.normalize();
+        // Sign verified by measurement, not by reasoning about handedness:
+        // at rollFactor 1 a banked car must render UPRIGHT, the camera roll
+        // exactly cancelling the chassis roll. The other sign doubles the
+        // apparent lean instead -- 36.6 degrees where 0 was wanted.
+        this._up.applyAxisAngle(this._view, roll * c.rollFactor);
+      }
+    }
+    this.camera.up.copy(this._up);
+
     this.camera.lookAt(this.lookAt);
+
+    // Shake goes on AFTER lookAt, so a jolt moves the camera without also
+    // swinging where it is pointed -- shaking the aim as well reads as the
+    // whole world wobbling rather than as the car being hit.
+    this._updateShake(dt, vehicle);
+    if (this._shake > 0) {
+      const s = this._shake;
+      this.camera.position.x += (Math.random() * 2 - 1) * s;
+      this.camera.position.y += (Math.random() * 2 - 1) * s;
+      this.camera.position.z += (Math.random() * 2 - 1) * s;
+    }
+
     this._setFov(c.fovBase, vehicle, dt);
+  }
+
+  /**
+   * Impact shake from upward acceleration at the chassis.
+   *
+   * A kerb, a landing and a hard bump are all the same event seen from here --
+   * the suspension being compressed hard enough to throw the body upward -- so
+   * one signal covers the lot without having to be told which happened.
+   *
+   * Only UPWARD counts. Falling is not an impact; arriving is. On a smooth
+   * road the springs hold the body near equilibrium and this sits close to
+   * zero however heavily loaded they are, which is what lets a threshold
+   * separate a real hit from ordinary suspension work.
+   */
+  _updateShake(dt, vehicle) {
+    const c = TUNING.camera;
+    const vy = vehicle.body.linvel().y;
+    const accelY = (vy - this._prevVy) / Math.max(dt, 1e-4);
+    this._prevVy = vy;
+
+    const jolt = Math.max(0, accelY - c.shakeFloor);
+    if (jolt > 0) {
+      this._shake = Math.min(this._shake + jolt * c.shake * 0.001, c.shakeMax);
+    }
+    this._shake *= Math.exp(-c.shakeDecay * dt);
+    if (this._shake < 1e-4) this._shake = 0;
   }
 
   _setFov(base, vehicle, dt) {
@@ -185,5 +289,10 @@ export class CarCamera {
   /** Drop the smoothing so a respawn doesn't fly the camera across the map. */
   snap() {
     this._initialised = false;
+    // A respawn is a teleport, not an impact. Without this the velocity step
+    // it creates reads as an enormous jolt and the camera shakes on arrival.
+    this._shake = 0;
+    this._prevVy = 0;
+    this._pull = 0;
   }
 }
