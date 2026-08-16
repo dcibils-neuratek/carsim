@@ -20,7 +20,8 @@ import { createGui } from './gui.js';
 import { loadCarModel, buildCarFromModel } from './carmodel.js';
 import { PALETTE } from './scene.js';
 import { Skidmarks } from './skidmarks.js';
-import { loadTracks, TRACK_IDS, getTrack, hasTrack } from './tracks.js';
+import { loadTracks, TRACK_IDS, getTrack, hasTrack, registerTrack } from './tracks.js';
+import { loadStashedTrack, EDITOR_TRACK_ID } from './editor/state.js';
 import { EngineAudio } from './audio.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
@@ -37,6 +38,15 @@ const CAR_MODEL_URL = './assets/car.glb';
  */
 function chooseTrack() {
   const requested = new URLSearchParams(location.search).get('track');
+
+  // The editor's "drive it" button hands a track over through localStorage
+  // rather than a file, so a layout can be driven before it is saved anywhere.
+  if (requested === EDITOR_TRACK_ID) {
+    const stashed = loadStashedTrack();
+    if (stashed) return Promise.resolve(registerTrack(stashed));
+    console.warn('no track stashed by the editor; falling back to the menu');
+  }
+
   if (requested && hasTrack(requested)) return Promise.resolve(requested);
 
   const prompt = document.getElementById('bootPrompt');

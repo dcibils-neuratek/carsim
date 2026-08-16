@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carsim — track editor</title>
+<style>
+  :root {
+    --bg: #0d1218;
+    --panel: #121a23;
+    --panel2: #0f161e;
+    --line: #1e2a36;
+    --fg: #e8eef5;
+    --dim: #8fa3b8;
+    --faint: #5f7386;
+    --accent: #ffd23f;
+    --good: #57d97a;
+    --warn: #e0b341;
+    --bad: #ff4d4d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 13px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { display: block; }
+  button, select, input { font: inherit; color: inherit; }
+
+  button {
+    background: #1a242f; border: 1px solid var(--line); color: var(--dim);
+    padding: 5px 11px; border-radius: 5px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #223042; color: var(--fg); }
+  button:disabled { opacity: .35; cursor: default; }
+  button.off { opacity: .45; }
+  button.primary { background: #2a3a26; border-color: #3d5936; color: #b5e3a8; }
+  button.primary:hover { background: #35492f; color: #d3f5c9; }
+
+  /* ---------- layout ---------- */
+  #app { display: grid; height: 100%;
+         grid-template-columns: 1fr 330px;
+         grid-template-rows: 46px 1fr 172px; }
+  /* Every child is placed explicitly. Giving #side a row span but leaving its
+     column to auto-placement scrambles the whole grid. */
+  #toolbar { grid-area: 1 / 1 / 2 / 3; display: flex; align-items: center; gap: 8px;
+             padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  #stage { grid-area: 2 / 1 / 3 / 2; position: relative; background: var(--bg); overflow: hidden; }
+  #side  { grid-area: 2 / 2 / 4 / 3; background: var(--panel); border-left: 1px solid var(--line);
+           display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  #bottom { grid-area: 3 / 1 / 4 / 2; background: var(--panel2); border-top: 1px solid var(--line);
+            display: flex; flex-direction: column; min-height: 0; }
+
+  /* ---------- toolbar ---------- */
+  .logo { font-weight: 700; letter-spacing: 2px; margin-right: 4px; }
+  .logo span { color: var(--accent); }
+  #trackName { color: var(--dim); margin-right: auto; }
+  #trackSelect { background: #1a242f; border: 1px solid var(--line);
+                 padding: 4px 8px; border-radius: 5px; }
+  .sep { width: 1px; height: 22px; background: var(--line); margin: 0 3px; }
+
+  /* ---------- stage ---------- */
+  #planCanvas, #previewCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #stage.plan #previewCanvas, #stage.solid #planCanvas { display: none; }
+
+  #stageTabs { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; gap: 4px; }
+  #stageTabs button.on { background: #2b3a4a; color: var(--fg); border-color: #3a4d61; }
+  #stageTools { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 4px; }
+  /* Only meaningful while the 3D view is up; in plan it would sit on the
+     scale bar and read as if the plan view took 800 ms to draw. */
+  #previewStatus { position: absolute; bottom: 10px; right: 12px; z-index: 5;
+                   color: var(--faint); font-size: 11px; }
+  #stage.plan #previewStatus { display: none; }
+
+  #hints { position: absolute; bottom: 8px; left: 12px; right: 12px; z-index: 5;
+           color: var(--faint); font-size: 10.5px; pointer-events: none;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hints b { color: var(--dim); font-weight: 500; }
+  #stage.solid #hints { display: none; }
+
+  #errorBanner { position: absolute; top: 52px; left: 10px; right: 10px; z-index: 6;
+                 background: #3a1414; border: 1px solid #6b2626; color: #ffb3b3;
+                 padding: 7px 11px; border-radius: 5px; font-size: 12px; }
+
+  /* ---------- bottom: elevation + metrics ---------- */
+  #elevHead { display: flex; align-items: center; gap: 10px; white-space: nowrap;
+              padding: 5px 12px; border-bottom: 1px solid var(--line); color: var(--faint); font-size: 11px; }
+  #elevHead .lbl { overflow: hidden; text-overflow: ellipsis; }
+  #metrics { display: flex; gap: 14px; margin-left: auto; flex: none; }
+  .metric { color: var(--faint); font-size: 11px; }
+  .metric b { color: var(--fg); font-weight: 600; margin-right: 5px; }
+  .metric.bad b { color: var(--bad); }
+  #elevCanvas { flex: 1; width: 100%; }
+
+  /* ---------- side panel ---------- */
+  #pointPanel { padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+  #pointPanel.empty .ptRows, #pointPanel.empty .ptActions { opacity: .3; pointer-events: none; }
+  .ptHead { display: flex; align-items: center; margin-bottom: 8px; }
+  .ptTitle { color: var(--accent); font-weight: 600; }
+  .ptNav { margin-left: auto; display: flex; gap: 3px; }
+  .ptNav button { padding: 1px 8px; }
+  .ptRows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .ptRows label { display: flex; align-items: center; gap: 5px; color: var(--faint); font-size: 11px; }
+  .ptRows input { width: 100%; background: #0b1017; border: 1px solid var(--line);
+                  border-radius: 4px; padding: 3px 5px; min-width: 0; }
+  .ptActions { margin-top: 8px; }
+  .ptActions button { width: 100%; font-size: 11px; }
+
+  #issuePanel { border-bottom: 1px solid var(--line); max-height: 30%; display: flex; flex-direction: column; }
+  .panelHead { display: flex; align-items: center; padding: 7px 12px;
+               color: var(--faint); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .panelHead span { margin-left: auto; text-transform: none; letter-spacing: 0; }
+  .panelHead .good { color: var(--good); } .panelHead .warn { color: var(--warn); }
+  .panelHead .bad { color: var(--bad); }
+  #issues { overflow-y: auto; padding: 0 8px 8px; }
+  .issue { padding: 7px 9px; margin-bottom: 5px; border-radius: 5px; cursor: pointer;
+           border-left: 3px solid var(--line); background: #0f1720; }
+  .issue:hover { background: #16202b; }
+  .issue b { display: block; font-weight: 600; margin-bottom: 2px; font-size: 12px; }
+  .issue span { color: var(--faint); font-size: 11px; }
+  .issue.error { border-left-color: var(--bad); } .issue.error b { color: #ff9d9d; }
+  .issue.warning { border-left-color: var(--warn); } .issue.warning b { color: #f0d18a; }
+  .issue.info { border-left-color: #3d5266; } .issue.info b { color: var(--dim); }
+  .issue.good { border-left-color: var(--good); cursor: default; } .issue.good b { color: #a8e3b5; }
+
+  #inspector { flex: 1; overflow-y: auto; }
+  .insSection { border-bottom: 1px solid var(--line); }
+  .insHead { width: 100%; text-align: left; background: none; border: none; border-radius: 0;
+             padding: 8px 12px; color: var(--faint); font-size: 11px;
+             letter-spacing: 1px; text-transform: uppercase; }
+  .insHead:hover { background: #16202b; color: var(--dim); }
+  .chev { display: inline-block; width: 14px; transition: transform .12s; }
+  .collapsed .chev { transform: rotate(-90deg); }
+  .collapsed .insBody { display: none; }
+  .insBody { padding: 2px 12px 10px; }
+  .insRow { display: grid; grid-template-columns: 92px 1fr 54px; gap: 7px;
+            align-items: center; margin-bottom: 5px; }
+  .insLabel { color: var(--dim); font-size: 11px; overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; }
+  .insLabel.hasHint { cursor: help; border-bottom: 1px dotted #33475a; }
+  .insText { grid-column: 2 / -1; }
+  .insText, .insNum { background: #0b1017; border: 1px solid var(--line);
+                      border-radius: 4px; padding: 3px 5px; width: 100%; min-width: 0; }
+  .insSlider { width: 100%; accent-color: var(--accent); }
+  input[type=color] { background: none; border: 1px solid var(--line);
+                      border-radius: 4px; width: 100%; height: 24px; padding: 1px; cursor: pointer; }
+  .paletteGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .swatchWrap { display: flex; flex-direction: column; gap: 2px; }
+  .swatchName { color: var(--faint); font-size: 9.5px; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- export modal ---------- */
+  #exportModal { position: fixed; inset: 0; z-index: 20; display: flex;
+                 align-items: center; justify-content: center; background: rgba(4,8,12,.72); }
+  #exportModal[hidden] { display: none; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+           width: min(760px, 90vw); height: min(70vh, 640px); display: flex; flex-direction: column; }
+  .modalHead { display: flex; align-items: center; gap: 10px;
+               padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .modalHead b { font-weight: 600; }
+  #exportPath { color: var(--faint); font-size: 11px; margin-right: auto; }
+  #exportText { flex: 1; margin: 0; background: #0a0f15; border: none; color: var(--dim);
+                padding: 12px 14px; resize: none; font: 12px/1.5 ui-monospace, monospace; }
+  #exportText:focus { outline: none; }
+  .modalFoot { padding: 8px 14px; color: var(--faint); font-size: 11px;
+               border-top: 1px solid var(--line); }
+
+  #boot { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+          background: var(--bg); color: var(--faint); letter-spacing: 2px; }
+  #boot[hidden] { display: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="app">
+  <div id="toolbar">
+    <span class="logo">CAR<span>SIM</span></span>
+    <select id="trackSelect" title="Open a circuit"></select>
+    <span id="trackName"></span>
+    <button id="undoBtn" title="Undo (Cmd/Ctrl+Z)">undo</button>
+    <button id="redoBtn" title="Redo (Cmd/Ctrl+Shift+Z)">redo</button>
+    <span class="sep"></span>
+    <button id="importBtn" title="Open a .track.json from disk">import</button>
+    <button id="exportBtn" title="Export this circuit (Cmd/Ctrl+S)">export</button>
+    <button id="driveBtn" class="primary" title="Drive this layout in the real physics">drive it ▸</button>
+    <input id="importFile" type="file" accept=".json" hidden>
+  </div>
+
+  <div id="stage" class="plan">
+    <canvas id="planCanvas"></canvas>
+    <canvas id="previewCanvas"></canvas>
+
+    <div id="stageTabs">
+      <button data-view="plan" class="on">plan</button>
+      <button data-view="solid">3D</button>
+    </div>
+    <div id="stageTools">
+      <button id="gridBtn" title="Toggle grid">grid</button>
+      <button id="polyBtn" title="Toggle the control polygon">polygon</button>
+      <button id="fitBtn" title="Frame the circuit (F)">fit</button>
+      <button id="frameBtn" title="Frame the circuit in 3D" hidden>frame</button>
+    </div>
+    <div id="previewStatus"></div>
+
+    <div id="hints">
+      <b>drag</b> point · <b>double-click</b> road to insert · <b>del</b> remove ·
+      <b>arrows</b> nudge 1 m (<b>shift</b> 10 m) · <b>pgup/pgdn</b> raise · <b>scroll</b> zoom
+    </div>
+
+    <div id="errorBanner" hidden></div>
+  </div>
+
+  <div id="side">
+    <div id="pointPanel" class="empty"></div>
+    <div id="issuePanel">
+      <div class="panelHead">Checks <span id="issueCount"></span></div>
+      <div id="issues"></div>
+    </div>
+    <div id="inspector"></div>
+  </div>
+
+  <div id="bottom">
+    <div id="elevHead">
+      <span class="lbl">elevation — drag a point to change its height; bars show where the slope breaks</span>
+      <div id="metrics"></div>
+    </div>
+    <canvas id="elevCanvas"></canvas>
+  </div>
+</div>
+
+<div id="exportModal" hidden>
+  <div class="modal">
+    <div class="modalHead">
+      <b>Export</b>
+      <span id="exportPath"></span>
+      <button id="exportCopy">copy</button>
+      <button id="exportDownload" class="primary">download</button>
+      <button id="exportClose">close</button>
+    </div>
+    <textarea id="exportText" spellcheck="false"></textarea>
+    <div class="modalFoot">
+      Only what differs from <code>defaults.track.json</code> is written out. Save it into
+      <code>assets/tracks/</code> and add it to <code>index.json</code> to make it a circuit.
+    </div>
+  </div>
+</div>
+
+<div id="boot">LOADING EDITOR…</div>
+
+<script type="module">
+  import { boot } from './src/editor/main.js';
+
+  // View switching lives here rather than in the module: it is pure DOM, and
+  // the 3D canvas has to be sized after it becomes visible or it renders at
+  // zero height.
+  const stage = document.getElementById('stage');
+  for (const tab of document.querySelectorAll('#stageTabs button')) {
+    tab.addEventListener('click', () => {
+      for (const t of document.querySelectorAll('#stageTabs button')) t.classList.remove('on');
+      tab.classList.add('on');
+      stage.className = tab.dataset.view;
+      const solid = tab.dataset.view === 'solid';
+      document.getElementById('fitBtn').hidden = solid;
+      document.getElementById('frameBtn').hidden = !solid;
+      window.__editor?.preview.resize();
+      window.__editor?.plan.resize();
+    });
+  }
+
+  boot().catch((err) => {
+    document.getElementById('boot').textContent = `EDITOR FAILED TO START — ${err.message}`;
+    console.error(err);
+  });
+</script>
+
+</body>
+</html>

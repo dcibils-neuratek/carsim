@@ -154,14 +154,50 @@ That is the one corner every circuit here has failed on at some point.
 
 ## Validation
 
-`validateTrackFile()` checks structure — fields present, types right, values in
-range — and throws a `TrackFormatError` naming the offending field. It runs on
-every load and is covered by its own tests.
+Two layers, because they answer different questions and cost different amounts.
 
-It says nothing about whether a circuit is *driveable*. That needs the sampled
-centerline, and lives in `test/physics-tests.js`: minimum corner radius,
-self-overlap, terrain clearance, and an autopilot lap that fails if the car
-ever stalls.
+**Is this a well-formed file?** `validateTrackFile()` in `src/trackfile.js`.
+Fields present, types right, values in range. Throws a `TrackFormatError`
+naming the offending field. Runs on every load and on every keystroke in the
+editor.
 
-An editor wants both, at different rates — the schema check on every keystroke,
-the geometry checks on every drag of a control point.
+**Is this circuit driveable?** `validateTrack()` in `src/trackcheck.js`. Needs
+the sampled centerline, so it calls the same `sampleCircuit()` the game builds
+from — same smoothing, same corner relaxation, same elevation filter. It builds
+no meshes and no colliders, which is what lets it run on every drag of a
+control point.
+
+| Check | Severity | What it catches |
+| --- | --- | --- |
+| `corner-radius` | error | A corner tighter than the road can be swept around — the inner edge folds through itself |
+| `self-overlap` | error | Two parts of the lap closer than the road is wide, putting a roof over the road |
+| `gradient` | warn/error | A slope too steep to climb cleanly |
+| `gradient-change` | warn/error | The road breaking rather than curving — launches the car instead of tilting it |
+| `closing-join` | warning | The last control point off the line of the start straight, which whips the spline into a loop at the join |
+| `control-relaxed` | info | Points over 55° that the corner cutter will round off, so the road won't pass where you put it |
+| `banking` | warning | Camber steep enough that the car stops settling evenly across the road |
+
+Every issue carries `at` (a lap progress) or `span`, and often the control
+point responsible — so a caller can point at the problem rather than just
+describe it. That is what lets the editor jump to an issue when you click it.
+
+Thresholds are calibrated against the shipped circuits, not picked from the
+air: measured gradients run 1.1–5.9% and gradient change 0.17–0.48% per 10 m,
+so the limits sit above the current worst with room for a hillier layout while
+still catching a regression.
+
+Both layers are covered by their own tests, including that each rejection
+actually fires. And there is one thing neither can do: prove the car can get
+round. That is the autopilot lap in `test/physics-tests.js`, which is too slow
+to run on a drag but is the final word on driveable.
+
+## The editor
+
+`editor.html` is the intended way to author a layout — see the README for the
+controls. It reads and writes exactly this format, exports only what differs
+from the defaults, and can hand a track straight to the game to drive without
+saving it anywhere.
+
+It shares `sampleCircuit()` and `validateTrack()` with the game rather than
+reimplementing either, which is the whole reason a recipe format works here:
+what the editor draws is what the game builds, because it is the same code.

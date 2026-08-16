@@ -22,6 +22,7 @@ import {
   validateTrackFile, normaliseTrack, mergeDefaults, parseColor, formatColor,
   TrackFormatError,
 } from '../src/trackfile.js';
+import { validateTrack, LIMITS } from '../src/trackcheck.js';
 
 const DT = TUNING.world.fixedStep;
 const CHUNK = 400;              // steps between yields, keeps the page alive
@@ -65,6 +66,23 @@ async function buildWorld(trackId = 'forest') {
   return { world, track, vehicle, grip };
 }
 
+/**
+ * Yield to the event loop without setTimeout's background-tab clamping.
+ *
+ * Chrome throttles setTimeout in a hidden or unfocused window to about once a
+ * second, and to once a minute after five minutes. A lap yields ~40 times, so
+ * clicking away from the tab turned a one-minute suite into one that would
+ * never finish. MessageChannel is not throttled, so the tests now run at full
+ * speed whether or not anyone is watching them.
+ */
+const yieldChannel = new MessageChannel();
+function yieldToLoop() {
+  return new Promise((resolve) => {
+    yieldChannel.port1.onmessage = resolve;
+    yieldChannel.port2.postMessage(0);
+  });
+}
+
 /** Step the sim, yielding periodically so the browser stays responsive. */
 async function run(ctx, steps, controller, onStep) {
   const { world, vehicle, grip } = ctx;
@@ -73,7 +91,7 @@ async function run(ctx, steps, controller, onStep) {
     vehicle.update(DT, cmd, grip);
     world.step();
     if (onStep) onStep(vehicle, i);
-    if (i % CHUNK === CHUNK - 1) await new Promise((r) => setTimeout(r, 0));
+    if (i % CHUNK === CHUNK - 1) await yieldToLoop();
   }
 }
 
@@ -293,7 +311,7 @@ export async function runAll(el) {
   r.log(`world ready in ${Math.round(performance.now() - t0)} ms`);
 
   await testTerrainClearance(ctx, r);
-  await testNoSelfOverlap(ctx, r, ' — forest');
+  await testGeometry(getTrack('forest'), r, ' — forest');
   await testSettle(ctx, r);
   await testForcesDoNotAccumulate(ctx, r);
   await testSuspensionSettles(ctx, r);
@@ -308,7 +326,7 @@ export async function runAll(el) {
   for (const id of TRACK_IDS.filter((t) => t !== 'forest')) {
     const other = await buildWorld(id);
     await testTerrainClearance(other, r, ` — ${id}`);
-    await testNoSelfOverlap(other, r, ` — ${id}`);
+    await testGeometry(getTrack(id), r, ` — ${id}`);
     await testLap(other, r, ` — ${id}`);
   }
 
@@ -334,62 +352,47 @@ async function testTerrainClearance(ctx, r, label = '') {
 }
 
 /**
- * The circuit must not run over itself.
+ * Circuit geometry, via the shared checker in src/trackcheck.js.
  *
- * The road is swept as a ribbon of a fixed width. Where two parts of the lap
- * pass closer than that width, the ribbons overlap -- and if they sit at
- * different heights, one becomes a ceiling over the other. Spawn under it and
- * the car is ejected sideways; drive under it and you hit a roof.
+ * The same function the editor calls on every drag of a control point, so a
+ * layout that passes here is one the editor showed as clean -- and a layout
+ * the editor flagged fails here. One definition of "driveable", not two that
+ * can drift apart.
  */
-async function testNoSelfOverlap(ctx, r, label = '') {
-  r.section(`circuit does not overlap itself${label}`);
-  const { track } = ctx;
-  const n = track.points.length;
-  const width = track.halfWidth + track.curbWidth;
-  const needed = width * 2;                  // both ribbons, edge to edge
-  // Ignore neighbours along the lap; only compare genuinely distant sections.
-  const skip = Math.ceil((needed * 3) / (track.length / n));
+async function testGeometry(def, r, label = '') {
+  r.section(`circuit geometry${label}`);
+  const result = validateTrack(def);
+  const m = result.metrics;
+  r.results[`geometry${label}`] = m;
 
-  let worst = Infinity;
-  let worstAt = null;
-  for (let i = 0; i < n; i++) {
-    const a = track.points[i];
-    for (let j = i + skip; j < n - (i < skip ? skip : 0); j++) {
-      const b = track.points[j];
-      const d = Math.hypot(a.x - b.x, a.z - b.z);
-      if (d < worst) {
-        worst = d;
-        worstAt = { at: +(i / n).toFixed(3), and: +(j / n).toFixed(3), dy: +(b.y - a.y).toFixed(2) };
-      }
-    }
-  }
+  r.log(`  ${(m.length / 1000).toFixed(2)} km, ${m.controlPoints} control points, ` +
+        `${m.elevationRange.span.toFixed(1)} m of elevation`);
 
-  r.results[`overlap${label}`] = { worst, needed, worstAt };
-  r.check('no two parts of the lap are closer than the road is wide',
-    worst >= needed,
-    `closest ${worst.toFixed(1)} m (needs ${needed.toFixed(1)} m) at progress ` +
-    `${worstAt.at} vs ${worstAt.and}, ${worstAt.dy} m apart vertically`);
-
-  // Corner radius. Below the road's own half-width the inner edge of the
-  // ribbon folds through itself; anywhere near that reads as a kink rather
-  // than a curve, which is how a badly shaped corner gets noticed by eye.
-  let tightest = Infinity;
-  let tightestAt = 0;
-  for (let i = 0; i < n; i++) {
-    if (track.curvature[i] > 1e-6) {
-      const radius = 1 / track.curvature[i];
-      if (radius < tightest) { tightest = radius; tightestAt = i / n; }
-    }
-  }
-  // The ribbon folds through itself below `width`; 1.5x leaves margin without
-  // banning legitimately tight hairpins. Forest drove fine for a long time at
-  // ~11 m, so a stricter bar would fail corners that are genuinely OK.
-  const minRadius = width * 1.5;
-  r.results[`radius${label}`] = { tightest, minRadius, tightestAt };
   r.check('no corner tighter than the road can be swept around',
-    tightest >= minRadius,
-    `tightest ${tightest.toFixed(1)} m (needs ${minRadius.toFixed(1)} m) ` +
-    `at progress ${tightestAt.toFixed(3)}`);
+    m.tightestRadius >= m.minRadius,
+    `tightest ${m.tightestRadius.toFixed(1)} m (needs ${m.minRadius.toFixed(1)} m) ` +
+    `at progress ${m.tightestAt.toFixed(3)}`);
+
+  r.check('no two parts of the lap are closer than the road is wide',
+    m.minSeparation >= m.neededSeparation,
+    `closest ${m.minSeparation.toFixed(1)} m (needs ${m.neededSeparation.toFixed(1)} m) ` +
+    `at progress ${m.separationSpan[0].toFixed(3)} vs ${m.separationSpan[1].toFixed(3)}`);
+
+  r.check('no slope too steep to climb cleanly',
+    m.steepestGradient <= LIMITS.gradientError,
+    `steepest ${(m.steepestGradient * 100).toFixed(1)}% at progress ${m.steepestAt.toFixed(3)}`);
+
+  r.check('no abrupt change of slope',
+    m.worstGradientChange <= LIMITS.gradientChangeError,
+    `worst ${(m.worstGradientChange * 1000).toFixed(2)}% per 10 m ` +
+    `at progress ${m.worstGradientChangeAt.toFixed(3)}`);
+
+  // Warnings are reported but do not fail: they mean the circuit will drive
+  // oddly, not that it is broken. Printing them keeps them visible rather than
+  // letting them accumulate unseen.
+  for (const w of result.warnings) {
+    r.log(`  WARN  ${w.title} — ${w.detail}`, 'warn');
+  }
 }
 
 async function testSettle(ctx, r) {

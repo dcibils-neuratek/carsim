@@ -101,6 +101,43 @@ Two constraints when editing a layout, both learned the hard way:
 The autopilot lap test drives **every** track and fails on anything undriveable,
 so run the tests after touching a layout. It caught both of the above.
 
+## The track editor
+
+```bash
+open http://localhost:8000/editor.html
+```
+
+Layouts are meant to be shaped by hand, so there is a page for it. Open a
+circuit, drag its control points, and drive the result — the whole point is
+that the loop from "that corner feels wrong" to "that corner is fixed" never
+leaves the browser.
+
+| | |
+| --- | --- |
+| **Plan view** | The layout from above. Drag a point to move it, double-click the road to insert one, `Del` to remove. Arrow keys nudge 1 m, `shift` 10 m |
+| **Elevation strip** | Height against distance around the lap. Drag a point to raise or lower it; `PgUp`/`PgDn` do the same on the selected point |
+| **3D preview** | The **real** `Track` — same terrain, curbs, trees and palette as the game, rebuilt a few hundred ms after edits settle |
+| **Checks** | [`validateTrack()`](src/trackcheck.js) on every edit. Click an issue to jump to it |
+| **drive it** | Hands the layout to the game through `localStorage` and opens it at `?track=__editor`. Real physics, unsaved |
+| **export** | Writes out only what differs from `defaults.track.json`. Drop it in `assets/tracks/` and add it to `index.json` |
+
+Two things it draws that are worth knowing about, because they turn a feeling
+into something you can point at:
+
+- **The road is stroked at its true width**, exactly as the game sweeps its
+  ribbon. A corner too tight to sweep visibly folds through itself, and goes
+  amber before it goes red — so you can see one coming while you drag, not
+  after.
+- **The bars under the elevation strip are rate of change of slope**, not
+  height. A crest can look gentle in profile and still be a step change in
+  gradient, which is what launches the car rather than tilting it. That trace
+  is the only place it shows.
+
+Geometry checks live in `src/trackcheck.js` and are shared with the tests, so
+"driveable" has one definition rather than two that drift apart. The editor
+checks it on every drag; the test suite checks it on every run, plus the
+autopilot lap that the editor is too fast to do.
+
 ## Credits
 
 **Engine audio** — the five looping samples in `assets/audio/` are BAC Mono
@@ -168,6 +205,8 @@ triggers swap roles.
 | `src/track.js` | Procedural circuit, terrain, surface grip, projection |
 | `src/tracks.js` | Loads the circuit catalogue from `assets/tracks/` |
 | `src/trackfile.js` | Track file format: validate, merge, normalise |
+| `src/trackcheck.js` | Is this circuit driveable? Shared by editor and tests |
+| `src/editor/` | The track editor: plan view, elevation, inspector, 3D preview |
 | `src/tuning.js` | Every physics constant, plus save/load |
 | `src/input.js` | Gamepad and keyboard |
 | `src/scene.js` | Renderer, lights, sky, car mesh |

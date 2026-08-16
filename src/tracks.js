@@ -16,6 +16,7 @@ import { loadTrackFile, TrackFormatError } from './trackfile.js';
 const INDEX_URL = './assets/tracks/index.json';
 
 let catalogue = null;   // id -> normalised runtime definition
+let defaultsFile = null;
 
 export let TRACK_IDS = [];
 export let DEFAULT_TRACK = 'forest';
@@ -50,6 +51,7 @@ export async function loadTracks(indexUrl = INDEX_URL) {
   const defaults = index.defaults
     ? await (await fetch(resolveFrom(indexUrl, index.defaults))).json()
     : null;
+  defaultsFile = defaults;
 
   // In parallel: four small files, and one slow one shouldn't gate the others.
   const results = await Promise.all(index.tracks.map(async (name) => {
@@ -74,6 +76,26 @@ export async function loadTracks(indexUrl = INDEX_URL) {
   DEFAULT_TRACK = catalogue[index.default] ? index.default : TRACK_IDS[0];
 
   return catalogue;
+}
+
+/**
+ * The defaults every circuit is merged over. The editor needs it to keep
+ * exported files sparse -- without it an export restates every inherited
+ * value and the defaults file stops meaning anything.
+ */
+export function getDefaultsFile() {
+  return defaultsFile;
+}
+
+/**
+ * Register a definition that did not come from the catalogue, so the game can
+ * drive a track the editor is holding. Used for `?track=__editor`.
+ */
+export function registerTrack(def) {
+  if (!catalogue) catalogue = {};
+  catalogue[def.id] = def;
+  if (!TRACK_IDS.includes(def.id)) TRACK_IDS = [...TRACK_IDS, def.id];
+  return def.id;
 }
 
 /** Every loaded circuit, by id. Empty until `loadTracks()` has resolved. */
