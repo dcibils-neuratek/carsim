@@ -83,11 +83,18 @@ export function tyreMix(vehicle) {
   // does not. Without this the car chirps while sitting on the grid.
   const alive = speed > t.minSpeed && !vehicle.airborne ? 1 : 0;
 
-  // How much of what the tyres are doing is scrub rather than grip. Shared by
-  // both axles: once the car is properly sideways, everything is scrubbing.
-  const slide = ratio(tel.slipSpeed, t.slideStart, t.slideFull);
-
-  const axle = (util, base) => {
+  // Per axle, not shared. Locking the fronts under braking while the rears
+  // still grip has to sound different from losing the back end, or "which end
+  // went" stops being information the player can act on.
+  const axle = (util, slipSpeed, longUtil, base) => {
+    // "Gone" has two forms and only one of them is a speed. Sideways scrub is
+    // measurable in m/s; longitudinal loss is not (Rapier's wheels spin
+    // kinematically, see telemetry.js), so a locked or spinning tyre shows up
+    // as longitudinal force SATURATION instead. Take whichever is worse.
+    const slide = Math.max(
+      ratio(slipSpeed, t.slideStart, t.slideFull),
+      ratio(longUtil, t.lockStart, t.lockFull),
+    );
     // The warning. Starts well before the limit, which is the entire point:
     // by the time a tyre is audibly past it, the useful moment has gone.
     const load = ratio(util, t.squealStart, t.squealFull);
@@ -101,6 +108,7 @@ export function tyreMix(vehicle) {
       load,
       freq,
       q,
+      slide,
       // Sliding is louder than merely working hard -- and only because
       // slideVolume says so, not as a side effect of Q changing.
       gain: alive * t.volume * load * lerp(1, t.slideVolume, slide)
@@ -114,10 +122,15 @@ export function tyreMix(vehicle) {
   const rough = clamp(1 - surface, 0, 1);
   const speedFrac = ratio(speed, 0, t.road.speedFull);
 
+  const longFront = Math.max(tel.wheels[0].longUtil, tel.wheels[1].longUtil);
+  const longRear = Math.max(tel.wheels[2].longUtil, tel.wheels[3].longUtil);
+  const front = axle(tel.frontUtil, tel.frontSlip, longFront, t.freqFront);
+  const rear = axle(tel.rearUtil, tel.rearSlip, longRear, t.freqRear);
+
   return {
-    slide,
-    front: axle(tel.frontUtil, t.freqFront),
-    rear: axle(tel.rearUtil, t.freqRear),
+    front,
+    rear,
+    slide: Math.max(front.slide, rear.slide),
     road: (() => {
       const freq = t.road.freq * lerp(1, t.road.roughDamp, rough);
       return {

@@ -203,6 +203,11 @@ export const DEFAULTS = {
       // is clamped and so says nothing about how far gone you are.
       slideStart: 0.6,    // m/s of scrub where it starts to open up
       slideFull: 4.5,     // m/s for a fully "gone" sound
+      // Locking and wheelspin, read from longitudinal force saturation rather
+      // than from speed, because Rapier's wheels spin kinematically and never
+      // actually lock. 1.0 is exactly at the tyre's longitudinal capacity.
+      lockStart: 0.98,
+      lockFull: 1.20,
       slideVolume: 1.7,   // sliding is louder than working hard
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
 

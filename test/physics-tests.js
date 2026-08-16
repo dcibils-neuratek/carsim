@@ -323,6 +323,7 @@ export async function runAll(el) {
   await testUtilisationSignal(ctx, r);
   await testTyreAudioWarning(ctx, r);
   await testTyreAudioLevels(r);
+  await testBrakingSquealsToo(ctx, r);
   await testHandbrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
@@ -777,6 +778,55 @@ async function testTyreAudioWarning(ctx, r) {
 }
 
 /**
+ * Braking in a straight line has to squeal too.
+ *
+ * The first version drove the squeal from LATERAL utilisation alone, so a
+ * threshold stop laid rubber the whole way down in complete silence. That is
+ * both wrong physically -- a locked tyre scrubs just as hard as a sliding one
+ * -- and wrong for the player, who sees a skidmark and hears nothing.
+ *
+ * The fix was to drive it from contact patch slip speed, which does not care
+ * which direction the sliding is in. This checks the case that was broken.
+ */
+async function testBrakingSquealsToo(ctx, r) {
+  r.section('braking squeals (not just cornering)');
+  const { world } = ctx;
+  const pad = makePad(world);
+  const car = new Vehicle(world, RAPIER, pad.spawn(8000));
+  const padCtx = { world, track: ctx.track, vehicle: car, grip: null };
+
+  await run(padCtx, 60);
+  car.body.setLinvel({ x: 0, y: 0, z: 30 }, true);   // ~108 km/h
+  await run(padCtx, 30);
+
+  let peakGain = 0;
+  let peakSlipLong = 0;
+  let peakLatUtil = 0;
+  // Dead straight, full brakes. No steering at all, so nothing lateral.
+  await run(padCtx, 400, () => input({ brake: 1 }), (v) => {
+    if (Math.abs(v.speed) < 3) return;
+    const mix = tyreMix(v);
+    peakGain = Math.max(peakGain, mix.front.gain);
+    peakLatUtil = Math.max(peakLatUtil, v.telemetry.frontUtil);
+    for (const wheel of v.telemetry.wheels) {
+      peakSlipLong = Math.max(peakSlipLong, wheel.longUtil);
+    }
+  });
+  car.dispose();
+  pad.remove();
+
+  r.results.brakingSqueal = { peakGain, peakSlipLong };
+
+  r.check('braking saturates the tyres longitudinally', peakSlipLong > 0.9,
+    `${(peakSlipLong * 100).toFixed(0)}% of longitudinal capacity under full brakes`);
+
+  r.check('a straight-line stop is audible', peakGain > 0.05,
+    `peak squeal gain ${peakGain.toFixed(3)} with no steering input`);
+
+  r.log(`  ${(peakSlipLong * 100).toFixed(0)}% longitudinal use -> gain ${peakGain.toFixed(3)}`);
+}
+
+/**
  * Is the tyre audio actually AUDIBLE?
  *
  * This exists because the first version was not, and nothing caught it. Every
@@ -842,12 +892,21 @@ async function testTyreAudioLevels(r) {
 }
 
 /** A stand-in vehicle, for exercising the mix at states a skidpad won't reach. */
-function fakeVehicle({ frontUtil, rearUtil, slipSpeed }) {
+function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, longUtil }) {
   return {
     speed: 30,
     airborne: false,
     gripMult: [1, 1, 1, 1],
-    telemetry: { frontUtil, rearUtil, slipSpeed },
+    telemetry: {
+      frontUtil,
+      rearUtil,
+      slipSpeed,
+      // Slip is per axle now, so both ends can be in different states.
+      frontSlip: frontSlip ?? slipSpeed ?? 0,
+      rearSlip: rearSlip ?? slipSpeed ?? 0,
+      // Longitudinal saturation stands in for locking and wheelspin.
+      wheels: [0, 1, 2, 3].map(() => ({ longUtil: longUtil ?? 0 })),
+    },
   };
 }
 
