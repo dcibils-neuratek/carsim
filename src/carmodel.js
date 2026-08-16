@@ -227,6 +227,23 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
       const m = material.clone();
       m.flatShading = true;
 
+      // Give reflective paint something to work with.
+      //
+      // A metal has no diffuse term -- it is entirely reflection -- so with a
+      // dim environment it reads as a silhouette however bright its colour is.
+      // The Ferrari's paint is #00bca0, a metallic teal, and it rendered as a
+      // pure black car. Lifting the environment response is what puts the
+      // colour back WITHOUT repainting anything: the model keeps the colour its
+      // author chose, which is the whole reason it is drawn as authored.
+      if (m.envMapIntensity !== undefined) m.envMapIntensity = 1.9;
+
+      // A mirror finish reflects the sky in a spot you will almost never be
+      // looking at. Spreading it a little is the difference between glossy
+      // paint and a black hole, and at this scale nobody can tell that the
+      // roughness is not what the author typed.
+      if (m.metalness > 0.6 && m.roughness < 0.30) m.roughness = 0.30;
+      else if (m.roughness === 0) m.roughness = 0.12;
+
       // Trade refraction for plain transparency on the glass.
       //
       // A single material with transmission > 0 makes three render the WHOLE
@@ -238,7 +255,12 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
       if ((m.transmission ?? 0) > 0) {
         m.transmission = 0;
         m.transparent = true;
-        m.opacity = 0.34;
+        // 0.34 was tuned on the Alpine, whose interior is dark. On a car with
+        // a WHITE interior the same glass let the cabin outshine the bodywork,
+        // so the car read as being see-through -- you saw the inside of it
+        // instead of the outside. Glass you can see a hint through, rather
+        // than glass you can see the whole cabin through.
+        m.opacity = 0.55;
         m.depthWrite = false;
       }
 

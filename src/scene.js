@@ -49,6 +49,7 @@ export function createScene(def) {
 
   scene.add(createSky(pal));
   scene.add(createHorizonRange(def));
+  scene.environment = createEnvironment(pal);
 
   const hemi = new THREE.HemisphereLight(pal.sky, pal.groundDark, 1.15);
   scene.add(hemi);
@@ -83,6 +84,50 @@ export function updateSunTarget(sun, focus) {
   sun.target.position.copy(focus);
   sun.position.set(focus.x + o[0], focus.y + o[1], focus.z + o[2]);
   sun.target.updateMatrixWorld();
+}
+
+/**
+ * Something for the paint to reflect.
+ *
+ * A smooth or metallic material with no environment map has nothing to
+ * reflect, so it renders as flat black -- and "black" here means the material
+ * is working exactly as asked, which is why it looks like a bug rather than a
+ * missing input. The Ferrari made this unmissable: its body paint is #111111
+ * at roughness 0 and its wheels are metalness 1, so the whole car came out a
+ * silhouette while its white interior showed through the glass. It read as
+ * being able to see only the inside of the car.
+ *
+ * Built from the track's OWN sky colours rather than a stock studio HDR, so a
+ * car reflects the circuit it is on: cold and blue on Snow, warm ochre on
+ * Mediterranean. Three stops down a 2x64 gradient is plenty -- this is never
+ * seen directly, only smeared across bodywork, and PMREM blurs it by roughness
+ * anyway. Costs one small texture per session.
+ */
+function createEnvironment(pal) {
+  const c = document.createElement('canvas');
+  c.width = 2; c.height = 64;
+  const ctx = c.getContext('2d');
+  const hex = (v) => `#${v.toString(16).padStart(6, '0')}`;
+  const g = ctx.createLinearGradient(0, 0, 0, 64);
+  // Brighter than the sky actually is, on purpose. A full metal has no diffuse
+  // term at all -- it is nothing but reflection -- so this texture is the only
+  // light such a material ever receives, and a physically honest dome leaves
+  // the paint reading much darker than the same car does under the same sky
+  // in a photograph. The horizon band is kept bright because that is the part
+  // that lands on a car's flanks, which is most of what you see from behind.
+  g.addColorStop(0.00, hex(pal.skyHigh));
+  g.addColorStop(0.42, hex(pal.sky));
+  g.addColorStop(0.52, hex(pal.horizon));
+  g.addColorStop(0.68, hex(pal.ground));
+  g.addColorStop(1.00, hex(pal.groundDark));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 2, 64);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 function createSky(pal) {
