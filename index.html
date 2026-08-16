@@ -95,33 +95,37 @@
   }
   .mode { font-size: 9px; letter-spacing: 2px; color: var(--dim); }
 
-  /* ---- g meter ---- */
-  #gmeter {
-    position: absolute; left: 18px; bottom: 236px;
-    width: 118px; height: 118px; background: var(--panel); border-radius: 50%;
+  /* ---- grip: g-meter + balance, one panel bottom left ---- */
+  #grip {
+    position: absolute; left: 22px; bottom: 116px; width: 172px;
+    background: var(--panel); border-radius: 10px; overflow: hidden;
   }
-  #gmeter svg { width: 100%; height: 100%; }
+  #grip .head {
+    padding: 7px 12px 6px; text-align: center;
+    font-size: 10.5px; letter-spacing: 3px; color: var(--dim);
+    background: rgba(255,255,255,.05);
+    border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+
+  #gmeter { position: relative; padding: 10px 12px 2px; }
+  #gmeter svg { width: 118px; height: 118px; display: block; margin: 0 auto; }
   #gmeter .ring { fill: none; stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
   #gmeter .cross { stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
   #gDot { fill: var(--accent); }
   #gTrail { fill: rgba(255,210,63,.22); }
   #gLabel {
-    position: absolute; left: -20px; right: -20px; bottom: -17px; text-align: center;
-    font-size: 10px; color: var(--fg); letter-spacing: 0.5px;
+    margin-top: 5px; text-align: center;
+    font-size: 10px; color: var(--fg); letter-spacing: .5px;
     font-variant-numeric: tabular-nums;
   }
   #gLabel .neg { color: #ff8a5c; }   /* braking */
   #gLabel .pos { color: #7ad97a; }   /* accelerating */
   #gLabel .k { color: var(--dim); }
 
-  /* ---- balance (understeer / oversteer) ---- */
-  #balance {
-    position: absolute; left: 18px; bottom: 368px; width: 118px;
-    font-size: 10px; letter-spacing: 1px; color: var(--dim); text-align: center;
-  }
+  #balance { padding: 4px 12px 11px; }
   #balanceBar {
-    position: relative; height: 7px; margin-top: 5px;
-    background: var(--panel); border-radius: 4px; overflow: hidden;
+    position: relative; height: 6px; border-radius: 4px;
+    background: rgba(232,238,245,.14); overflow: hidden;
   }
   #balanceFill {
     position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
@@ -131,7 +135,13 @@
     content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
     width: 1px; background: rgba(232,238,245,.35);
   }
-  #balanceText { margin-top: 4px; color: var(--fg); font-weight: 600; }
+  /* Labels under the ends they describe, so which way the bar has moved needs
+     no explaining. */
+  .ends {
+    display: flex; justify-content: space-between; margin-top: 5px;
+    font-size: 9px; letter-spacing: 1px; color: var(--dim);
+  }
+  #balanceText { color: var(--fg); font-weight: 600; letter-spacing: .5px; }
 
   /* ---- track name / lap times / map, one panel top right ---- */
   #info {
@@ -183,9 +193,10 @@
   /* Keeps to its own lane on the left so it never runs under the dials, which
      sit centred and are the one thing on the overlay you read at a glance. */
   #help {
-    position: absolute; left: 18px; bottom: 14px; max-width: 168px;
-    font-size: 10px; color: var(--dim); line-height: 1.75;
-    background: var(--panel); padding: 8px 11px; border-radius: 8px;
+    position: absolute; left: 22px; bottom: 20px; width: 172px;
+    font-size: 9.5px; color: var(--dim); line-height: 1.65;
+    background: var(--panel); padding: 8px 11px; border-radius: 10px;
+    white-space: nowrap;
   }
   #help b { color: var(--fg); font-weight: 600; }
 
@@ -290,23 +301,29 @@
 <body>
 
 <div id="hud">
-  <div id="balance">
-    UNDER &nbsp;·&nbsp; OVER
-    <div id="balanceBar"><div id="balanceFill"></div></div>
-    <div id="balanceText">NEUTRAL</div>
-  </div>
+  <!-- Grip panel: the g-meter and the balance bar are one reading, not two --
+       where the load is, and which end is giving up first. Same shape and
+       width as the lap panel opposite so the two corners are siblings. -->
+  <div id="grip">
+    <div class="head">GRIP</div>
 
-  <div id="gmeter">
-    <svg viewBox="0 0 100 100">
-      <circle class="ring" cx="50" cy="50" r="46" />
-      <circle class="ring" cx="50" cy="50" r="30" />
-      <circle class="ring" cx="50" cy="50" r="15" />
-      <line class="cross" x1="4" y1="50" x2="96" y2="50" />
-      <line class="cross" x1="50" y1="4" x2="50" y2="96" />
-      <circle id="gTrail" cx="50" cy="50" r="0" />
-      <circle id="gDot" cx="50" cy="50" r="4.5" />
-    </svg>
-    <div id="gLabel"><span class="k">LON</span> 0.00 <span class="k">LAT</span> 0.00</div>
+    <div id="gmeter">
+      <svg viewBox="0 0 100 100">
+        <circle class="ring" cx="50" cy="50" r="46" />
+        <circle class="ring" cx="50" cy="50" r="30" />
+        <circle class="ring" cx="50" cy="50" r="15" />
+        <line class="cross" x1="4" y1="50" x2="96" y2="50" />
+        <line class="cross" x1="50" y1="4" x2="50" y2="96" />
+        <circle id="gTrail" cx="50" cy="50" r="0" />
+        <circle id="gDot" cx="50" cy="50" r="4.5" />
+      </svg>
+      <div id="gLabel"><span class="k">LON</span> 0.00 <span class="k">LAT</span> 0.00</div>
+    </div>
+
+    <div id="balance">
+      <div id="balanceBar"><div id="balanceFill"></div></div>
+      <div class="ends"><span>UNDER</span><span id="balanceText">NEUTRAL</span><span>OVER</span></div>
+    </div>
   </div>
 
   <!-- Twin-dial cluster, after the real A110's: tacho left, speedo right, a
@@ -381,13 +398,13 @@
 
   <!-- Pad buttons here are filled in from the live bindings, so rebinding
        cannot leave the on-screen help telling you the wrong button. -->
+  <!-- Deliberately terse. At this width every extra word wraps to another
+       line, and the block was tall enough to collide with the grip panel. -->
   <div id="help">
-    <b>LS</b>/<b>A,D</b> steer &nbsp; <b data-bind="throttle"></b>/<b>W</b> gas &nbsp;
-    <b data-bind="brake"></b>/<b>S</b> brake &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake<br>
-    <b data-bind="shiftUp"></b>,<b data-bind="shiftDown"></b>/<b>Shift,Ctrl</b> gears &nbsp;
-    <b data-bind="camera"></b>/<b>C</b> camera &nbsp; <b data-bind="reset"></b>/<b>R</b> reset<br>
-    <b>`</b> debug &nbsp; <b>G</b> tuning &nbsp; <b>B</b> gamepad &nbsp; <b>M</b> manual gearbox<br>
-    <b>V</b> sound &nbsp; <b>N</b> music
+    <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
+    <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>
+    <div><b data-bind="camera"></b>/<b>C</b> cam &nbsp; <b>G</b> tune &nbsp; <b>B</b> pad &nbsp; <b>M</b> manual</div>
+    <div><b>`</b> debug &nbsp; <b>V</b> sound &nbsp; <b>N</b> music</div>
   </div>
 
   <div id="toast"></div>
