@@ -133,43 +133,42 @@
   }
   #balanceText { margin-top: 4px; color: var(--fg); font-weight: 600; }
 
+  /* ---- track name / lap times / map, one panel top right ---- */
+  #info {
+    position: absolute; right: 22px; top: 16px; width: 172px;
+    background: var(--panel); border-radius: 10px; overflow: hidden;
+  }
   #trackName {
-    position: absolute; right: 26px; top: 0; padding: 6px 14px 5px;
-    font-size: 11px; letter-spacing: 4px; color: var(--accent);
-    background: var(--panel); border-radius: 0 0 8px 8px;
+    padding: 7px 12px 6px; text-align: center;
+    font-size: 10.5px; letter-spacing: 3px; color: var(--accent);
+    background: rgba(255,255,255,.05);
+    border-bottom: 1px solid rgba(255,255,255,.07);
   }
 
-  /* ---- lap times, top right ---- */
   #laps {
-    position: absolute; right: 26px; top: 40px; text-align: right;
-    background: var(--panel); padding: 10px 14px; border-radius: 8px;
-    font-size: 12px; line-height: 1.75; letter-spacing: .5px;
+    padding: 9px 12px 8px; text-align: right;
+    font-size: 11.5px; line-height: 1.7; letter-spacing: .5px;
   }
-  #laps .k { color: var(--dim); margin-right: 10px; }
-  #laps .cur { font-size: 20px; font-weight: 700; letter-spacing: 0; }
+  #laps .k { color: var(--dim); float: left; letter-spacing: 1px; font-size: 10px; }
+  #laps .cur { font-size: 19px; font-weight: 700; letter-spacing: 0; margin-bottom: 2px; }
   #laps .best { color: var(--accent); }
 
-  /* ---- minimap + lap progress ---- */
-  #minimap {
-    position: absolute; right: 26px; top: 132px;
-    width: 148px; background: var(--panel); border-radius: 8px;
-    padding: 10px 10px 8px;
-  }
-  #minimap svg { width: 100%; height: 104px; display: block; overflow: visible; }
-  #mmTrack { fill: none; stroke: rgba(232,238,245,.30); stroke-width: 5;
+  #minimap { padding: 2px 12px 9px; }
+  #minimap svg { width: 100%; height: 96px; display: block; overflow: visible; }
+  #mmTrack { fill: none; stroke: rgba(232,238,245,.28); stroke-width: 5;
              stroke-linejoin: round; stroke-linecap: round; }
   #mmDone  { fill: none; stroke: var(--accent); stroke-width: 5;
              stroke-linejoin: round; stroke-linecap: round; }
   #mmStart { stroke: #f2f2f2; stroke-width: 2.5; }
   #mmDot   { fill: #fff; stroke: #10141a; stroke-width: 1.5; }
   #mmBar {
-    position: relative; height: 5px; margin-top: 8px; border-radius: 3px;
+    position: relative; height: 4px; margin-top: 8px; border-radius: 3px;
     background: rgba(232,238,245,.14); overflow: hidden;
   }
   #mmBarFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0;
                background: var(--accent); }
-  #mmPct { margin-top: 5px; font-size: 10px; color: var(--dim);
-           letter-spacing: 1px; text-align: center; }
+  #mmPct { margin-top: 6px; font-size: 9.5px; color: var(--dim);
+           letter-spacing: 2px; text-align: center; }
 
   /* ---- debug panel, top left ---- */
   #debug {
@@ -354,23 +353,28 @@
     </div>
   </div>
 
-  <div id="trackName">—</div>
+  <!-- Track name, lap times and map are one panel, not three floating boxes.
+       They are read together and belong to each other, so they share a width,
+       a background and an edge. -->
+  <div id="info">
+    <div id="trackName">—</div>
 
-  <div id="laps">
-    <div class="cur" id="lapCur">--:--.---</div>
-    <div><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
-    <div><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
-  </div>
+    <div id="laps">
+      <div class="cur" id="lapCur">--:--.---</div>
+      <div><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
+      <div><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
+    </div>
 
-  <div id="minimap">
-    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-      <path id="mmTrack" d=""/>
-      <path id="mmDone" d="" stroke-dasharray="0 9999"/>
-      <line id="mmStart" x1="0" y1="0" x2="0" y2="0"/>
-      <circle id="mmDot" cx="50" cy="50" r="4"/>
-    </svg>
-    <div id="mmBar"><div id="mmBarFill"></div></div>
-    <div id="mmPct">LAP 0%</div>
+    <div id="minimap">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <path id="mmTrack" d=""/>
+        <path id="mmDone" d="" stroke-dasharray="0 9999"/>
+        <line id="mmStart" x1="0" y1="0" x2="0" y2="0"/>
+        <circle id="mmDot" cx="50" cy="50" r="4"/>
+      </svg>
+      <div id="mmBar"><div id="mmBarFill"></div></div>
+      <div id="mmPct">LAP 0%</div>
+    </div>
   </div>
 
   <div id="debug"></div>
