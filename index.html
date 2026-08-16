@@ -34,6 +34,12 @@
        competing with the car for attention. */
     position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%);
     display: flex; align-items: flex-end; gap: 10px;
+    /* Same panel as the grip and lap corners, so the cluster reads as one
+       instrument binnacle rather than two rings and some loose text floating
+       over the road. It also gives the gear strip something to sit on -- over
+       bare asphalt the numbers were unreadable. */
+    background: var(--panel); border-radius: 14px 14px 0 0;
+    padding: 12px 20px 0;
     /* Scales with the window so it keeps its proportions on any screen without
        ever growing tall enough to eat the road. */
     --d: clamp(150px, 17vw, 232px);
@@ -46,7 +52,7 @@
   .bezel { fill: none; stroke: rgba(226,236,245,.82); stroke-width: 5; }
   /* Enough to sit the numerals against, little enough to keep the road
      visible through the cluster -- these live over the track, not under it. */
-  .face  { fill: rgba(8,12,18,.42); }
+  .face  { fill: rgba(8,12,18,.55); }
   .redArc { fill: none; stroke: rgba(224,31,31,.85); stroke-width: 13; }
   .tick  { stroke: rgba(232,238,245,.55); }
   .tick.major { stroke: #fff; }
@@ -57,27 +63,20 @@
   #tach.redline .needle { stroke: var(--danger); }
   .hub { fill: #e2ecf5; }
 
-  /* Digital readout in the middle of each dial, as on the real cluster. */
-  .dial .readout {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; pointer-events: none;
-    line-height: 1;
-    /* Lifted by as much as the dial hangs off the bottom, so the numbers stay
-       on screen while the rings are cropped. */
-    padding-bottom: calc(var(--d) * 0.20);
-  }
+  /* Digital readouts, drawn into the svg before the needle so it sweeps over
+     them. Sized in user units, which scales with the dial for free. */
   .dial .big {
-    font-size: calc(var(--d) * 0.20); font-weight: 700; letter-spacing: -1px;
-    font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px rgba(0,0,0,.8);
+    fill: var(--fg); font-size: 38px; font-weight: 700; text-anchor: middle;
+    dominant-baseline: central; font-family: inherit;
+    paint-order: stroke; stroke: rgba(6,10,16,.55); stroke-width: 5px;
   }
-  #tach .big { font-size: calc(var(--d) * 0.13); color: var(--dim); letter-spacing: 0; }
-  .dial .cap { font-size: calc(var(--d) * 0.062); color: var(--dim); letter-spacing: 2px; }
-  .dial .cap.top { margin-bottom: 2px; }
-  #tach.redline .big { color: var(--danger); }
-  .dial .scale {
-    position: absolute; left: 0; right: 0; bottom: 34%; text-align: center;
-    font-size: 10px; color: var(--dim); letter-spacing: 2px;
+  #tach .big { fill: var(--dim); font-size: 27px; }
+  #tach.redline .big { fill: var(--danger); }
+  .dial .cap {
+    fill: var(--dim); font-size: 11px; letter-spacing: 2px; text-anchor: middle;
+    dominant-baseline: central; font-family: inherit;
   }
+  .dial .cap.scale { font-size: 10px; }
 
   /* Gear strip, standing in for the real car's P R N D. */
   #centre {
@@ -85,7 +84,7 @@
     padding-bottom: calc(var(--d) * 0.34); min-width: 92px;
   }
   .gearRow { display: flex; gap: 7px; align-items: baseline; }
-  .gearRow span { font-size: 15px; color: rgba(232,238,245,.30); font-weight: 600; }
+  .gearRow span { font-size: 15px; color: rgba(232,238,245,.42); font-weight: 600; }
   .gearRow span.on {
     color: var(--accent); font-size: 27px; text-shadow: 0 0 16px rgba(255,210,63,.5);
   }
@@ -338,14 +337,15 @@
         <path id="tachRed" d="" class="redArc"/>
         <g id="tachTicks"></g>
         <g id="tachNums"></g>
+        <!-- Readout lives INSIDE the svg and before the needle, so the needle
+             sweeps over the number the way a real one sweeps over the dial
+             face. As an HTML layer on top it always covered the needle. -->
+        <text id="tachRpmVal" class="big" x="100" y="96">0</text>
+        <text class="cap" x="100" y="118">RPM</text>
+        <text class="cap scale" x="100" y="150">x1000</text>
         <line id="tachNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
         <circle class="hub" cx="100" cy="100" r="7"/>
       </svg>
-      <div class="readout">
-        <div class="big" id="tachRpmVal">0</div>
-        <div class="cap">RPM</div>
-      </div>
-      <div class="scale">x1000</div>
     </div>
 
     <div id="centre">
@@ -360,13 +360,11 @@
         <circle class="face" cx="100" cy="100" r="86"/>
         <g id="spdTicks"></g>
         <g id="spdNums"></g>
+        <text class="cap" x="100" y="80">km/h</text>
+        <text id="speedVal" class="big" x="100" y="112">0</text>
         <line id="spdNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
         <circle class="hub" cx="100" cy="100" r="7"/>
       </svg>
-      <div class="readout">
-        <div class="cap top">km/h</div>
-        <div class="big" id="speedVal">0</div>
-      </div>
     </div>
   </div>
 
