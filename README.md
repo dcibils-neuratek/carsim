@@ -37,7 +37,7 @@ and fails if the car ever stalls at full throttle. Every "the car hits an
 invisible wall" bug this project has had would have been caught by it
 automatically, without anyone looking at the screen.
 
-Current baseline — **73 of 75 green**:
+Current baseline — **82 of 83 green**:
 
 | | |
 | --- | --- |
@@ -47,11 +47,14 @@ Current baseline — **73 of 75 green**:
 | Handbrake | yaw 1.0 → 5.0 rad/s, rear slip 0.5° → 90° |
 | Autopilot lap | all four circuits, never stalls |
 
-The 2 failures are the closing-join hairpins on Snow (5.6 m radius, wants 13.4)
-and Mountains (4.4 m, wants 11.4). Both are driveable — the autopilot laps every
-circuit — but they read as a kink. Note that both have plenty of room around
-them (38 m and 67 m of clearance), so the layouts are simply not using the space
-available; opening them out is a layout job, not a smoothing one.
+The one failure is the closing-join hairpin on Mountains: 4.4 m radius against
+11.4 needed. It is driveable — the autopilot laps every circuit — but it reads
+as a kink rather than a corner. There is 67 m of clear ground around it, so the
+layout simply isn't using the space; opening it out is a job for the editor,
+not for more smoothing.
+
+Snow used to fail the same way at 5.6 m. It was reshaped in the editor and now
+runs 23.0 m, which is what that page is for.
 
 ## Circuits
 
@@ -65,7 +68,7 @@ with `?track=snow`.
 | --- | --- | --- | --- | --- |
 | **Forest** | 1.3 km | 12.0 m | 1.00 | Fast sweepers, a crest over T1, chicane, long hairpin |
 | **Woods** | 0.9 km | 9.2 m | 0.96 | Narrow and twisty, trees crowding the verges, short sightlines |
-| **Snow** | 1.6 km | 15.0 m | **0.55** | Wide and flowing — the hard part is stopping |
+| **Snow** | 1.4 km | 15.0 m | **0.55** | Wide and flowing — the hard part is stopping |
 | **Mountains** | 1.7 km | 12.4 m | 0.98 | 18 m of climb, then a descent that arrives far too fast |
 
 Each is a JSON file under `assets/tracks/`, merged over `defaults.track.json`

@@ -52,7 +52,7 @@
     },
     "envelope": {
       "slope": 0.2,
-      "roadClearance": 0.3
+      "roadClearance": 0.6
     }
   },
   "environment": {
