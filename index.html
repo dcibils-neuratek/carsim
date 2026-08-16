@@ -366,6 +366,17 @@
   .trackCard .tag { font-size: 12px; color: var(--dim); line-height: 1.55;
                     margin: 7px 18px 0; min-height: 34px; }
   .trackCard .diff { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-top: 11px; }
+
+  /* Car cards: same shell as the circuits, with a spec strip. The numbers are
+     the reason you would pick one, so they get their own row rather than being
+     buried in the tagline. Monospace and tabular, because they are readings. */
+  .carCard .carSwatch { height: 132px; background: #11161d; }
+  .carCard .spec {
+    display: flex; justify-content: center; gap: 14px; margin-top: 10px;
+    font-size: 11px; color: var(--fg); font-variant-numeric: tabular-nums;
+  }
+  .carCard .spec span { color: rgba(232,238,245,.78); }
+  .carCard .tag { min-height: 46px; }
 </style>
 
 <script type="importmap">

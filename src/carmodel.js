@@ -42,20 +42,78 @@ export async function loadCarModel(url) {
   // material threw all of that away and repainted the car a flat red.
   const bodyParts = [];
   const wheelGeoms = [];
+  const all = [];
 
   root.traverse((o) => {
     if (!o.isMesh || !o.geometry) return;
     const geo = o.geometry.clone();
     geo.applyMatrix4(o.matrixWorld);
-    let isWheel = false;
+    let named = false;
     for (let n = o; n; n = n.parent) {
-      if (n.name && WHEEL_NAME.test(n.name)) { isWheel = true; break; }
+      if (n.name && WHEEL_NAME.test(n.name)) { named = true; break; }
     }
-    if (isWheel) wheelGeoms.push(geo);
-    else bodyParts.push({ geo, material: o.material, name: o.name || '' });
+    all.push({ geo, material: o.material, name: o.name || '', named });
   });
 
+  // Names first, geometry second.
+  //
+  // Name matching works beautifully on a model whose author named things, and
+  // not at all on one exported as Object_7, Object_9, Object_10 -- which two
+  // of the four cars here are. Falling back to WHERE a mesh sits rather than
+  // what it is called makes the loader work on any model: the wheels are the
+  // meshes clustered at the four corners of the footprint, low down. That is
+  // true of every car ever made, and it needs no cooperation from the
+  // exporter.
+  const anyNamed = all.some((p) => p.named);
+  const isWheel = anyNamed ? (p) => p.named : geometricWheelTest(all);
+
+  for (const part of all) {
+    if (isWheel(part)) wheelGeoms.push(part.geo);
+    else bodyParts.push({ geo: part.geo, material: part.material, name: part.name });
+  }
+
   return { bodyParts, wheelGeoms, gltf };
+}
+
+/**
+ * A wheel test built from the model's own proportions, for models whose meshes
+ * have no useful names.
+ *
+ * A wheel sits in the lower part of the car, out toward a corner, and is small
+ * relative to the whole. Anything failing one of those is bodywork. The
+ * thresholds are fractions of the model's bounding box rather than metres, so
+ * this works whatever units the exporter used -- and the cars here arrive in
+ * both metres and some private unit a hundred times smaller.
+ */
+function geometricWheelTest(parts) {
+  const bounds = new THREE.Box3();
+  const box = new THREE.Box3();
+  for (const p of parts) {
+    p.geo.computeBoundingBox();
+    bounds.union(p.geo.boundingBox);
+  }
+  const size = bounds.getSize(new THREE.Vector3());
+  const min = bounds.min;
+  // Longest horizontal axis is the car's length whichever way it was authored.
+  const lengthAxis = size.z >= size.x ? 'z' : 'x';
+  const widthAxis = lengthAxis === 'z' ? 'x' : 'z';
+  const length = size[lengthAxis];
+  const width = size[widthAxis];
+
+  return (p) => {
+    box.copy(p.geo.boundingBox);
+    const s = box.getSize(new THREE.Vector3());
+    const c = box.getCenter(new THREE.Vector3());
+    // Low: the whole mesh sits under half the car's height.
+    if ((c.y - min.y) > size.y * 0.5) return false;
+    // Small: a wheel is a fraction of the car, a floorpan is not.
+    if (s[lengthAxis] > length * 0.30 || s[widthAxis] > width * 0.42) return false;
+    // Outboard, both along and across: a wheel is at a corner, an exhaust is
+    // low and central and a sill is long and lateral.
+    const along = Math.abs((c[lengthAxis] - min[lengthAxis]) / length - 0.5);
+    const across = Math.abs((c[widthAxis] - min[widthAxis]) / width - 0.5);
+    return along > 0.16 && across > 0.22;
+  };
 }
 
 /**

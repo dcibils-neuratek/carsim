@@ -415,7 +415,16 @@ export class Vehicle {
 
     if (!tx.automatic || this.shiftTimer > 0 || this.gear <= 0) return;
 
-    if (this.rpm > tx.autoUpshiftRpm && this.gear < tx.gears.length) {
+    // An upshift point above the rev limiter is an upshift that never happens:
+    // the engine pins against the limiter in first, the shift is still waiting
+    // for revs it can no longer make, and the car simply never gets out of
+    // first gear. Two of the four cars here were authored straight into that
+    // trap -- a 5800 rpm limiter against the shared 6400 rpm shift point -- and
+    // it reads as the car being broken rather than the number being wrong. The
+    // gearbox refuses to hold a gear it cannot leave.
+    const upshiftAt = Math.min(tx.autoUpshiftRpm, TUNING.engine.redlineRpm * 0.97);
+
+    if (this.rpm > upshiftAt && this.gear < tx.gears.length) {
       this._shift(this.gear + 1);
     } else if (this.rpm < tx.autoDownshiftRpm && this.gear > 1 && pedals.drive < 0.9) {
       this._shift(this.gear - 1);

@@ -27,10 +27,10 @@ import { EngineAudio } from './audio.js';
 import { TyreAudio } from './tyreaudio.js';
 import { PadPanel } from './padui.js';
 import { Music } from './music.js';
+import { CARS, getCar, applyCarTuning } from './cars.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
-const CAR_MODEL_URL = './assets/car.glb';
 
 /**
  * Ask which circuit to drive, before anything is built.
@@ -130,6 +130,125 @@ function chooseTrack(input) {
     highlight();
     poll();
   });
+}
+
+/**
+ * Pick a car, on the same cards and the same navigation as the circuits.
+ *
+ * Deliberately the same screen furniture rather than a new kind of menu: two
+ * choices in a row should feel like one flow, and anything a player learned
+ * about moving around the first should still be true on the second.
+ */
+function chooseCar(input, trackDef) {
+  const requested = new URLSearchParams(location.search).get('car');
+  if (requested && CARS.some((c) => c.id === requested)) {
+    return Promise.resolve(getCar(requested));
+  }
+
+  const prompt = document.getElementById('bootPrompt');
+  const menu = document.getElementById('trackMenu');
+  prompt.textContent = `${trackDef.name.toUpperCase()} — PICK YOUR CAR`;
+  prompt.classList.remove('blink');
+  menu.innerHTML = '';
+  menu.classList.add('on');
+
+  return new Promise((resolve) => {
+    const cards = [];
+    let selected = 0;
+
+    const highlight = () => {
+      cards.forEach((c, i) => c.classList.toggle('sel', i === selected));
+      cards[selected]?.focus({ preventScroll: true });
+    };
+
+    for (const car of CARS) {
+      const card = document.createElement('div');
+      card.className = 'trackCard carCard';
+      card.tabIndex = 0;
+      card.innerHTML =
+        `<div class="swatch carSwatch">${carSilhouette(car)}</div>` +
+        `<div class="nm">${car.name}</div>` +
+        `<div class="tag">${car.tagline}</div>` +
+        `<div class="spec">` +
+        Object.values(car.stats).map((v) => `<span>${v}</span>`).join('') +
+        `</div>` +
+        `<div class="diff">${car.badge}</div>`;
+
+      const index = cards.length;
+      const pick = () => {
+        menu.classList.remove('on');
+        menu.innerHTML = '';
+        cancelAnimationFrame(raf);
+        resolve(car);
+      };
+      card.addEventListener('click', pick);
+      card.addEventListener('mouseenter', () => { selected = index; highlight(); });
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+      });
+      card.__pick = pick;
+      cards.push(card);
+      menu.appendChild(card);
+    }
+
+    let raf = 0;
+    const columns = () => {
+      if (cards.length < 2) return 1;
+      const top = cards[0].offsetTop;
+      let n = 0;
+      while (n < cards.length && cards[n].offsetTop === top) n++;
+      return Math.max(1, n);
+    };
+
+    const poll = () => {
+      raf = requestAnimationFrame(poll);
+      const m = input.readMenu();
+      if (!m.pad) return;
+      const cols = columns();
+      const before = selected;
+      if (m.left) selected--;
+      if (m.right) selected++;
+      if (m.up) selected -= cols;
+      if (m.down) selected += cols;
+      selected = Math.max(0, Math.min(cards.length - 1, selected));
+      if (selected !== before) highlight();
+      if (m.confirm) cards[selected].__pick();
+    };
+
+    highlight();
+    poll();
+  });
+}
+
+/**
+ * A side-on silhouette per car, drawn rather than rendered.
+ *
+ * A real 3D preview would mean loading all four models to draw the menu, which
+ * is 43 MB to choose one 10 MB car -- the exact opposite of what a car select
+ * screen is for. These are four shapes that read at a glance: a wedge, a
+ * fastback, a long bonnet, a low mid-engined nose.
+ */
+function carSilhouette(car) {
+  const BODY = {
+    alpine:  'M18,74 L34,52 L62,40 L108,36 L152,44 L186,58 L206,74 Z',
+    alfa:    'M16,74 L30,50 L58,36 L104,33 L146,38 L150,52 L192,58 L208,74 Z',
+    charger: 'M12,74 L22,52 L54,44 L92,30 L138,30 L168,46 L210,54 L214,74 Z',
+    ferrari: 'M14,74 L26,56 L58,46 L96,32 L140,34 L176,50 L204,58 L212,74 Z',
+  };
+  const TINT = {
+    alpine: '#9fb6c9', alfa: '#b3452f', charger: '#3b4a63', ferrari: '#c8262c',
+  };
+  const body = BODY[car.id] || BODY.alpine;
+  const tint = TINT[car.id] || '#9fb6c9';
+  return `<svg viewBox="0 0 224 96" preserveAspectRatio="xMidYMid meet">
+    <rect width="224" height="96" fill="#11161d"/>
+    <path d="${body}" fill="${tint}"/>
+    <circle cx="62" cy="74" r="15" fill="#15181c"/>
+    <circle cx="62" cy="74" r="6.5" fill="#3d444d"/>
+    <circle cx="166" cy="74" r="15" fill="#15181c"/>
+    <circle cx="166" cy="74" r="6.5" fill="#3d444d"/>
+    <rect x="0" y="86" width="224" height="10" fill="#0b0e12"/>
+  </svg>`;
 }
 
 /**
@@ -240,6 +359,13 @@ export async function boot() {
   // Pick the circuit before building anything, so the world is created once.
   const trackId = await chooseTrack(input);
   const trackDef = getTrack(trackId);
+
+  // Car after circuit, because which car you want depends on where you are
+  // going -- the Charger is a weapon on Dirt and a liability on Mediterranean.
+  // Choosing the other way round would be picking blind.
+  const carDef = await chooseCar(input, trackDef);
+  applyCarTuning(TUNING, carDef);
+
   prompt.textContent = 'LOADING PHYSICS…';
 
   const renderer = createRenderer();
@@ -267,12 +393,12 @@ export async function boot() {
 
   // The car model is optional: if it's missing or malformed the game still runs
   // on the procedural car, so a bad asset can never stop you driving.
-  prompt.textContent = 'LOADING CAR…';
+  prompt.textContent = `${carDef.name.toUpperCase()} — LOADING…`;
   let carModel = null;
   try {
-    carModel = await loadCarModel(CAR_MODEL_URL);
+    carModel = await loadCarModel(carDef.file);
   } catch (err) {
-    console.warn(`no car model at ${CAR_MODEL_URL}, using the procedural car:`, err);
+    console.warn(`no car model at ${carDef.file}, using the procedural car:`, err);
   }
 
   const hud = new Hud();
