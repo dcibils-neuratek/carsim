@@ -140,12 +140,33 @@ export function buildCarFromModel(loaded, tuning, palette) {
   // triangle, 954 mesh model behave. None of that is this file's business once
   // the model arrives optimised, and every step was a chance to misrepresent
   // what the artist actually made. Optimise the asset, not the loader.
+  // Flat shading is the one thing imposed on the model, and only that: its
+  // colours, maps and material types are left exactly as authored. Smooth
+  // normals on the car against a world of flat-shaded polygons read as a
+  // photoreal object parked in a cartoon, and the car is the thing you look at
+  // for the whole session.
+  //
+  // Materials are shared between parts in a glTF, so each is converted once
+  // and reused -- flipping the flag per part would rebuild the same shader
+  // program repeatedly for no reason.
+  const flattened = new Map();
+  const flatten = (material) => {
+    if (!material) return material;
+    if (!flattened.has(material.uuid)) {
+      const m = material.clone();
+      m.flatShading = true;
+      m.needsUpdate = true;
+      flattened.set(material.uuid, m);
+    }
+    return flattened.get(material.uuid);
+  };
+
   const lift = physicsHubY - modelHubY;
   const bodyMeshes = bodyParts.map(({ geo, material, name }) => {
     const g = geo.clone();
     g.applyMatrix4(transform);
     g.translate(0, lift, 0);
-    const mesh = new THREE.Mesh(g, material);
+    const mesh = new THREE.Mesh(g, flatten(material));
     mesh.castShadow = true;
     mesh.name = material?.name || name || '';
     group.add(mesh);
