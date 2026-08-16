@@ -66,7 +66,7 @@ runs 23.0 m, which is what that page is for.
 
 ## Circuits
 
-Four tracks, chosen from a menu on the boot screen. The choice happens **before
+Five tracks, chosen from a menu on the boot screen. The choice happens **before
 the world is built** — switching later would mean tearing down Rapier colliders
 and the scene graph mid-frame, which is a rich source of bugs for no benefit.
 `T` returns to the menu (a reload, well under a second), or jump straight in
@@ -77,7 +77,17 @@ with `?track=snow`.
 | **Forest** | 1.3 km | 12.0 m | 1.00 | Fast sweepers, a crest over T1, chicane, long hairpin |
 | **Woods** | 0.9 km | 9.2 m | 0.96 | Narrow and twisty, trees crowding the verges, short sightlines |
 | **Snow** | 1.4 km | 15.0 m | **0.55** | Wide and flowing — the hard part is stopping |
+| **Dirt** | 1.1 km | 15.2 m | **0.62** | Gravel. Steer it on the throttle — 74% of a lap is spent sliding |
 | **Mountains** | 1.7 km | 12.4 m | 0.98 | 18 m of climb, then a descent that arrives far too fast |
+
+Dirt is the one that uses the rest of the game hardest: the squeal, the marks,
+the smoke, the body lean and the drift-lead camera all exist to say the car has
+let go, which on tarmac is a warning and on gravel is the technique. It also
+introduced three fields the format was missing, each a tarmac assumption that
+had been hardcoded — `road.centerLine` (gravel has no paint), `surface.squeal`
+(grip and squeal are different properties: rubber squeals on something hard,
+but on dirt the surface gives way first and the tyre scrabbles) and
+`palette.dust` (what the tyres throw is the colour of the ground it came off).
 
 Each is a JSON file under `assets/tracks/`, merged over `defaults.track.json`
 so a circuit only states what makes it different — a hand-laid centerline plus
