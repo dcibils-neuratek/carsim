@@ -147,9 +147,12 @@ export class TyreAudio {
    * Shares the engine's AudioContext and master gain, so muting and volume
    * stay in one place and the browser only ever has one context to unlock.
    */
-  constructor(ctx, master) {
+  constructor(ctx, buses) {
     this.ctx = ctx;
-    this.master = master;
+    // Separate buses so the squeal can be balanced against the engine and the
+    // road rumble against both, from the tuning panel.
+    this.tyreBus = buses?.tyre ?? null;
+    this.roadBus = buses?.road ?? null;
     this.ready = false;
     this.axles = {};
     this.road = null;
@@ -158,7 +161,7 @@ export class TyreAudio {
     // the car is how you find out whether the sound matches the grip.
     this.state = { front: 0, rear: 0, road: 0, slide: 0 };
 
-    if (!ctx || !master) return;
+    if (!ctx || !this.tyreBus || !this.roadBus) return;
 
     try {
       const noise = makeNoiseBuffer(ctx);
@@ -180,7 +183,7 @@ export class TyreAudio {
         const gain = ctx.createGain();
         gain.gain.value = 0;
 
-        source.connect(filter).connect(gain).connect(master);
+        source.connect(filter).connect(gain).connect(this.tyreBus);
         source.start(axle === 'front' ? 0 : 0.37);   // offset, so they differ
 
         this.axles[axle] = { source, filter, gain };
@@ -198,7 +201,7 @@ export class TyreAudio {
       roadFilter.Q.value = 0.7;
       const roadGain = ctx.createGain();
       roadGain.gain.value = 0;
-      roadSource.connect(roadFilter).connect(roadGain).connect(master);
+      roadSource.connect(roadFilter).connect(roadGain).connect(this.roadBus);
       roadSource.start(0.11);
       this.road = { source: roadSource, filter: roadFilter, gain: roadGain };
 

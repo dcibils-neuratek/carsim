@@ -5,14 +5,7 @@
 // the raw axis/button state is surfaced in the debug panel for diagnosis.
 
 import { TUNING } from './tuning.js';
-
-// Standard mapping. Anything reporting mapping !== 'standard' falls back to
-// scanning for analog triggers among the axes.
-const BTN = {
-  A: 0, B: 1, X: 2, Y: 3,
-  LB: 4, RB: 5, LT: 6, RT: 7,
-  BACK: 8, START: 9,
-};
+import { Bindings, MENU } from './bindings.js';
 
 const KEY_STEER_RATE = 3.2;   // how fast a key ramps the virtual stick
 const KEY_RETURN_RATE = 5.0;
@@ -40,6 +33,13 @@ export class Input {
     this._prevButtons = [];
     this._prevKeys = new Set();
     this._anyInputSeen = false;
+
+    // Which pad button does what. Data rather than constants, so the handbrake
+    // can live somewhere the player can actually reach.
+    this.bindings = new Bindings();
+    // When set, the next button press is captured for rebinding instead of
+    // being treated as a control. See beginCapture().
+    this._capture = null;
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -111,20 +111,39 @@ export class Input {
     this.raw.buttons = pad.buttons.map((b) => (typeof b === 'object' ? b.value : b));
 
     const btn = (i) => {
+      if (i === null || i === undefined) return 0;
       const b = pad.buttons[i];
       if (!b) return 0;
       return typeof b === 'object' ? b.value : b;
     };
     const pressed = (i) => btn(i) > 0.5;
     const edge = (i) => pressed(i) && !((this._prevButtons[i] || 0) > 0.5);
+    const bound = (action) => this.bindings.get(action);
+
+    // Rebinding: swallow the press so the car does not lurch while the player
+    // is assigning a button.
+    if (this._capture) {
+      for (let i = 0; i < pad.buttons.length; i++) {
+        if (edge(i)) {
+          const done = this._capture;
+          this._capture = null;
+          this._prevButtons = this.raw.buttons.slice();
+          done(i);
+          break;
+        }
+      }
+      this._prevButtons = this.raw.buttons.slice();
+      s.throttle = 0; s.brake = 0; s.handbrake = 0; s.steer = 0; s.steerRaw = 0;
+      return;
+    }
 
     // Keep the pre-curve value too: seeing raw against curved is how you
     // tell a deadzone problem from a response-curve problem.
     s.steerRaw = pad.axes[0] || 0;
     s.steer = applySteerCurve(s.steerRaw);
 
-    let throttle = btn(BTN.RT);
-    let brake = btn(BTN.LT);
+    let throttle = btn(bound('throttle'));
+    let brake = btn(bound('brake'));
 
     // Some pads (and some browsers) report triggers as axes in -1..1 rather
     // than as analog buttons. If the trigger buttons look dead but a plausible
@@ -137,13 +156,13 @@ export class Input {
 
     s.throttle = clamp01(throttle);
     s.brake = clamp01(brake);
-    s.handbrake = clamp01(btn(BTN.A));
+    s.handbrake = clamp01(btn(bound('handbrake')));
 
-    s.shiftUp = edge(BTN.RB);
-    s.shiftDown = edge(BTN.LB);
-    s.reset = edge(BTN.START);
-    s.camera = edge(BTN.Y);
-    s.toggleGearbox = edge(BTN.BACK);
+    s.shiftUp = edge(bound('shiftUp'));
+    s.shiftDown = edge(bound('shiftDown'));
+    s.reset = edge(bound('reset'));
+    s.camera = edge(bound('camera'));
+    s.toggleGearbox = edge(bound('toggleGearbox'));
 
     this._prevButtons = this.raw.buttons.slice();
 
@@ -153,6 +172,57 @@ export class Input {
     for (let i = 0; i < pad.buttons.length; i++) {
       if (pressed(i)) this._anyInputSeen = true;
     }
+  }
+
+  /**
+   * Capture the next pad button press and hand it to `callback`.
+   *
+   * Used by the rebinding screen. While a capture is pending every control is
+   * held at zero, because otherwise assigning the throttle means flooring it.
+   */
+  beginCapture(callback) { this._capture = callback; }
+  cancelCapture() { this._capture = null; }
+  get capturing() { return this._capture !== null; }
+
+  /**
+   * One-shot menu directions and confirm/back, for driving the UI with a pad.
+   *
+   * Separate from the driving controls and deliberately not rebindable: these
+   * have to work before the player can reach the screen that would rebind
+   * them. Returns nulls when no pad is attached.
+   */
+  readMenu() {
+    const pad = this._findGamepad();
+    const out = { up: false, down: false, left: false, right: false, confirm: false, back: false, pad: !!pad };
+    if (!pad || this._capture) return out;
+
+    const value = (i) => {
+      const b = pad.buttons[i];
+      if (!b) return 0;
+      return typeof b === 'object' ? b.value : b;
+    };
+    const edge = (list) => list.some(
+      (i) => value(i) > 0.5 && !((this._menuPrev?.[i] || 0) > 0.5),
+    );
+
+    // The left stick nudges the selection too, treated as a d-pad with a big
+    // deadzone so a resting thumb cannot walk the menu on its own.
+    const ax = pad.axes[0] || 0;
+    const ay = pad.axes[1] || 0;
+    const stick = { up: ay < -0.6, down: ay > 0.6, left: ax < -0.6, right: ax > 0.6 };
+    const stickEdge = (dir) => stick[dir] && !this._menuStick?.[dir];
+
+    out.up = edge(MENU.up) || stickEdge('up');
+    out.down = edge(MENU.down) || stickEdge('down');
+    out.left = edge(MENU.left) || stickEdge('left');
+    out.right = edge(MENU.right) || stickEdge('right');
+    out.confirm = edge(MENU.confirm);
+    out.back = edge(MENU.back);
+
+    this._menuPrev = pad.buttons.map((b) => (typeof b === 'object' ? b.value : b));
+    this._menuStick = stick;
+    if (out.up || out.down || out.left || out.right || out.confirm) this._anyInputSeen = true;
+    return out;
   }
 
   _readKeyboard(dt, s, hasGamepad) {

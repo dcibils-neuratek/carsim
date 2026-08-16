@@ -196,10 +196,50 @@
     transition: transform .12s ease, border-color .12s ease, background .12s ease;
     text-align: center; overflow: hidden;
   }
-  .trackCard:hover, .trackCard:focus {
+  /* .sel is the gamepad's cursor, and it has to read as strongly as hover:
+     with a pad there is no mouse pointer to tell you where you are. */
+  .trackCard:hover, .trackCard:focus, .trackCard.sel {
     transform: translateY(-3px); border-color: var(--accent);
     background: rgba(255,210,63,.08); outline: none;
   }
+  .trackCard.sel { box-shadow: 0 0 0 2px var(--accent), 0 10px 30px rgba(0,0,0,.5); }
+  /* ---- gamepad binding screen ---- */
+  #padPanel {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    align-items: center; justify-content: center; background: rgba(6,10,15,.82);
+  }
+  #padPanel.on { display: flex; }
+  #padPanel .box {
+    width: min(560px, 92vw); max-height: 86vh; overflow-y: auto;
+    background: #121a23; border: 1px solid #22303e; border-radius: 12px; padding: 20px 22px;
+  }
+  #padPanel h2 { margin: 0 0 3px; font-size: 15px; letter-spacing: 2px; }
+  #padPanel .sub { color: var(--dim); font-size: 11px; margin-bottom: 16px; }
+  #padPanel .row {
+    display: flex; align-items: center; gap: 12px; padding: 7px 10px;
+    border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+  }
+  #padPanel .row:hover { background: rgba(255,255,255,.04); }
+  #padPanel .row.sel { border-color: var(--accent); background: rgba(255,210,63,.08); }
+  #padPanel .row.listening { border-color: var(--accent); background: rgba(255,210,63,.16); }
+  #padPanel .row .lbl { flex: 1; font-size: 13px; }
+  #padPanel .row .hint { color: var(--dim); font-size: 10px; display: block; }
+  #padPanel .row .key {
+    min-width: 74px; text-align: center; padding: 3px 9px; border-radius: 5px;
+    background: #1d2733; border: 1px solid #2c3a4a; font-size: 12px; color: var(--accent);
+  }
+  #padPanel .row.unbound .key { color: var(--danger); border-color: #5a2b2b; }
+  #padPanel .foot {
+    margin-top: 16px; display: flex; gap: 8px; align-items: center;
+    border-top: 1px solid #22303e; padding-top: 14px;
+  }
+  #padPanel .foot .note { flex: 1; color: var(--dim); font-size: 10.5px; line-height: 1.5; }
+  #padPanel button {
+    background: #1a242f; border: 1px solid #2c3a4a; color: var(--dim);
+    padding: 6px 13px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px;
+  }
+  #padPanel button:hover { background: #22303e; color: var(--fg); }
+
   .trackCard .swatch { height: 168px; display: block; width: 100%; line-height: 0; }
   .trackCard .swatch svg { width: 100%; height: 100%; display: block; }
   .trackCard .nm { font-size: 20px; font-weight: 700; letter-spacing: 3px; margin-top: 12px; }
@@ -295,6 +335,22 @@
   <div class="prompt" id="bootPrompt">LOADING…</div>
   <div id="trackMenu"></div>
   <div class="err" id="bootErr"></div>
+</div>
+
+<div id="padPanel">
+  <div class="box">
+    <h2>GAMEPAD</h2>
+    <div class="sub" id="padName">no pad detected — press a button on it</div>
+    <div id="padRows"></div>
+    <div class="foot">
+      <span class="note">
+        Pick an action, then press the button you want on the pad.
+        Navigate with the d-pad, <b>A</b> to rebind, <b>B</b> to close.
+      </span>
+      <button id="padReset">defaults</button>
+      <button id="padClose">close</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">

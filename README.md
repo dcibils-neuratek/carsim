@@ -37,7 +37,7 @@ and fails if the car ever stalls at full throttle. Every "the car hits an
 invisible wall" bug this project has had would have been caught by it
 automatically, without anyone looking at the screen.
 
-Current baseline — **82 of 83 green**:
+Current baseline — **94 of 95 green**:
 
 | | |
 | --- | --- |
@@ -185,11 +185,12 @@ screen is waiting for.
 | Steer | Left stick X | `A` / `D` or arrows |
 | Throttle | Right trigger | `W` / up |
 | Brake / reverse | Left trigger | `S` / down |
-| Handbrake | `A` | `Space` |
-| Shift up / down | `RB` / `LB` | `Shift` / `Ctrl` |
+| Handbrake | `X` | `Space` |
+| Shift up / down | `A` / `B` | `Shift` / `Ctrl` |
 | Auto ↔ manual gearbox | `Back` | `M` |
 | Cycle camera | `Y` | `C` |
 | Respawn on track | `Start` | `R` |
+| Gamepad bindings | — | `B` |
 | Debug telemetry | — | `` ` `` |
 | Tuning panel | — | `G` |
 | Collider wireframes | — | `P` |
@@ -197,6 +198,20 @@ screen is waiting for.
 
 Reverse engages by holding the brake at a standstill; in reverse the two
 triggers swap roles.
+
+Gear shifts sit on **A** and **B** rather than the shoulders: they are the most
+reachable buttons on the pad, and shifting is the thing you do most after
+steering and throttle. That puts the handbrake on **X**, where you can reach it
+mid-corner.
+
+Every one of these is rebindable. `B` opens the binding screen — pick an
+action, press the button you want. It works from the track menu as well as
+in-game, because a player whose pad misbehaves should not have to start a race
+to fix it, and it is navigable with the pad itself for the same reason.
+Bindings persist to `localStorage`. The screen captures whatever index the pad
+actually sends, so pads Chrome does not report as "standard" work too.
+
+The track menu is navigable with the d-pad or left stick, `A` to choose.
 
 ## Layout
 

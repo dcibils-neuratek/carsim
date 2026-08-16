@@ -24,6 +24,7 @@ import { loadTracks, TRACK_IDS, getTrack, hasTrack, registerTrack } from './trac
 import { loadStashedTrack, EDITOR_TRACK_ID } from './editor/state.js';
 import { EngineAudio } from './audio.js';
 import { TyreAudio } from './tyreaudio.js';
+import { PadPanel } from './padui.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -37,7 +38,7 @@ const CAR_MODEL_URL = './assets/car.glb';
  * source of bugs for no benefit. Picking first means the world is constructed
  * exactly once. Changing track is a reload, which costs under a second.
  */
-function chooseTrack() {
+function chooseTrack(input) {
   const requested = new URLSearchParams(location.search).get('track');
 
   // The editor's "drive it" button hands a track over through localStorage
@@ -57,6 +58,14 @@ function chooseTrack() {
   menu.classList.add('on');
 
   return new Promise((resolve) => {
+    const cards = [];
+    let selected = 0;
+
+    const highlight = () => {
+      cards.forEach((c, i) => c.classList.toggle('sel', i === selected));
+      cards[selected]?.focus({ preventScroll: true });
+    };
+
     for (const id of TRACK_IDS) {
       const def = getTrack(id);
       const card = document.createElement('div');
@@ -68,18 +77,56 @@ function chooseTrack() {
         `<div class="tag">${def.tagline}</div>` +
         `<div class="diff">${def.difficulty.toUpperCase()}</div>`;
 
+      const index = cards.length;
       const pick = () => {
         menu.classList.remove('on');
         menu.innerHTML = '';
+        cancelAnimationFrame(raf);
         resolve(id);
       };
       card.addEventListener('click', pick);
+      card.addEventListener('mouseenter', () => { selected = index; highlight(); });
       card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
       });
+      card.__pick = pick;
+      cards.push(card);
       menu.appendChild(card);
     }
-    menu.firstChild?.focus();
+
+    // Gamepad navigation. Chrome hides a pad until a button is pressed, so
+    // this polls rather than waiting on an event -- press anything and the
+    // menu starts responding.
+    //
+    // The cards are a two-column grid, so up/down move by a row and
+    // left/right by one. Hardcoding 2 would break if the layout changed, so
+    // the column count is read back from where the cards actually landed.
+    let raf = 0;
+    const columns = () => {
+      if (cards.length < 2) return 1;
+      const top = cards[0].offsetTop;
+      let n = 0;
+      while (n < cards.length && cards[n].offsetTop === top) n++;
+      return Math.max(1, n);
+    };
+
+    const poll = () => {
+      raf = requestAnimationFrame(poll);
+      const m = input.readMenu();
+      if (!m.pad) return;
+      const cols = columns();
+      const before = selected;
+      if (m.left) selected--;
+      if (m.right) selected++;
+      if (m.up) selected -= cols;
+      if (m.down) selected += cols;
+      selected = Math.max(0, Math.min(cards.length - 1, selected));
+      if (selected !== before) highlight();
+      if (m.confirm) cards[selected].__pick();
+    };
+
+    highlight();
+    poll();
   });
 }
 
@@ -181,8 +228,15 @@ export async function boot() {
     throw err;
   }
 
+  // Input comes up before the menu, not with the car: the menu is the first
+  // thing a player touches and it has to be reachable from the pad.
+  const input = new Input();
+  // Available from the menu onward: a player whose pad does not do what they
+  // expect should not have to start a race to fix it.
+  const padPanel = new PadPanel(input);
+
   // Pick the circuit before building anything, so the world is created once.
-  const trackId = await chooseTrack();
+  const trackId = await chooseTrack(input);
   const trackDef = getTrack(trackId);
   prompt.textContent = 'LOADING PHYSICS…';
 
@@ -216,7 +270,6 @@ export async function boot() {
     console.warn(`no car model at ${CAR_MODEL_URL}, using the procedural car:`, err);
   }
 
-  const input = new Input();
   const hud = new Hud();
   hud.setTrackName(trackDef.name);
   hud.buildMinimap(track.points);
@@ -287,6 +340,9 @@ export async function boot() {
 
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    // The binding screen owns its own keys; the game just stays out of the
+    // way so the car cannot be driven blind behind it.
+    if (padPanel.isOpen) return;
     if (e.code === 'Backquote') hud.toast(hud.toggleDebug() ? 'debug on' : 'debug off');
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
@@ -327,7 +383,7 @@ export async function boot() {
       // Browsers only allow an AudioContext to start from a user gesture, and
       // this is the first one we get.
       audio.start().then(() => {
-        if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.master);
+        if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.buses);
       });
       bootEl.classList.add('hidden');
       hud.toast(state.source === 'gamepad' ? `pad: ${input.describe()}` : 'keyboard — plug in a pad for analog control', 2600);

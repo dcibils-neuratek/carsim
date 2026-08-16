@@ -161,7 +161,14 @@ export const DEFAULTS = {
   },
 
   audio: {
-    volume: 0.6,
+    // Per-source levels, each its own GainNode. One master volume could only
+    // ever turn everything down together, which is useless when the thing you
+    // want is the tyres over the engine.
+    volume: 0.6,        // master
+    engineVolume: 1.0,
+    tyreVolume: 1.0,
+    roadVolume: 1.0,
+    musicVolume: 0.6,   // reserved: the bus exists, nothing feeds it yet
     // Cents of pitch shift per rpm. The samples are recorded around their
     // reference rpm; 1200 cents is an octave.
     pitchPerRpm: 0.19,

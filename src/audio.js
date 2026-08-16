@@ -61,6 +61,17 @@ export class EngineAudio {
       this.master.gain.value = TUNING.audio.volume;
       this.master.connect(this.ctx.destination);
 
+      // Sub-buses hanging off the master, so each source can be balanced
+      // against the others rather than everything moving together. Tyre and
+      // road are handed to TyreAudio; music is wired but unfed.
+      this.buses = {};
+      for (const name of ['engine', 'tyre', 'road', 'music']) {
+        const bus = this.ctx.createGain();
+        bus.gain.value = TUNING.audio[`${name}Volume`] ?? 1;
+        bus.connect(this.master);
+        this.buses[name] = bus;
+      }
+
       await Promise.all(Object.entries(SAMPLES).map(async ([key, def]) => {
         const buffer = await this.ctx.decodeAudioData(
           await (await fetch(def.url)).arrayBuffer(),
@@ -70,7 +81,7 @@ export class EngineAudio {
         source.loop = true;
         const gain = this.ctx.createGain();
         gain.gain.value = 0;
-        source.connect(gain).connect(this.master);
+        source.connect(gain).connect(this.buses.engine);
         source.start();
         this.nodes[key] = { source, gain, ...def };
       }));
@@ -86,11 +97,27 @@ export class EngineAudio {
 
   setMuted(muted) {
     this._muted = muted;
-    if (this.master) this.master.gain.value = muted ? 0 : TUNING.audio.volume;
+    this.applyLevels();
+  }
+
+  /**
+   * Push TUNING.audio levels into the graph. Called every frame so the tuning
+   * panel's sliders are live, which is the only way to balance a mix.
+   */
+  applyLevels() {
+    if (!this.master) return;
+    this.master.gain.value = this._muted ? 0 : TUNING.audio.volume;
+    if (!this.buses) return;
+    for (const name of ['engine', 'tyre', 'road', 'music']) {
+      const bus = this.buses[name];
+      if (bus) bus.gain.value = TUNING.audio[`${name}Volume`] ?? 1;
+    }
   }
 
   update(vehicle, dt) {
-    if (!this.ready || this._muted) return;
+    if (!this.ready) return;
+    this.applyLevels();
+    if (this._muted) return;
     const a = TUNING.audio;
     const e = TUNING.engine;
 

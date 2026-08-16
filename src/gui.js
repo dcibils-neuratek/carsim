@@ -98,11 +98,33 @@ export function createGui({ onRebuild, onToast }) {
   aero.add(TUNING.aero, 'rollingResistance', 0, 150, 1).onChange(save);
   aero.close();
 
-  const snd = gui.addFolder('audio');
-  snd.add(TUNING.audio, 'volume', 0, 1, 0.02).onChange(save);
+  // Per-source levels. Each is its own bus, so these balance sources against
+  // each other rather than just moving everything together -- which is what
+  // you need when the question is "can I hear the tyres over the engine".
+  const mix = gui.addFolder('audio mix');
+  mix.add(TUNING.audio, 'volume', 0, 1, 0.02).name('master').onChange(save);
+  mix.add(TUNING.audio, 'engineVolume', 0, 2, 0.02).name('engine').onChange(save);
+  mix.add(TUNING.audio, 'tyreVolume', 0, 2, 0.02).name('tyres').onChange(save);
+  mix.add(TUNING.audio, 'roadVolume', 0, 2, 0.02).name('road').onChange(save);
+  mix.add(TUNING.audio, 'musicVolume', 0, 2, 0.02).name('music (unused)').onChange(save);
+
+  const snd = gui.addFolder('engine audio');
   snd.add(TUNING.audio, 'pitchPerRpm', 0.05, 0.5, 0.01).name('pitch / rpm').onChange(save);
   snd.add(TUNING.audio, 'blendLowRpm', 500, 6000, 100).name('blend low rpm').onChange(save);
   snd.add(TUNING.audio, 'blendHighRpm', 2000, 9000, 100).name('blend high rpm').onChange(save);
+
+  // The tyre squeal is the car's warning channel, so squealStart -- how much
+  // notice you get before the limit -- is the single most consequential
+  // number in this folder.
+  const tyre = gui.addFolder('tyre audio');
+  tyre.add(TUNING.audio.tyre, 'volume', 0, 1.5, 0.02).onChange(save);
+  tyre.add(TUNING.audio.tyre, 'squealStart', 0.3, 0.95, 0.01).name('squeal starts at').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'slideVolume', 1, 3, 0.05).name('slide loudness').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'freqFront', 400, 2400, 20).name('front pitch').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'freqRear', 400, 2400, 20).name('rear pitch').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'qLoaded', 1, 16, 0.5).name('timbre gripping').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'qSliding', 1, 16, 0.5).name('timbre sliding').onChange(save);
+  tyre.add(TUNING.audio.tyre.road, 'volume', 0, 0.5, 0.01).name('road noise').onChange(save);
   snd.close();
 
   const skid = gui.addFolder('skidmarks');
