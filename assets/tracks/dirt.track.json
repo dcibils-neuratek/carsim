@@ -1,0 +1,90 @@
+{
+  "format": "carsim.track",
+  "version": 1,
+  "id": "dirt",
+  "name": "Dirt",
+  "tagline": "Loose gravel — steer it on the throttle",
+  "difficulty": "Loose",
+  "notes": [
+    "A CLOSED circuit, not a point-to-point stage. Lap timing, the minimap and the closed B-spline all assume the road returns to where it started, so a real rally special stage would need changes well beyond a track file. This is rallycross: a loop with a rally surface.",
+    "The control points are laid out on a POLAR sweep -- ordered by angle around a centre near (60, -55), with the radius swung between 120 m and 200 m to make the corners. Ordering by angle is what makes a closed loop that provably cannot fold through itself, and it sidesteps the failure every hand-drawn layout here has hit: the first attempt at this circuit had a 2.4 m radius kink right at the lap join where the tail doubled back past the start. Move points freely in the editor, but keep them going round in one direction.",
+    "roadGrip 0.62 is the whole design. It sits between Snow's 0.55 and tarmac's 1.0, which is enough to make the car steer on the throttle while still letting a committed driver hold a line. Raising it toward 0.8 makes it a brown race track; dropping it under 0.5 makes it Snow with different colours.",
+    "grassGrip is 0.34 rather than the usual 0.45, and deliberately NOT far below the road: on a gravel stage the verge is the same loose material as the road, so running wide should cost you time and composure without the cliff-edge punishment tarmac gives.",
+    "No centre line and earth-coloured kerbs. A dashed white line down the middle is the single fastest way to make dirt read as badly-coloured tarmac.",
+    "surface.squeal 0.25 because rubber does not squeal on gravel -- the surface gives way before the tyre does. It scrabbles instead, so most of the squeal is taken out even though this circuit slides more than any other.",
+    "The road is WIDER than the tarmac circuits (7.6 vs 6.0) because the car spends most of the lap pointing somewhere other than where it is going. At tarmac width the same slide angle puts you in the scenery, which reads as the track being unfair rather than the surface being loose."
+  ],
+
+  "road": {
+    "halfWidth": 7.6,
+    "curbWidth": 1.2,
+    "centerLine": false,
+    "banking": { "gain": 150, "maxDegrees": 2.5 },
+    "surface": {
+      "roadGrip": 0.62,
+      "grassGrip": 0.34,
+      "squeal": 0.25
+    },
+    "controlPoints": [
+      [255, 0.0, -55],
+      [237, 2.5, 27],
+      [173, 4.0, 79],
+      [91, 2.0, 61],
+      [31, -1.0, 108],
+      [-52, -3.0, 105],
+      [-70, -1.5, 20],
+      [-60, 1.5, -45],
+      [-100, 4.0, -113],
+      [-81, 5.0, -196],
+      [7, 3.0, -201],
+      [71, 0.0, -180],
+      [150, -2.5, -211],
+      [224, -3.0, -170],
+      [252, -1.5, -84]
+    ]
+  },
+
+  "terrain": {
+    "hills": { "amplitude": 1.7, "scale": 0.85 },
+    "envelope": { "slope": 0.07, "roadClearance": 0.18 }
+  },
+
+  "environment": {
+    "fog": { "near": 190, "far": 900 },
+    "sun": {
+      "color": "#ffe9c2",
+      "intensity": 2.5,
+      "position": [90, 95, 30]
+    },
+    "palette": {
+      "sky": "#9fc4dd",
+      "skyHigh": "#4d7fa4",
+      "horizon": "#e3d6bd",
+      "ground": "#7c8a4e",
+      "groundDark": "#5f6b3c",
+      "asphalt": "#8a6f4c",
+      "asphaltEdge": "#6d563a",
+      "curbA": "#9c7a52",
+      "curbB": "#c4a578",
+      "ridge": "#8a7f6a",
+      "trunk": "#4f3d2a",
+      "leaf": "#4a6b34",
+      "post": "#e8e0cf",
+      "postStripe": "#c0522d",
+      "skidmark": "#5a452c",
+      "dust": "#c2a87e"
+    }
+  },
+
+  "scenery": {
+    "trees": {
+      "count": 780,
+      "height": [3.0, 7.5],
+      "radius": [1.3, 2.2],
+      "segments": 5,
+      "clearance": 18
+    },
+    "ridges": { "count": 58, "height": [60, 210], "radius": 980, "jitter": 200 },
+    "posts": { "spacing": 14 }
+  }
+}

@@ -141,11 +141,20 @@ function makeNoiseBuffer(ctx, seconds = 2) {
 }
 
 export class TyreAudio {
-  constructor(ctx, buses, roadGrip = 1) {
+  constructor(ctx, buses, roadGrip = 1, squealMult = 1) {
     this.ctx = ctx;
     // This track's asphalt grip, so "on the road" is judged relative to the
     // surface the circuit is actually made of.
     this.roadGrip = roadGrip;
+    // How much this SURFACE squeals, independent of how much grip it has.
+    //
+    // The two are not the same thing, and treating them as one is what makes a
+    // gravel stage sound like a wet car park. Squeal is rubber gripping and
+    // releasing against something hard; on loose dirt the surface itself gives
+    // way first, so the tyre scrabbles and throws stones instead. A rally
+    // track therefore wants most of this turned down even though it is sliding
+    // far more of the time than any tarmac circuit does.
+    this.squealMult = squealMult;
     // Separate buses so the squeal can be balanced against the engine, and the
     // road rumble against both, from the tuning panel.
     this.tyreBus = buses?.tyre ?? null;
@@ -244,7 +253,7 @@ export class TyreAudio {
       for (const name of ['front', 'rear']) {
         const axle = this.axles[name];
         const m = mix[name];
-        axle.gain.gain.setTargetAtTime(ok(m.gain, 0), now, smoothing);
+        axle.gain.gain.setTargetAtTime(ok(m.gain, 0) * this.squealMult, now, smoothing);
         axle.filter.frequency.setTargetAtTime(ok(m.brightness, 1500), now, smoothing);
         // playbackRate rather than detune: it drags the whole recording,
         // which is what a contact patch moving faster actually does.

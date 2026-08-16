@@ -443,7 +443,10 @@ export async function boot() {
       // this is the first one we get.
       audio.start().then(() => {
         if (audio.ready && !tyreAudio) {
-          tyreAudio = new TyreAudio(audio.ctx, audio.buses, trackDef.surface.roadGrip);
+          tyreAudio = new TyreAudio(
+            audio.ctx, audio.buses,
+            trackDef.surface.roadGrip, trackDef.surface.squeal ?? 1,
+          );
           tyreAudio.load();   // the squeal sample, fetched without holding anything up
         }
         // Started separately and not awaited: the track is megabytes against

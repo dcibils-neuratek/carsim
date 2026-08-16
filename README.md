@@ -53,7 +53,7 @@ Current baseline — **94 of 95 green**:
 | Braking from 100 | 1.36 g, 33 m |
 | Top speed | 257 km/h (7th) |
 | Handbrake | yaw 1.0 → 5.0 rad/s, rear slip 0.5° → 90° |
-| Autopilot lap | all four circuits, never stalls |
+| Autopilot lap | all five circuits, never stalls |
 
 The one failure is the closing-join hairpin on Mountains: 4.4 m radius against
 11.4 needed. It is driveable — the autopilot laps every circuit — but it reads

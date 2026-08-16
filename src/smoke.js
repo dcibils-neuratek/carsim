@@ -28,6 +28,12 @@ export class TyreSmoke {
     // threshold would decide the whole track was grass and never smoke at all.
     this.roadGrip = trackDef?.surface?.roadGrip ?? 1;
 
+    // What the tyres throw up here. Tarmac gives grey rubber smoke; dirt and
+    // sand give dust the colour of the ground they came off, which is the
+    // difference between a rally stage and a race track with brown paint on
+    // it. Falls back to the shared default when a circuit says nothing.
+    this.color = new THREE.Color(trackDef?.palette?.dust ?? TUNING.smoke.color);
+
     this.max = max;
     this.head = 0;
     this.live = 0;
@@ -54,7 +60,7 @@ export class TyreSmoke {
       transparent: true,
       depthWrite: false,          // puffs must not carve holes in each other
       uniforms: {
-        uColor: { value: new THREE.Color(TUNING.smoke.color) },
+        uColor: { value: this.color },
         // Point size is in pixels, so it has to be scaled by the drawing
         // buffer height or the smoke changes size with the window.
         uScale: { value: 300 },

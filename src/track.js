@@ -254,7 +254,7 @@ export class Track {
     // the only collider in the world. See the note in that method.
     this._buildTerrain();
     this._buildRoad();
-    this._buildCenterLine();
+    if (this.def.centerLine !== false) this._buildCenterLine();
     this._buildStartLine();
     this._buildMarkers();
 

@@ -245,6 +245,10 @@ export function normaliseTrack(raw) {
 
     halfWidth: raw.road.halfWidth,
     curbWidth: raw.road.curbWidth,
+    // Painted markings are a sealed-road thing. A gravel stage has none, and
+    // a dashed white line down the middle of one is the single fastest way to
+    // make dirt read as badly-coloured tarmac.
+    centerLine: raw.road.centerLine !== false,
     controlPoints: raw.road.controlPoints.map((p) => [p[0], p[1], p[2]]),
     banking: { ...raw.road.banking },
     surface: { ...raw.road.surface },
