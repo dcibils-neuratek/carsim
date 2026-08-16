@@ -101,18 +101,21 @@ export class Skidmarks {
     const speed = Math.abs(vehicle.speed);
     if (speed < s.minSpeed) return 0;
 
-    const slip = Math.abs(isRear ? vehicle.slipRear : vehicle.slipFront);
-    let intensity = smoothstep(slip, s.slipStart, s.slipFull);
+    // Rubber goes down when the tyre is SLIDING, and that is one measurement
+    // shared with the audio rather than a second opinion.
+    //
+    // This used to be worked out here from the brake pedal and the axle slip
+    // angle, and both were wrong. brakeStartG was 0.55 against a car that
+    // stops at 1.35, so merely slowing for a corner laid rubber. And slip
+    // angle barely moves in this engine -- measured at 0.2 degrees across a
+    // whole skidpad ramp, against a 5.7 degree threshold -- so the cornering
+    // path almost never fired at all. Marks came from the pedal, with no
+    // reference to whether the tyres were anywhere near their limit.
+    let intensity = isRear ? vehicle.telemetry.rearSlide : vehicle.telemetry.frontSlide;
 
-    if (vehicle.brakeInput > 0.15) {
-      intensity = Math.max(intensity, smoothstep(-vehicle.gLong, s.brakeStartG, s.brakeFullG));
-    }
-
+    // The handbrake locks the rears outright, so it marks regardless.
     if (isRear) {
       intensity = Math.max(intensity, (vehicle.handbrakeInput || 0) * 0.95);
-      // Wheelspin: lots of drive force with the car barely moving.
-      const spin = vehicle.driveForce / Math.max(speed * 260, 900);
-      intensity = Math.max(intensity, smoothstep(spin, 1.0, 2.4));
     }
 
     // Grass and gravel don't take rubber. Measured against THIS track's road

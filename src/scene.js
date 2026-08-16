@@ -278,7 +278,11 @@ export function createCarMesh(tuning) {
     wheelMeshes.push(createWheelMesh(tuning.wheels.radius, tuning.wheels.width));
   }
 
-  return { group: car, wheelMeshes, tailMat };
+  // Same hook the GLB path exposes, so the frame loop drives brake lights
+  // through one call whichever car it is looking at.
+  const setBrakeLights = (on) => { tailMat.emissiveIntensity = on ? 1.7 : 0.35; };
+
+  return { group: car, wheelMeshes, tailMat, setBrakeLights };
 }
 
 function createWheelMesh(radius, width) {

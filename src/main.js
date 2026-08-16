@@ -420,7 +420,7 @@ export async function boot() {
 
     // --- render ---
     vehicle.syncMesh(car.group, car.wheelMeshes, stepper.alpha);
-    car.tailMat.emissiveIntensity = vehicle.braking ? 1.7 : 0.35;
+    car.setBrakeLights?.(vehicle.braking);
     skidmarks.update(vehicle);
     audio.update(vehicle, dt);
     if (tyreAudio && !audio.muted) tyreAudio.update(vehicle);

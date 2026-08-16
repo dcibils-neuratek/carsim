@@ -86,12 +86,7 @@ export function tyreMix(vehicle) {
   // Per axle, not shared. Locking the fronts under braking while the rears
   // still grip has to sound different from losing the back end, or "which end
   // went" stops being information the player can act on.
-  const axle = (util, slipSpeed, longAmount, base) => {
-    // "Gone" has two forms and only one of them is a speed. Sideways scrub is
-    // measurable in m/s; longitudinal loss is not (Rapier's wheels spin
-    // kinematically, see telemetry.js), so a locked or spinning tyre shows up
-    // as longitudinal force SATURATION instead. Take whichever is worse.
-    const slide = Math.max(ratio(slipSpeed, t.slideStart, t.slideFull), longAmount);
+  const axle = (util, slide, base) => {
     // The warning, from two independent causes rather than one blended
     // number. Cornering load is the one that means "about to lose the car";
     // locking and wheelspin are a separate event with their own threshold.
@@ -100,7 +95,7 @@ export function tyreMix(vehicle) {
     // made the car squeal almost constantly, because ordinary acceleration
     // spends most of a tyre's longitudinal capacity while nowhere near
     // sliding. Kept apart, each can have the threshold it actually deserves.
-    const load = Math.max(ratio(util, t.squealStart, t.squealFull), longAmount);
+    const load = Math.max(ratio(util, t.squealStart, t.squealFull), slide);
     // Pitch climbs as the tyre loads up, then falls as it lets go. A rising
     // tone that suddenly drops and broadens reads as losing the car without
     // anyone having to be told what it means.
@@ -136,21 +131,10 @@ export function tyreMix(vehicle) {
   const rough = clamp(1 - surface, 0, 1);
   const speedFrac = ratio(speed, 0, t.road.speedFull);
 
-  // Braking and wheelspin need DIFFERENT thresholds, because they sit at
-  // different fractions of capacity in this model. A threshold stop measures
-  // 86-88% of longitudinal capacity, so locking has to be caught below that.
-  // Driving out of a corner also reaches the high 80s at only moderate
-  // throttle while gripping perfectly well -- catching that at the same bar is
-  // what made the car squeal every time it accelerated out of a turn. Real
-  // wheelspin exceeds capacity outright, so the drive side is set past 1.
-  const longAmount = (a, b) => Math.max(...[a, b].map((w) => (
-    w.longitudinal < 0
-      ? ratio(w.longUtil, t.lockStart, t.lockFull)
-      : ratio(w.longUtil, t.spinStart, t.spinFull)
-  )));
-
-  const front = axle(tel.frontUtil, tel.frontSlip, longAmount(tel.wheels[0], tel.wheels[1]), t.freqFront);
-  const rear = axle(tel.rearUtil, tel.rearSlip, longAmount(tel.wheels[2], tel.wheels[3]), t.freqRear);
+  // "Has it let go" comes from telemetry, which is the single definition the
+  // skidmarks use too -- so what you hear and what you see are one event.
+  const front = axle(tel.frontUtil, tel.frontSlide, t.freqFront);
+  const rear = axle(tel.rearUtil, tel.rearSlide, t.freqRear);
 
   return {
     front,

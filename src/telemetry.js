@@ -37,6 +37,9 @@ export const AT_LIMIT = 0.97;
 // newtons. About 2% of the car's weight. See the note where it is used.
 const MIN_MEANINGFUL_LOAD = 220;
 
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function ratio(v, start, end) { return clamp((v - start) / (end - start), 0, 1); }
+
 function makeWheel() {
   return {
     contact: false,
@@ -73,6 +76,9 @@ export class Telemetry {
     this.slipSpeed = 0;      // m/s, worst contact patch on the car, any direction
     this.frontSlip = 0;      // m/s, worst front tyre
     this.rearSlip = 0;       // m/s, worst rear tyre
+    // 0..1 "this axle has let go", shared by audio and skidmarks.
+    this.frontSlide = 0;
+    this.rearSlide = 0;
     this._prevRotation = [0, 0, 0, 0];
     this._haveRotation = false;
 
@@ -245,6 +251,36 @@ export class Telemetry {
     this.slipSpeed = live ? worst : 0;
     this.frontSlip = live ? worstFront : 0;
     this.rearSlip = live ? worstRear : 0;
+
+    // --- has this axle let go? ----------------------------------------------
+    //
+    // ONE definition, used by both the tyre audio and the skidmarks. They used
+    // to compute it separately -- audio from friction utilisation, marks from
+    // brake-pedal g and axle slip angle -- and so disagreed constantly: rubber
+    // on the road with no sound, or a slide you could hear that left no mark.
+    //
+    // Two independent causes, taken at their worst. Sideways scrub is a real
+    // speed and is measurable. Locking and wheelspin are not, because Rapier
+    // spins its wheels kinematically and a locked wheel keeps turning in the
+    // model, so those are read from longitudinal force saturation instead --
+    // with a lower bar for braking than for driving, since a threshold stop
+    // and a corner exit sit at similar fractions of capacity but only one of
+    // them is actually sliding.
+    this.frontSlide = live ? this._slideAmount(worstFront, 0, 1) : 0;
+    this.rearSlide = live ? this._slideAmount(worstRear, 2, 3) : 0;
+  }
+
+  _slideAmount(scrub, a, b) {
+    const t = TUNING.tyres;
+    let amount = ratio(scrub, t.slideStart, t.slideFull);
+    for (const i of [a, b]) {
+      const w = this.wheels[i];
+      if (!w.contact) continue;
+      amount = Math.max(amount, w.longitudinal < 0
+        ? ratio(w.longUtil, t.lockStart, t.lockFull)
+        : ratio(w.longUtil, t.spinStart, t.spinFull));
+    }
+    return amount;
   }
 
   /** Raw and post-curve steering, so the input pipeline is visible. */

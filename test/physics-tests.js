@@ -1024,6 +1024,15 @@ async function testTyreAudioLevels(r) {
   r.log(`  gripping ${gripRms.toFixed(3)} RMS, sliding ${slideRms.toFixed(3)} RMS`);
 }
 
+/** The shared slide definition from TUNING.tyres, for the stand-in vehicle. */
+function slideOf(scrub, longUtil = 0) {
+  const t = TUNING.tyres;
+  const span = (v, a, b) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+  // Positive longitudinal in the stand-in, so the spin thresholds apply.
+  return Math.max(span(scrub, t.slideStart, t.slideFull),
+                  span(longUtil, t.spinStart, t.spinFull));
+}
+
 /** A stand-in vehicle, for exercising the mix at states a skidpad won't reach. */
 function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, longUtil }) {
   return {
@@ -1037,6 +1046,10 @@ function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, long
       // Slip is per axle now, so both ends can be in different states.
       frontSlip: frontSlip ?? slipSpeed ?? 0,
       rearSlip: rearSlip ?? slipSpeed ?? 0,
+      // "Has it let go", derived through the same thresholds the real
+      // telemetry uses, so the stand-in cannot drift from the real thing.
+      frontSlide: slideOf(frontSlip ?? slipSpeed ?? 0, longUtil),
+      rearSlide: slideOf(rearSlip ?? slipSpeed ?? 0, longUtil),
       // Longitudinal saturation stands in for locking and wheelspin.
       wheels: [0, 1, 2, 3].map(() => ({ longUtil: longUtil ?? 0, longitudinal: 0 })),
     },

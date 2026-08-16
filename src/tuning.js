@@ -229,29 +229,6 @@ export const DEFAULTS = {
 
       // Past the limit, driven by scrub speed rather than utilisation, which
       // is clamped and so says nothing about how far gone you are.
-      // m/s of sideways scrub at the axle. 0.6 was far too low: a car merely
-      // cornering at 1 g carries ~0.5 m/s of axle lateral velocity from its
-      // own slip angle, so the slide term fired through ordinary turns and
-      // took the volume with it. At 2.0 m/s and 24 m/s road speed that is
-      // about 5 degrees of slip, which is genuinely sliding.
-      slideStart: 2.0,
-      slideFull: 6.0,
-      // Locking and wheelspin, read from longitudinal force saturation rather
-      // than from speed, because Rapier's wheels spin kinematically and never
-      // actually lock. 1.0 is exactly at the tyre's longitudinal capacity.
-      //
-      // Measured: a threshold stop at 1.35 g sits at 86-88% of capacity, and a
-      // first-gear launch spins the rears past 100%. 0.86 puts the squeal at
-      // the point the brakes are genuinely at the tyres' limit -- which is
-      // also where skidmarks start -- without firing on ordinary slowing down.
-      lockStart: 0.86,
-      lockFull: 1.00,
-      // Wheelspin, which is the DRIVE direction and needs a higher bar.
-      // Accelerating out of a corner reaches the high 80s of longitudinal
-      // capacity at moderate throttle while gripping perfectly well; only
-      // genuine spin exceeds capacity outright.
-      spinStart: 1.02,
-      spinFull: 1.25,
       slideVolume: 1.7,   // sliding is louder than working hard
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
 
@@ -267,15 +244,43 @@ export const DEFAULTS = {
     },
   },
 
+  // What counts as a tyre losing grip, shared by the audio and the skidmarks.
+  //
+  // These used to live in two places with two different definitions: the audio
+  // keyed on friction utilisation while the marks keyed on brake pedal g and
+  // axle slip angle. They disagreed constantly -- you would see rubber with no
+  // sound, or hear a slide that left nothing on the road. One definition means
+  // what you hear and what you see are the same event.
+  tyres: {
+    // m/s of sideways scrub at the axle. A car merely cornering at 1 g carries
+    // ~0.5 m/s from its own slip angle, so anything near that fires through
+    // ordinary turns. 2.0 m/s at road speed is about 5 degrees of slip.
+    slideStart: 2.0,
+    slideFull: 6.0,
+
+    // Locking, from longitudinal force saturation rather than from speed:
+    // Rapier spins its wheels kinematically, so a locked wheel keeps rotating
+    // and slip speed can never see it. A threshold stop measures 86-88% of
+    // longitudinal capacity.
+    lockStart: 0.86,
+    lockFull: 1.00,
+
+    // Wheelspin needs a higher bar than locking. Accelerating out of a corner
+    // reaches the high 80s at moderate throttle while gripping perfectly well;
+    // only genuine spin exceeds capacity outright.
+    spinStart: 1.02,
+    spinFull: 1.25,
+  },
+
   skidmarks: {
     enabled: true,
     opacity: 0.55,
     lift: 0.015,        // metres above the road, to avoid z-fighting
     minSpeed: 2.0,      // m/s below which nothing is laid down
-    slipStart: 0.10,    // rad of axle slip where marks begin (~6 deg)
-    slipFull: 0.30,     // ~17 deg: fully black
-    brakeStartG: 0.55,  // deceleration where the tyres start to protest
-    brakeFullG: 1.05,
+    // What counts as sliding now lives in TUNING.tyres, shared with the audio.
+    // The old slipStart/slipFull/brakeStartG/brakeFullG are gone rather than
+    // left inert: config that no longer does anything is worse than none,
+    // because someone will eventually turn it and wonder why nothing changes.
   },
 
   world: {

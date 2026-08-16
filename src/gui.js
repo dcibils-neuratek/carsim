@@ -131,10 +131,14 @@ export function createGui({ onRebuild, onToast }) {
   const skid = gui.addFolder('skidmarks');
   skid.add(TUNING.skidmarks, 'enabled').onChange(save);
   skid.add(TUNING.skidmarks, 'opacity', 0, 1, 0.02).onChange(save);
-  skid.add(TUNING.skidmarks, 'slipStart', 0.02, 0.5, 0.01).name('slip start (rad)').onChange(save);
-  skid.add(TUNING.skidmarks, 'slipFull', 0.05, 0.8, 0.01).name('slip full (rad)').onChange(save);
-  skid.add(TUNING.skidmarks, 'brakeStartG', 0.1, 1.5, 0.05).name('brake start (g)').onChange(save);
-  skid.add(TUNING.skidmarks, 'brakeFullG', 0.2, 2.0, 0.05).name('brake full (g)').onChange(save);
+  // Marks and squeal are one condition seen two ways, so their thresholds are
+  // one set of controls rather than two that can disagree.
+  const tyres = gui.addFolder('sliding (marks + squeal)');
+  tyres.add(TUNING.tyres, 'slideStart', 0.2, 6, 0.1).name('scrub start (m/s)').onChange(save);
+  tyres.add(TUNING.tyres, 'slideFull', 1, 12, 0.1).name('scrub full (m/s)').onChange(save);
+  tyres.add(TUNING.tyres, 'lockStart', 0.5, 1.2, 0.01).name('locking start').onChange(save);
+  tyres.add(TUNING.tyres, 'spinStart', 0.8, 1.6, 0.01).name('wheelspin start').onChange(save);
+  tyres.close();
   skid.add(TUNING.skidmarks, 'minSpeed', 0, 10, 0.5).name('min speed (m/s)').onChange(save);
   skid.close();
 

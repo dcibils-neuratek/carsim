@@ -14,6 +14,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Node names whose geometry is wheels rather than bodywork.
+// Named light clusters, if a model happens to have them.
+const TAIL_NAME = /tail|rear.?light|brake.?light|stop.?light/i;
 const WHEEL_NAME = /tire|tyre|wheel|rim/i;
 
 export async function loadCarModel(url) {
@@ -23,9 +25,11 @@ export async function loadCarModel(url) {
 
   // Pull every mesh into a flat list, baked into world space, so we can stop
   // caring about the exporter's node hierarchy and unit conventions.
-  const bodyGeoms = [];
+  // Each part keeps its OWN material. The model is painted by whoever made it
+  // -- body colour, glass, lights, trim -- and merging everything under one
+  // material threw all of that away and repainted the car a flat red.
+  const bodyParts = [];
   const wheelGeoms = [];
-  let material = null;
 
   root.traverse((o) => {
     if (!o.isMesh || !o.geometry) return;
@@ -35,11 +39,11 @@ export async function loadCarModel(url) {
     for (let n = o; n; n = n.parent) {
       if (n.name && WHEEL_NAME.test(n.name)) { isWheel = true; break; }
     }
-    (isWheel ? wheelGeoms : bodyGeoms).push(geo);
-    if (!material) material = o.material;
+    if (isWheel) wheelGeoms.push(geo);
+    else bodyParts.push({ geo, material: o.material, name: o.name || '' });
   });
 
-  return { bodyGeoms, wheelGeoms, material, gltf };
+  return { bodyParts, wheelGeoms, gltf };
 }
 
 /**
@@ -47,8 +51,8 @@ export async function loadCarModel(url) {
  * Returns the same shape as scene.js createCarMesh().
  */
 export function buildCarFromModel(loaded, tuning, palette) {
-  const { bodyGeoms, wheelGeoms } = loaded;
-  const all = bodyGeoms.concat(wheelGeoms);
+  const { bodyParts, wheelGeoms } = loaded;
+  const all = bodyParts.map((p) => p.geo).concat(wheelGeoms);
   if (!all.length) throw new Error('model contained no meshes');
 
   // --- work out the model's own orientation and size ---
@@ -94,7 +98,6 @@ export function buildCarFromModel(loaded, tuning, palette) {
     return c;
   });
 
-  const body = bake(bodyGeoms);
   const wheels = bake(wheelGeoms);
 
   // --- split the merged wheel mesh into four ---
@@ -102,10 +105,6 @@ export function buildCarFromModel(loaded, tuning, palette) {
 
   // --- assemble ---
   const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: palette.carBody, flatShading: true, roughness: 0.45, metalness: 0.25,
-    vertexColors: false,
-  });
 
   // Line the shell up with where the physics actually puts the wheels.
   //
@@ -121,12 +120,21 @@ export function buildCarFromModel(loaded, tuning, palette) {
     (sum, g) => sum + (g.userData.hub ? g.userData.hub.y : 0), 0,
   ) / (wheelParts.length || 1);
 
-  const bodyGeo = mergeGeometries(body);
-  bodyGeo.translate(0, physicsHubY - modelHubY, 0);
-
-  const bodyMesh = new THREE.Mesh(bodyGeo, mat);
-  bodyMesh.castShadow = true;
-  group.add(bodyMesh);
+  // One mesh per part, each with the material it shipped with, rather than one
+  // merged mesh under a single colour. Costs a handful of draw calls and buys
+  // the car its actual paint.
+  const lift = physicsHubY - modelHubY;
+  const bodyMeshes = bodyParts.map(({ geo, material, name }) => {
+    const g = geo.clone();
+    g.applyMatrix4(transform);
+    g.translate(0, lift, 0);
+    const m = new THREE.Mesh(g, material);
+    m.castShadow = true;
+    m.name = name;
+    group.add(m);
+    return m;
+  });
+  const bodyMesh = bodyMeshes[0] || null;
 
   const wheelMat = new THREE.MeshStandardMaterial({
     color: 0x1a1c20, flatShading: true, roughness: 0.9, metalness: 0.05,
@@ -137,18 +145,30 @@ export function buildCarFromModel(loaded, tuning, palette) {
     return m;
   });
 
-  // Taillights: reuse the body material slot; the imported model has one
-  // material, so brake lights are faked with a small emissive strip.
-  const tailMat = new THREE.MeshStandardMaterial({
-    color: 0x8c1a1a, emissive: 0xff2222, emissiveIntensity: 0.35, flatShading: true,
-  });
-  for (const sx of [-1, 1]) {
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.10, 0.06), tailMat);
-    tail.position.set(sx * 0.42, -0.02, -tuning.chassis.halfLength + 0.02);
-    group.add(tail);
-  }
+  // Brake lights.
+  //
+  // The old approach bolted two emissive boxes onto the back of the model at
+  // guessed coordinates. On a shell that already has its own light clusters
+  // that read as exactly what it was -- two red bricks floating over the
+  // bodywork -- so they are gone.
+  //
+  // The logic is kept, because the right version is close: now that parts
+  // carry their own materials, a real brake light is a matter of finding the
+  // cluster by name and driving ITS emissive. Nothing in this model is named
+  // for its lights, so setBrakeLights is a no-op here and the hook stays for
+  // when a model arrives that is.
+  const tailMats = bodyParts
+    .map((p, i) => (TAIL_NAME.test(p.name) ? bodyMeshes[i]?.material : null))
+    .filter(Boolean);
 
-  return { group, wheelMeshes, tailMat, bodyMesh };
+  const setBrakeLights = (on) => {
+    for (const m of tailMats) {
+      m.emissive?.setHex(0xff2222);
+      m.emissiveIntensity = on ? 1.7 : 0.0;
+    }
+  };
+
+  return { group, wheelMeshes, bodyMesh, bodyMeshes, setBrakeLights, tailMats };
 }
 
 /**
