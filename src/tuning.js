@@ -169,6 +169,50 @@ export const DEFAULTS = {
     blendHighRpm: 5200,   // above this, only the "high" ones
     responsiveness: 14,   // how fast rpm/throttle tracking follows the physics
     smoothing: 0.02,      // gain ramp time, keeps crossfades from clicking
+
+    // Tyre audio. This is the car's warning channel -- with no force feedback
+    // through a wheel, it is the only thing that can tell you the limit is
+    // coming rather than that it has already arrived. See src/tyreaudio.js.
+    tyre: {
+      volume: 0.55,
+      minSpeed: 2.5,      // m/s below which tyres are silent
+
+      // The warning window. squealStart is the important number in this whole
+      // block: it is how much notice you get. At 0.60 the tyre starts talking
+      // when it still has 40% of its grip in hand. Raise it and the car goes
+      // quiet until it is too late; lower it and it squeals constantly and the
+      // signal stops meaning anything.
+      squealStart: 0.58,
+      squealFull: 1.0,
+
+      // Front and rear are deliberately far apart in pitch. This is what lets
+      // you hear WHICH end let go, and so which way to correct.
+      freqFront: 1320,
+      freqRear: 880,
+      freqRise: 0.28,     // how far the pitch climbs as the tyre loads up
+
+      // Timbre. High Q is a narrow, tonal squeal -- a tyre gripping hard. Low
+      // Q is broadband scrub -- a tyre that has gone.
+      qLoaded: 9.0,
+      qSliding: 2.0,
+
+      // Past the limit, driven by scrub speed rather than utilisation, which
+      // is clamped and so says nothing about how far gone you are.
+      slideStart: 0.6,    // m/s of scrub where it starts to open up
+      slideFull: 4.5,     // m/s for a fully "gone" sound
+      slideVolume: 1.7,   // sliding is louder than working hard
+      slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
+
+      road: {
+        volume: 0.16,
+        freq: 430,        // lowpass corner on tarmac
+        speedFull: 55,    // m/s at which road noise is at full volume
+        roughBoost: 1.4,  // extra gain off-surface (grass, snow, gravel)
+        roughDamp: 0.55,  // and duller: corner drops to 55% off-surface
+      },
+
+      smoothing: 0.035,   // ramp time; longer than the engine's, tyres swell
+    },
   },
 
   skidmarks: {

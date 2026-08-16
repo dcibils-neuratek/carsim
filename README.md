@@ -212,6 +212,7 @@ triggers swap roles.
 | `src/editor/` | The track editor: plan view, elevation, inspector, 3D preview |
 | `src/tuning.js` | Every physics constant, plus save/load |
 | `src/telemetry.js` | Per-wheel tyre load, force and friction utilisation |
+| `src/tyreaudio.js` | Synthesised tyre squeal and road noise |
 | `src/input.js` | Gamepad and keyboard |
 | `src/scene.js` | Renderer, lights, sky, car mesh |
 | `src/camera.js` | Chase / hood / orbit cameras |
@@ -305,6 +306,33 @@ only the *lateral* number is genuinely clamped to 1. The **spin** column
 (longitudinal) reads over 100% under wheelspin or a locked wheel — that is real
 and useful, but it is why the friction-ellipse figure is for reading rather
 than for driving anything from.
+
+## Tyre audio
+
+With no wheel to feel, sound is the only channel that can tell you the limit is
+*coming* rather than that it has arrived. `src/tyreaudio.js` synthesises it —
+white noise through a resonant bandpass, because that is physically what a
+squeal is.
+
+Two signals drive it, doing different jobs:
+
+- **Utilisation** climbs 0→1 as the tyre loads up. This is the **warning**, and
+  it arrives before the limit. Squeal starts at `squealStart` (0.58), so the
+  tyre begins talking with 40% of its grip still in hand.
+- **Scrub speed** is ~0 while gripping and grows once sliding. This is the
+  **confirmation**. Utilisation is clamped, so it pins at 1.0 and says nothing
+  about how far past the limit you are.
+
+Together they give a sound that *rises* before the limit and *changes
+character* after it. Q is the trick: narrow and tonal is a tyre gripping hard,
+broad and low is one that has gone.
+
+Front and rear are separate voices, 1320 Hz and 880 Hz, so you can hear **which
+end** let go and correct the right way.
+
+Measured on a skidpad ramp: **2.3 s between the tyre becoming audible and
+saturating**, silent below 40% utilisation. `testTyreAudioWarning` guards that.
+All of it is in `TUNING.audio.tyre` and live in the `G` panel.
 
 ## Handling checks
 

@@ -264,7 +264,7 @@ export class Hud {
 
   updateDebug(ctx) {
     if (!this.debugVisible) return;
-    const { vehicle, stepper, input, projection, camera, lapTimer } = ctx;
+    const { vehicle, stepper, input, projection, camera, lapTimer, tyreAudio } = ctx;
     const deg = (r) => (r * 180 / Math.PI).toFixed(1);
 
     const lines = [];
@@ -316,6 +316,18 @@ export class Hud {
       `scrub ${t.slipSpeed.toFixed(2)} m/s`,
     );
     lines.push(`airborne ${vehicle.airborne ? 'yes' : 'no'}`);
+
+    // What the tyres actually sound like. Worth having next to the grip
+    // figures: it is how you check the warning is arriving with the loss of
+    // grip rather than after it.
+    if (tyreAudio?.ready) {
+      const s = tyreAudio.state;
+      lines.push(
+        `tyre snd front ${meter(s.front / TUNING.audio.tyre.volume)} ` +
+        `rear ${meter(s.rear / TUNING.audio.tyre.volume)}  ` +
+        `slide ${(s.slide * 100).toFixed(0)}%  road ${s.road.toFixed(2)}`,
+      );
+    }
     lines.push('');
     lines.push(`lateral  ${projection.lateral.toFixed(2)} m from centerline`);
     lines.push(`progress ${(projection.progress * 100).toFixed(1)}%   sectors ${lapTimer.sectorsHit.size}/2   laps ${lapTimer.lapCount}`);

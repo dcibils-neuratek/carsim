@@ -23,6 +23,7 @@ import { Skidmarks } from './skidmarks.js';
 import { loadTracks, TRACK_IDS, getTrack, hasTrack, registerTrack } from './tracks.js';
 import { loadStashedTrack, EDITOR_TRACK_ID } from './editor/state.js';
 import { EngineAudio } from './audio.js';
+import { TyreAudio } from './tyreaudio.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -201,6 +202,9 @@ export async function boot() {
   const debug = new PhysicsDebug(scene);
   const skidmarks = new Skidmarks(scene, 2400, trackDef);
   const audio = new EngineAudio();
+  // Built once the engine's AudioContext exists, so both share one context
+  // and one master gain -- mute and volume stay in a single place.
+  let tyreAudio = null;
 
   // The car model is optional: if it's missing or malformed the game still runs
   // on the procedural car, so a bad asset can never stop you driving.
@@ -322,7 +326,9 @@ export async function boot() {
       started = true;
       // Browsers only allow an AudioContext to start from a user gesture, and
       // this is the first one we get.
-      audio.start();
+      audio.start().then(() => {
+        if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.master);
+      });
       bootEl.classList.add('hidden');
       hud.toast(state.source === 'gamepad' ? `pad: ${input.describe()}` : 'keyboard — plug in a pad for analog control', 2600);
     }
@@ -354,6 +360,7 @@ export async function boot() {
     car.tailMat.emissiveIntensity = vehicle.braking ? 1.7 : 0.35;
     skidmarks.update(vehicle);
     audio.update(vehicle, dt);
+    if (tyreAudio && !audio.muted) tyreAudio.update(vehicle);
 
     carPos.copy(car.group.position);
     const projection = track.project(carPos);
@@ -387,7 +394,7 @@ export async function boot() {
     debug.update(world);
 
     hud.update(dt, vehicle, lapTimer);
-    hud.updateDebug({ vehicle, stepper, input, projection, camera: carCamera, lapTimer });
+    hud.updateDebug({ vehicle, stepper, input, projection, camera: carCamera, lapTimer, tyreAudio });
 
     renderer.render(scene, camera);
   }

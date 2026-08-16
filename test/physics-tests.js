@@ -23,6 +23,8 @@ import {
   TrackFormatError,
 } from '../src/trackfile.js';
 import { validateTrack, LIMITS } from '../src/trackcheck.js';
+import { tyreMix } from '../src/tyreaudio.js';
+import { AT_LIMIT } from '../src/telemetry.js';
 
 const DT = TUNING.world.fixedStep;
 const CHUNK = 400;              // steps between yields, keeps the page alive
@@ -319,6 +321,7 @@ export async function runAll(el) {
   await testBraking(ctx, r);
   await testTopSpeed(ctx, r);
   await testUtilisationSignal(ctx, r);
+  await testTyreAudioWarning(ctx, r);
   await testHandbrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
@@ -692,6 +695,94 @@ async function testUtilisationSignal(ctx, r) {
     `rear slip is ${slipAtWarn.toFixed(2)} deg when utilisation first hits 60%`);
 
   r.log(`  peak utilisation ${maxUtil.toFixed(2)}, peak rear slip ${maxSlip.toFixed(1)} deg`);
+}
+
+/**
+ * Phase 2.1: does the tyre audio warn before the limit, or only report it?
+ *
+ * The whole reason tyre sound exists in this project is to replace the force
+ * feedback a wheel would give -- so the question that matters is not "does it
+ * make a noise when sliding" (easy, and useless) but "how much notice does it
+ * give". That is measurable: run the same skidpad ramp Gate 0 used, and find
+ * the gap between the tyre first becoming audible and the tyre saturating.
+ *
+ * The plan's design target is ~400 ms of warning. At 120 Hz that is 48 steps.
+ */
+async function testTyreAudioWarning(ctx, r) {
+  r.section('tyre audio warning window (phase 2.1)');
+  const { world } = ctx;
+  const pad = makePad(world);
+  const car = new Vehicle(world, RAPIER, pad.spawn(8000));
+  const padCtx = { world, track: ctx.track, vehicle: car, grip: null };
+
+  await run(padCtx, 90);
+
+  let firstAudible = -1;
+  let firstAtLimit = -1;
+  let step = 0;
+  const mixes = [];
+
+  // A touch more lock than the Gate 0 ramp uses. That one is deliberately so
+  // gentle the tyre never quite saturates, which is right for measuring the
+  // shape of the signal but useless here: with no saturation there is no limit
+  // to measure the warning against.
+  await run(padCtx, 4200, () => input({ throttle: 0.5, steer: 0.16 }), (v) => {
+    const mix = tyreMix(v);
+    mixes.push({ step, mix, util: v.telemetry.frontUtil });
+    if (firstAudible < 0 && mix.front.gain > 0.01) firstAudible = step;
+    if (firstAtLimit < 0 && v.telemetry.frontUtil >= AT_LIMIT) firstAtLimit = step;
+    step++;
+  });
+  car.dispose();
+  pad.remove();
+
+  const dt = TUNING.world.fixedStep;
+  const warningMs = (firstAudible >= 0 && firstAtLimit > firstAudible)
+    ? (firstAtLimit - firstAudible) * dt * 1000
+    : 0;
+
+  r.results.tyreAudio = { firstAudible, firstAtLimit, warningMs };
+
+  r.check('tyres become audible before they saturate',
+    firstAudible >= 0 && firstAtLimit > firstAudible,
+    `audible at step ${firstAudible}, limit at ${firstAtLimit}`);
+
+  r.check('the warning window is usable (>250 ms)',
+    warningMs > 250, `${warningMs.toFixed(0)} ms of notice`);
+
+  // Silence while the car is comfortably within grip. A tyre that sings all
+  // the time carries no information -- the signal has to have an off state.
+  const quiet = mixes.filter((m) => m.util < 0.4).every((m) => m.mix.front.gain < 0.001);
+  r.check('silent well inside the limit', quiet,
+    'no squeal below 40% utilisation');
+
+  // Front and rear have to be tellable apart, or "which end let go" is not
+  // information the player can act on.
+  const sep = Math.abs(TUNING.audio.tyre.freqFront - TUNING.audio.tyre.freqRear);
+  const ratioFR = TUNING.audio.tyre.freqFront / TUNING.audio.tyre.freqRear;
+  r.check('front and rear are distinguishable by pitch',
+    ratioFR > 1.25, `${sep.toFixed(0)} Hz apart, a ratio of ${ratioFR.toFixed(2)}`);
+
+  // Past the limit the character must change, not just the volume: that is
+  // what separates "loaded" from "gone" by ear.
+  const gripping = tyreMix(fakeVehicle({ frontUtil: 0.8, rearUtil: 0.8, slipSpeed: 0 }));
+  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 5 }));
+  r.check('timbre opens up once sliding',
+    sliding.front.q < gripping.front.q * 0.5 && sliding.front.freq < gripping.front.freq,
+    `Q ${gripping.front.q.toFixed(1)} -> ${sliding.front.q.toFixed(1)}, ` +
+    `${gripping.front.freq.toFixed(0)} -> ${sliding.front.freq.toFixed(0)} Hz`);
+
+  r.log(`  warning window ${warningMs.toFixed(0)} ms before saturation`);
+}
+
+/** A stand-in vehicle, for exercising the mix at states a skidpad won't reach. */
+function fakeVehicle({ frontUtil, rearUtil, slipSpeed }) {
+  return {
+    speed: 30,
+    airborne: false,
+    gripMult: [1, 1, 1, 1],
+    telemetry: { frontUtil, rearUtil, slipSpeed },
+  };
 }
 
 // The handbrake has to be a steering tool, not just a brake: pulling it should
