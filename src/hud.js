@@ -1,13 +1,10 @@
-// DOM overlay: speed cluster, tach, lap times, toast, and the debug readout.
+// DOM overlay: the twin-dial cluster, lap times, toast, and the debug readout.
 
 import { TUNING } from './tuning.js';
 import { formatTime } from './laptimer.js';
 
 const WHEEL_NAMES = ['FL', 'FR', 'RL', 'RR'];
 
-// Tachometer dial geometry: a 240 degree sweep starting at the lower left.
-const TACH_START = -210;
-const TACH_SWEEP = 240;
 const G_SCALE = 1.5;      // g at the outer ring of the g-meter
 
 function THREE_clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -37,21 +34,66 @@ function meter(v) {
   return `[${out}]`;
 }
 
-function tachPoint(angleDeg, radius = 50) {
-  const rad = (angleDeg * Math.PI) / 180;
-  return `${(60 + Math.sin(rad) * radius).toFixed(2)} ${(60 - Math.cos(rad) * radius).toFixed(2)}`;
+// Both dials sweep 250 degrees, starting at the lower left and running
+// clockwise -- the layout the real cluster uses, and the reason a needle at
+// rest sits pointing down-left rather than straight down.
+const DIAL_START = -125;
+const DIAL_SWEEP = 250;
+
+/** A point on a dial, angle measured from 12 o'clock, clockwise positive. */
+function dialPoint(angleDeg, radius, cx = 100, cy = 100) {
+  const a = (angleDeg * Math.PI) / 180;
+  return [cx + Math.sin(a) * radius, cy - Math.cos(a) * radius];
+}
+
+/**
+ * Build the ticks and numerals for a dial from its real range.
+ *
+ * Generated rather than authored so the face can never disagree with the car:
+ * change the redline or the top speed in tuning and the dial redraws to match.
+ */
+function buildDial(ticksEl, numsEl, { max, step, minorPer, labelEvery, small }) {
+  const ticks = [];
+  const nums = [];
+  const steps = Math.round(max / step);
+
+  for (let i = 0; i <= steps * minorPer; i++) {
+    const frac = i / (steps * minorPer);
+    const major = i % minorPer === 0;
+    const a = DIAL_START + frac * DIAL_SWEEP;
+    const [x1, y1] = dialPoint(a, major ? 74 : 79);
+    const [x2, y2] = dialPoint(a, 87);
+    ticks.push(`<line class="tick${major ? ' major' : ''}" x1="${x1.toFixed(1)}" ` +
+               `y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" ` +
+               `stroke-width="${major ? 2.6 : 1.2}"/>`);
+
+    if (major) {
+      const value = (i / minorPer) * step;
+      if (value % labelEvery === 0) {
+        const [nx, ny] = dialPoint(a, 60);
+        nums.push(`<text class="num${small ? ' small' : ''}" x="${nx.toFixed(1)}" ` +
+                  `y="${ny.toFixed(1)}">${value}</text>`);
+      }
+    }
+  }
+  ticksEl.innerHTML = ticks.join('');
+  numsEl.innerHTML = nums.join('');
 }
 
 export class Hud {
   constructor() {
     this.el = {
-      speed: document.querySelector('#speed .val'),
-      gear: document.getElementById('gear'),
       tach: document.getElementById('tach'),
-      tachValue: document.getElementById('tachValue'),
       tachRed: document.getElementById('tachRed'),
       tachTicks: document.getElementById('tachTicks'),
       tachNeedle: document.getElementById('tachNeedle'),
+      tachNums: document.getElementById('tachNums'),
+      spdTicks: document.getElementById('spdTicks'),
+      spdNums: document.getElementById('spdNums'),
+      spdNeedle: document.getElementById('spdNeedle'),
+      speedVal: document.getElementById('speedVal'),
+      gearRow: document.getElementById('gearRow'),
+      gearMode: document.getElementById('gearMode'),
       tachRpmVal: document.getElementById('tachRpmVal'),
       gDot: document.getElementById('gDot'),
       gTrail: document.getElementById('gTrail'),
@@ -81,31 +123,69 @@ export class Hud {
     this._buildTach();
   }
 
-  // The dial sweeps 240 degrees, from -210 to +30 measured from 12 o'clock.
+  /**
+   * Draw both dial faces once, from the tuning.
+   *
+   * The speedo's range is rounded up from the car's actual top speed, so a
+   * faster car gets a longer scale instead of a needle pinned at the stop.
+   */
   _buildTach() {
     const e = TUNING.engine;
-    const max = e.maxRpm;
-    const ticks = [];
-    for (let rpm = 0; rpm <= max; rpm += 1000) {
-      const a = TACH_START + (rpm / max) * TACH_SWEEP;
-      const rad = (a * Math.PI) / 180;
-      const sin = Math.sin(rad), cos = -Math.cos(rad);
-      const r0 = 40, r1 = 34;
-      ticks.push(
-        `<line x1="${(60 + sin * r0).toFixed(1)}" y1="${(60 + cos * r0).toFixed(1)}" ` +
-        `x2="${(60 + sin * r1).toFixed(1)}" y2="${(60 + cos * r1).toFixed(1)}" />`,
-      );
-    }
-    this.el.tachTicks.innerHTML = ticks.join('');
 
-    // Redline segment drawn as its own arc.
-    const t0 = e.redlineRpm / max;
-    const p0 = tachPoint(TACH_START + t0 * TACH_SWEEP);
-    const p1 = tachPoint(TACH_START + TACH_SWEEP);
-    const large = (1 - t0) * TACH_SWEEP > 180 ? 1 : 0;
-    this.el.tachRed.setAttribute('d', `M ${p0} A 50 50 0 ${large} 1 ${p1}`);
-    this._tachLength = (TACH_SWEEP / 360) * 2 * Math.PI * 50;
-    this.el.tachValue.setAttribute('stroke-dasharray', String(this._tachLength));
+    // Tacho in thousands, like the real one: 0-7 for a 7000 rpm engine.
+    const maxK = Math.ceil(e.maxRpm / 1000);
+    buildDial(this.el.tachTicks, this.el.tachNums, {
+      max: maxK, step: 1, minorPer: 5, labelEvery: 1,
+    });
+
+    // Red segment over the last full division, 6 to 7 here -- which is what
+    // the real cluster does (7 to 8 on its 8000 dial) rather than starting at
+    // the exact rev limiter. A wedge that begins mid-division looks like a
+    // mistake even when the number behind it is right.
+    const t0 = (maxK - 1) / maxK;
+    const a0 = DIAL_START + t0 * DIAL_SWEEP;
+    const a1 = DIAL_START + DIAL_SWEEP;
+    const [x0, y0] = dialPoint(a0, 81);
+    const [x1, y1] = dialPoint(a1, 81);
+    const large = (a1 - a0) > 180 ? 1 : 0;
+    this.el.tachRed.setAttribute('d', `M ${x0.toFixed(1)} ${y0.toFixed(1)} A 81 81 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`);
+
+    // Speedo, rounded up to a round 30 so the last numeral is not orphaned.
+    this._speedMax = Math.max(180, Math.ceil((TUNING.aero ? 300 : 300) / 30) * 30);
+    buildDial(this.el.spdTicks, this.el.spdNums, {
+      max: this._speedMax, step: 30, minorPer: 3, labelEvery: 30, small: true,
+    });
+    this._tachMax = maxK * 1000;
+  }
+
+  /** Point a needle at a 0..1 fraction of its dial. */
+  _setNeedle(el, frac) {
+    const a = DIAL_START + THREE_clamp(frac, 0, 1) * DIAL_SWEEP;
+    const [x, y] = dialPoint(a, 72);
+    el.setAttribute('x2', x.toFixed(2));
+    el.setAttribute('y2', y.toFixed(2));
+  }
+
+  /**
+   * The gear strip, standing in for the real car's P R N D.
+   *
+   * Rebuilt only when the label set changes, not every frame: it is a handful
+   * of DOM nodes and rewriting them at 100 Hz would be the most expensive
+   * thing on the overlay.
+   */
+  _updateGears(vehicle) {
+    const labels = ['R', 'N', ...TUNING.transmission.gears.map((_, i) => String(i + 1))];
+    const key = labels.join('');
+    if (this._gearKey !== key) {
+      this._gearKey = key;
+      this.el.gearRow.innerHTML = labels.map((l) => `<span data-g="${l}">${l}</span>`).join('');
+      this._gearSpans = [...this.el.gearRow.children];
+    }
+    const current = vehicle.gearLabel;
+    for (const span of this._gearSpans) {
+      span.classList.toggle('on', span.dataset.g === current);
+    }
+    this.el.gearMode.textContent = TUNING.transmission.automatic ? 'AUTO' : 'MANUAL';
   }
 
   setTrackName(name) { this.el.trackName.textContent = name.toUpperCase(); }
@@ -192,19 +272,15 @@ export class Hud {
 
     // Smooth the needle a touch; raw per-step speed flickers the last digit.
     this._displaySpeed += (vehicle.speedKmh - this._displaySpeed) * Math.min(dt * 12, 1);
-    this.el.speed.textContent = Math.round(this._displaySpeed);
-    this.el.gear.textContent = vehicle.gearLabel;
+    const kmh = Math.abs(this._displaySpeed);
+    this.el.speedVal.textContent = Math.round(kmh);
+    this._setNeedle(this.el.spdNeedle, kmh / this._speedMax);
 
     const e = TUNING.engine;
-    const frac = THREE_clamp(vehicle.rpm / e.maxRpm, 0, 1);
-    this.el.tachValue.setAttribute('stroke-dashoffset',
-      String(this._tachLength * (1 - frac)));
-    const angle = TACH_START + frac * TACH_SWEEP;
-    const rad = (angle * Math.PI) / 180;
-    this.el.tachNeedle.setAttribute('x2', (60 + Math.sin(rad) * 42).toFixed(2));
-    this.el.tachNeedle.setAttribute('y2', (60 - Math.cos(rad) * 42).toFixed(2));
+    this._setNeedle(this.el.tachNeedle, vehicle.rpm / this._tachMax);
     this.el.tachRpmVal.textContent = Math.round(vehicle.rpm);
     this.el.tach.classList.toggle('redline', vehicle.rpm >= e.redlineRpm - 120);
+    this._updateGears(vehicle);
 
     this._updateGMeter(dt, vehicle);
     this._updateBalance(dt, vehicle);

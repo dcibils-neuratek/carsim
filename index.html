@@ -27,49 +27,71 @@
     user-select: none; -webkit-user-select: none;
   }
 
-  /* ---- speed / gear cluster, bottom right ---- */
-  #cluster {
-    position: absolute; right: 26px; bottom: 22px;
-    display: flex; align-items: flex-end; gap: 18px;
+  /* ---- twin-dial cluster, after the real A110's ---- */
+  #dash {
+    position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    display: flex; align-items: flex-end; gap: 10px;
+    /* Scales with the window so it keeps its proportions on any screen without
+       ever growing tall enough to eat the road. */
+    --d: clamp(150px, 17vw, 232px);
   }
-  #speed { text-align: right; line-height: 1; }
-  #speed .val {
-    font-size: 76px; font-weight: 700; letter-spacing: -3px;
-    font-variant-numeric: tabular-nums;
-    text-shadow: 0 2px 14px rgba(0,0,0,.75);
-  }
-  #speed .unit { font-size: 13px; color: var(--dim); letter-spacing: 3px; }
-  #gear {
-    font-size: 48px; font-weight: 700; width: 58px; text-align: center;
-    color: var(--accent); text-shadow: 0 2px 14px rgba(0,0,0,.75);
-    padding-bottom: 6px;
-  }
+  .dial { position: relative; width: var(--d); height: var(--d); }
+  .dial svg { width: 100%; height: 100%; overflow: visible; }
 
-  /* ---- circular tachometer ---- */
-  #tach {
-    position: absolute; right: 212px; bottom: 14px;
-    width: 132px; height: 132px;
-  }
-  #tach svg { width: 100%; height: 100%; overflow: visible; }
-  #tachTrack { fill: none; stroke: rgba(10,16,24,.62); stroke-width: 11; stroke-linecap: round; }
-  #tachRed { fill: none; stroke: rgba(255,77,77,.35); stroke-width: 11; stroke-linecap: butt; }
-  #tachValue {
-    fill: none; stroke: var(--accent); stroke-width: 11; stroke-linecap: round;
-    transition: none;
-  }
-  #tach.redline #tachValue { stroke: var(--danger); filter: drop-shadow(0 0 6px var(--danger)); }
-  #tachNeedle { stroke: #fff; stroke-width: 2.5; stroke-linecap: round; }
-  #tachTicks line { stroke: rgba(232,238,245,.45); stroke-width: 2; }
-  #tachRpm {
+  /* The bright ring is what makes these read as instruments rather than as
+     circles drawn on the screen. */
+  .bezel { fill: none; stroke: rgba(226,236,245,.82); stroke-width: 5; }
+  /* Enough to sit the numerals against, little enough to keep the road
+     visible through the cluster -- these live over the track, not under it. */
+  .face  { fill: rgba(8,12,18,.42); }
+  .redArc { fill: none; stroke: rgba(224,31,31,.85); stroke-width: 13; }
+  .tick  { stroke: rgba(232,238,245,.55); }
+  .tick.major { stroke: #fff; }
+  .num   { fill: #fff; font-size: 17px; font-weight: 600; text-anchor: middle;
+           dominant-baseline: central; font-family: inherit; }
+  .num.small { font-size: 13px; fill: rgba(232,238,245,.85); }
+  .needle { stroke: #f4f7fa; stroke-width: 3; stroke-linecap: round; }
+  #tach.redline .needle { stroke: var(--danger); }
+  .hub { fill: #e2ecf5; }
+
+  /* Digital readout in the middle of each dial, as on the real cluster. */
+  .dial .readout {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; pointer-events: none;
+    line-height: 1;
   }
-  #tachRpm .n { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-  #tachRpm .u { font-size: 8px; color: var(--dim); letter-spacing: 2px; margin-top: 3px; }
+  .dial .big {
+    font-size: calc(var(--d) * 0.30); font-weight: 700; letter-spacing: -2px;
+    font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px rgba(0,0,0,.8);
+  }
+  #tach .big { font-size: calc(var(--d) * 0.17); color: var(--dim); letter-spacing: -1px; }
+  .dial .cap { font-size: calc(var(--d) * 0.062); color: var(--dim); letter-spacing: 2px; }
+  .dial .cap.top { margin-bottom: 2px; }
+  #tach.redline .big { color: var(--danger); }
+  .dial .scale {
+    position: absolute; left: 0; right: 0; bottom: -2px; text-align: center;
+    font-size: 10px; color: var(--dim); letter-spacing: 2px;
+  }
+
+  /* Gear strip, standing in for the real car's P R N D. */
+  #centre {
+    display: flex; flex-direction: column; align-items: center;
+    padding-bottom: calc(var(--d) * 0.16); min-width: 92px;
+  }
+  .gearRow { display: flex; gap: 7px; align-items: baseline; }
+  .gearRow span { font-size: 15px; color: rgba(232,238,245,.30); font-weight: 600; }
+  .gearRow span.on {
+    color: var(--accent); font-size: 27px; text-shadow: 0 0 16px rgba(255,210,63,.5);
+  }
+  .gearBar {
+    width: 88px; height: 3px; margin: 7px 0 5px; border-radius: 2px;
+    background: linear-gradient(90deg, #2f6ea8, #e8eef5 45%, #e8eef5 55%, #c8322c);
+  }
+  .mode { font-size: 9px; letter-spacing: 2px; color: var(--dim); }
 
   /* ---- g meter ---- */
   #gmeter {
-    position: absolute; left: 18px; bottom: 108px;
+    position: absolute; left: 18px; bottom: 236px;
     width: 118px; height: 118px; background: var(--panel); border-radius: 50%;
   }
   #gmeter svg { width: 100%; height: 100%; }
@@ -88,7 +110,7 @@
 
   /* ---- balance (understeer / oversteer) ---- */
   #balance {
-    position: absolute; left: 18px; bottom: 240px; width: 118px;
+    position: absolute; left: 18px; bottom: 368px; width: 118px;
     font-size: 10px; letter-spacing: 1px; color: var(--dim); text-align: center;
   }
   #balanceBar {
@@ -153,10 +175,12 @@
   #debug.on { display: block; }
 
   /* ---- help, bottom left ---- */
+  /* Keeps to its own lane on the left so it never runs under the dials, which
+     sit centred and are the one thing on the overlay you read at a glance. */
   #help {
-    position: absolute; left: 18px; bottom: 18px;
-    font-size: 11px; color: var(--dim); line-height: 1.7;
-    background: var(--panel); padding: 9px 13px; border-radius: 8px;
+    position: absolute; left: 18px; bottom: 14px; max-width: 168px;
+    font-size: 10px; color: var(--dim); line-height: 1.75;
+    background: var(--panel); padding: 8px 11px; border-radius: 8px;
   }
   #help b { color: var(--fg); font-weight: 600; }
 
@@ -261,20 +285,6 @@
 <body>
 
 <div id="hud">
-  <div id="tach">
-    <svg viewBox="0 0 120 120">
-      <!-- 240 degree sweep, starting bottom-left -->
-      <path id="tachTrack" d="M 24.6 95.4 A 50 50 0 1 1 95.4 95.4" />
-      <path id="tachRed" d="" />
-      <path id="tachValue" d="M 24.6 95.4 A 50 50 0 1 1 95.4 95.4"
-            stroke-dasharray="209.4" stroke-dashoffset="209.4" />
-      <g id="tachTicks"></g>
-      <line id="tachNeedle" x1="60" y1="60" x2="60" y2="18" />
-      <circle cx="60" cy="60" r="4" fill="#e8eef5" />
-    </svg>
-    <div id="tachRpm"><div class="n" id="tachRpmVal">0</div><div class="u">RPM</div></div>
-  </div>
-
   <div id="balance">
     UNDER &nbsp;·&nbsp; OVER
     <div id="balanceBar"><div id="balanceFill"></div></div>
@@ -294,9 +304,48 @@
     <div id="gLabel"><span class="k">LON</span> 0.00 <span class="k">LAT</span> 0.00</div>
   </div>
 
-  <div id="cluster">
-    <div id="gear">N</div>
-    <div id="speed"><div class="val">0</div><div class="unit">KM/H</div></div>
+  <!-- Twin-dial cluster, after the real A110's: tacho left, speedo right, a
+       gear strip between them. Both dials are one SVG each so the ticks and
+       numerals can be generated from the actual tuning rather than drawn by
+       hand and left to drift from it. -->
+  <div id="dash">
+    <div class="dial" id="tach">
+      <svg viewBox="0 0 200 200">
+        <circle class="bezel" cx="100" cy="100" r="93"/>
+        <circle class="face" cx="100" cy="100" r="86"/>
+        <path id="tachRed" d="" class="redArc"/>
+        <g id="tachTicks"></g>
+        <g id="tachNums"></g>
+        <line id="tachNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
+        <circle class="hub" cx="100" cy="100" r="7"/>
+      </svg>
+      <div class="readout">
+        <div class="big" id="tachRpmVal">0</div>
+        <div class="cap">RPM</div>
+      </div>
+      <div class="scale">x1000</div>
+    </div>
+
+    <div id="centre">
+      <div class="gearRow" id="gearRow"></div>
+      <div class="gearBar"></div>
+      <div class="mode" id="gearMode">AUTO</div>
+    </div>
+
+    <div class="dial" id="speedo">
+      <svg viewBox="0 0 200 200">
+        <circle class="bezel" cx="100" cy="100" r="93"/>
+        <circle class="face" cx="100" cy="100" r="86"/>
+        <g id="spdTicks"></g>
+        <g id="spdNums"></g>
+        <line id="spdNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
+        <circle class="hub" cx="100" cy="100" r="7"/>
+      </svg>
+      <div class="readout">
+        <div class="cap top">km/h</div>
+        <div class="big" id="speedVal">0</div>
+      </div>
+    </div>
   </div>
 
   <div id="trackName">—</div>
