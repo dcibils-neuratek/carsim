@@ -17,6 +17,11 @@ export class CarCamera {
     this.camera = camera;
     this.groundHeightAt = groundHeightAt || (() => -Infinity);
     this.mode = 'chase';
+    // Right stick look-around, in radians off the chase camera's own heading.
+    // Kept separate from `mode` so it layers on top of normal following rather
+    // than replacing it: let go and the view eases back behind the car.
+    this.lookYaw = 0;
+    this.lookPitch = 0;
 
     this.position = new THREE.Vector3(0, 5, -10);
     this.lookAt = new THREE.Vector3();
@@ -40,6 +45,34 @@ export class CarCamera {
     this.orbit.enabled = this.mode === 'orbit';
     this._initialised = this.mode !== 'chase' && this._initialised;
     return this.mode;
+  }
+
+  /**
+   * Right-stick look, applied on top of the chase camera.
+   *
+   * Held, it swings the view around the car for a proper walk-around; released,
+   * it returns, because a camera that stays where you left it is one you have
+   * to keep tidying up mid-corner.
+   */
+  look(dt, x, y) {
+    const c = TUNING.camera;
+    const dead = c.lookDeadzone;
+    const ax = Math.abs(x) > dead ? x : 0;
+    const ay = Math.abs(y) > dead ? y : 0;
+
+    if (ax !== 0 || ay !== 0) {
+      this.lookYaw += ax * c.lookSpeed * dt;
+      this.lookPitch = THREE.MathUtils.clamp(
+        this.lookPitch + ay * c.lookSpeed * 0.5 * dt, -0.45, 1.15,
+      );
+      // Wrap so a full circle keeps going instead of winding up a big number.
+      if (this.lookYaw > Math.PI) this.lookYaw -= Math.PI * 2;
+      if (this.lookYaw < -Math.PI) this.lookYaw += Math.PI * 2;
+    } else {
+      const k = Math.min(c.lookReturn * dt, 1);
+      this.lookYaw += (0 - this.lookYaw) * k;
+      this.lookPitch += (0 - this.lookPitch) * k;
+    }
   }
 
   update(dt, carGroup, vehicle) {
@@ -85,9 +118,21 @@ export class CarCamera {
     const len = Math.hypot(dirX, dirZ) || 1;
     dirX /= len; dirZ /= len;
 
+    // Swing the follow direction by the look angle. Rotating the DIRECTION
+    // rather than the finished camera position means the spring, the
+    // look-ahead and the velocity blend all keep working while you look
+    // around -- the camera orbits the car instead of detaching from it.
+    if (this.lookYaw !== 0) {
+      const cs = Math.cos(this.lookYaw);
+      const sn = Math.sin(this.lookYaw);
+      const rx = dirX * cs - dirZ * sn;
+      const rz = dirX * sn + dirZ * cs;
+      dirX = rx; dirZ = rz;
+    }
+
     this._desired.set(
       carPos.x - dirX * c.distance,
-      carPos.y + c.height,
+      carPos.y + c.height + this.lookPitch * c.distance,
       carPos.z - dirZ * c.distance,
     );
 

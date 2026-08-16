@@ -25,6 +25,7 @@ import { loadStashedTrack, EDITOR_TRACK_ID } from './editor/state.js';
 import { EngineAudio } from './audio.js';
 import { TyreAudio } from './tyreaudio.js';
 import { PadPanel } from './padui.js';
+import { Music } from './music.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -259,6 +260,7 @@ export async function boot() {
   // Built once the engine's AudioContext exists, so both share one context
   // and one master gain -- mute and volume stay in a single place.
   let tyreAudio = null;
+  let music = null;
 
   // The car model is optional: if it's missing or malformed the game still runs
   // on the procedural car, so a bad asset can never stop you driving.
@@ -348,6 +350,10 @@ export async function boot() {
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
     if (e.code === 'KeyK') { skidmarks.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
+    if (e.code === 'KeyN') {
+      if (music?.ready) hud.toast(music.toggle() ? 'music off' : 'music on');
+      else hud.toast('no music loaded');
+    }
     // Back to the circuit menu. A reload guarantees a clean world.
     if (e.code === 'KeyT') { location.search = ''; }
   });
@@ -384,6 +390,15 @@ export async function boot() {
       // this is the first one we get.
       audio.start().then(() => {
         if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.buses);
+        // Started separately and not awaited: the track is megabytes against
+        // the engine's kilobytes, and the car should not be silent while it
+        // downloads.
+        if (audio.ready && !music) {
+          music = new Music(audio.ctx, audio.buses.music);
+          music.load().then(() => {
+            if (music.ready && music.muted) hud.toast('music is muted — N to turn it on', 3500);
+          });
+        }
         // A gamepad button is not user activation as far as the browser is
         // concerned, so arriving here having only touched the pad leaves audio
         // blocked with nothing on screen to explain it. Say so -- any key or
@@ -452,6 +467,7 @@ export async function boot() {
     }
     if (carPos.y < -60) { respawn(projection.progress); hud.toast('respawned'); }
 
+    carCamera.look(dt, state.lookX || 0, state.lookY || 0);
     carCamera.update(dt, car.group, vehicle);
     updateSunTarget(sun, carPos);
     debug.update(world);

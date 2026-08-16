@@ -106,7 +106,7 @@ export function createGui({ onRebuild, onToast }) {
   mix.add(TUNING.audio, 'engineVolume', 0, 2, 0.02).name('engine').onChange(save);
   mix.add(TUNING.audio, 'tyreVolume', 0, 2, 0.02).name('tyres').onChange(save);
   mix.add(TUNING.audio, 'roadVolume', 0, 2, 0.02).name('road').onChange(save);
-  mix.add(TUNING.audio, 'musicVolume', 0, 2, 0.02).name('music (unused)').onChange(save);
+  mix.add(TUNING.audio, 'musicVolume', 0, 2, 0.02).name('music').onChange(save);
 
   const snd = gui.addFolder('engine audio');
   snd.add(TUNING.audio, 'pitchPerRpm', 0.05, 0.5, 0.01).name('pitch / rpm').onChange(save);

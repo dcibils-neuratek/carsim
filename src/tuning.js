@@ -298,6 +298,11 @@ export const DEFAULTS = {
     fovBase: 62,
     fovGain: 20,          // extra fov at top speed
     velocityBlend: 0.35,  // how much the cam follows velocity vs. car heading
+    // Right-stick look-around. Held, it orbits the car for a walk-around;
+    // released, it eases back behind, so you never have to put it away.
+    lookSpeed: 2.6,       // rad/s at full stick
+    lookReturn: 3.5,      // how fast it recentres once you let go
+    lookDeadzone: 0.15,   // a resting thumb must not drift the view
   },
 };
 

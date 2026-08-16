@@ -14,6 +14,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Node names whose geometry is wheels rather than bodywork.
+// Geometry no camera in this game can see: the engine bay under the rear deck,
+// and the inside faces of the glass. Measured at 27% of this model's triangles.
+const HIDDEN_PART = /engine|windowinside|window_inside/i;
+
 // Named light clusters, if a model happens to have them.
 const TAIL_NAME = /tail|rear.?light|brake.?light|stop.?light/i;
 const WHEEL_NAME = /tire|tyre|wheel|rim/i;
@@ -120,20 +124,74 @@ export function buildCarFromModel(loaded, tuning, palette) {
     (sum, g) => sum + (g.userData.hub ? g.userData.hub.y : 0), 0,
   ) / (wheelParts.length || 1);
 
-  // One mesh per part, each with the material it shipped with, rather than one
-  // merged mesh under a single colour. Costs a handful of draw calls and buys
-  // the car its actual paint.
+  // Merge by MATERIAL: one mesh per material, not one per part.
+  //
+  // Keeping each part separate preserved the paint but cost a draw call each,
+  // and this model is 954 meshes -- a bill the merged-into-one-red-mesh
+  // version never paid. Grouping by material gets both: real colours, and
+  // about twenty draw calls instead of nine hundred.
+  //
+  // Hidden geometry is dropped first. Measured on this model, the engine bay
+  // and the inside faces of the glass are 66k of 244k triangles -- 27% of the
+  // car -- and none of it is visible from any camera the game has.
   const lift = physicsHubY - modelHubY;
-  const bodyMeshes = bodyParts.map(({ geo, material, name }) => {
+  const byMaterial = new Map();
+  let dropped = 0;
+
+  for (const { geo, material, name } of bodyParts) {
+    const label = material?.name || name || '';
+    if (HIDDEN_PART.test(label)) {
+      dropped += (geo.index ? geo.index.count : geo.attributes.position.count) / 3;
+      continue;
+    }
     const g = geo.clone();
     g.applyMatrix4(transform);
     g.translate(0, lift, 0);
-    const m = new THREE.Mesh(g, material);
-    m.castShadow = true;
-    m.name = name;
-    group.add(m);
-    return m;
-  });
+
+    // Sample the colour PER PART, before anything is merged.
+    //
+    // Sampling after the merge averaged the uvs of every part sharing a
+    // material, and those parts sit in DIFFERENT swatches of the atlas -- so
+    // the mean landed between them and the body came out near-black. One
+    // part's uvs sit inside one swatch, which is the only place the average
+    // means anything.
+    const colour = colourOf(material, g);
+
+    // Group by the colour that will actually be drawn rather than by material
+    // identity. Parts that end up the same flat colour render identically, so
+    // there is no reason for them to be separate meshes.
+    const key = `${colour.getHexString()}|${material?.transparent ? 1 : 0}` +
+                `|${(material?.transmission ?? 0) > 0.5 ? 1 : 0}`;
+    if (!byMaterial.has(key)) byMaterial.set(key, { material, colour, geoms: [], label });
+    byMaterial.get(key).geoms.push(g);
+  }
+
+  let kept = 0;
+  const bodyMeshes = [];
+  for (const { material, colour, geoms, label } of byMaterial.values()) {
+    // Attribute sets have to match to merge. They almost always do within a
+    // material, but a mismatch should cost one merge, not the whole car.
+    let merged = null;
+    try {
+      merged = geoms.length > 1 ? mergeGeometries(geoms, false) : geoms[0];
+    } catch { merged = null; }
+    const finals = merged ? [merged] : geoms;
+
+    for (const g of finals) {
+      const m = flatten(material, colour);
+      const mesh = new THREE.Mesh(g, m);
+      mesh.castShadow = true;
+      mesh.name = label;
+      group.add(mesh);
+      bodyMeshes.push(mesh);
+      kept += (g.index ? g.index.count : g.attributes.position.count) / 3;
+    }
+  }
+
+  console.info(
+    `car model: ${bodyMeshes.length} draw calls, ${Math.round(kept / 1000)}k triangles ` +
+    `(dropped ${Math.round(dropped / 1000)}k hidden)`,
+  );
   const bodyMesh = bodyMeshes[0] || null;
 
   const wheelMat = new THREE.MeshStandardMaterial({
@@ -157,9 +215,9 @@ export function buildCarFromModel(loaded, tuning, palette) {
   // cluster by name and driving ITS emissive. Nothing in this model is named
   // for its lights, so setBrakeLights is a no-op here and the hook stays for
   // when a model arrives that is.
-  const tailMats = bodyParts
-    .map((p, i) => (TAIL_NAME.test(p.name) ? bodyMeshes[i]?.material : null))
-    .filter(Boolean);
+  const tailMats = bodyMeshes
+    .filter((m) => TAIL_NAME.test(m.name))
+    .map((m) => m.material);
 
   const setBrakeLights = (on) => {
     for (const m of tailMats) {
@@ -235,16 +293,125 @@ function splitWheels(geoms, tuning) {
   });
 }
 
+/**
+ * Turn a model material into a flat-shaded solid colour.
+ *
+ * This model paints everything from one 256x256 atlas through
+ * MeshPhysicalMaterial, which is wrong for this game twice over: it renders a
+ * photoreal car in a world of flat-shaded polygons, and it costs a texture
+ * fetch and the physical shader per pixel for colours that are, in the end,
+ * single swatches.
+ *
+ * So the swatch is read out once and baked into a plain material. Sampling at
+ * the geometry's MEAN uv is what makes that work: with an atlas each part's
+ * uvs sit inside its own small block of solid colour, so the average lands in
+ * the middle of the right block. Materials with no texture keep their own
+ * colour and just lose the physical shading.
+ */
+function flatten(source, colour) {
+  const m = new THREE.MeshStandardMaterial({
+    flatShading: true,
+    // Metal with no environment map renders black, and this world has none.
+    metalness: 0.0,
+    roughness: 0.65,
+    side: source?.side ?? THREE.FrontSide,
+    transparent: source?.transparent ?? false,
+    opacity: source?.opacity ?? 1,
+    depthWrite: source?.depthWrite ?? true,
+  });
+
+  m.color.copy(colour);
+
+  // Glass keeps a hint of see-through so the interior still reads.
+  if ((source?.transmission ?? 0) > 0.5) {
+    m.transparent = true;
+    m.opacity = 0.42;
+    m.depthWrite = false;
+  }
+  return m;
+}
+
+/** The flat colour a part should be drawn in: its texture swatch, or its tint. */
+function colourOf(material, geo) {
+  const sampled = material?.map ? sampleTexture(material.map, geo) : null;
+  if (sampled) return sampled;
+  return (material?.color ? material.color.clone() : new THREE.Color(0xcccccc));
+}
+
+const _canvas = { el: null, ctx: null };
+
+/** Read one texel from a texture, at the average uv of a geometry. */
+function sampleTexture(texture, geo) {
+  const image = texture.image;
+  const uv = geo.getAttribute('uv');
+  if (!image || !uv || !image.width) return null;
+
+  let u = 0;
+  let v = 0;
+  // A stride keeps this cheap on a 160k-vertex merge; the average of a few
+  // thousand samples lands in the same swatch as the average of all of them.
+  const stride = Math.max(1, Math.floor(uv.count / 2000));
+  let n = 0;
+  for (let i = 0; i < uv.count; i += stride) { u += uv.getX(i); v += uv.getY(i); n++; }
+  if (!n) return null;
+  u /= n; v /= n;
+
+  try {
+    if (!_canvas.el) {
+      _canvas.el = document.createElement('canvas');
+      _canvas.ctx = _canvas.el.getContext('2d', { willReadFrequently: true });
+    }
+    const { el, ctx } = _canvas;
+    if (el.width !== image.width || el.height !== image.height) {
+      el.width = image.width;
+      el.height = image.height;
+      ctx.drawImage(image, 0, 0);
+      _canvas.drawn = texture.uuid;
+    } else if (_canvas.drawn !== texture.uuid) {
+      ctx.drawImage(image, 0, 0);
+      _canvas.drawn = texture.uuid;
+    }
+    const px = Math.min(image.width - 1, Math.max(0, Math.round(u * image.width)));
+    // Texture v runs bottom-up, canvas y runs top-down.
+    const py = Math.min(image.height - 1, Math.max(0, Math.round((1 - v) * image.height)));
+    const d = ctx.getImageData(px, py, 1, 1).data;
+    // The atlas is authored in sRGB; three renders linear.
+    return new THREE.Color().setRGB(d[0] / 255, d[1] / 255, d[2] / 255, THREE.SRGBColorSpace);
+  } catch (err) {
+    console.warn('could not sample car texture:', err);
+    return null;
+  }
+}
+
+/**
+ * Concatenate geometries into one.
+ *
+ * Carries UVs when every input has them, because the model's materials may be
+ * textured and a merge that quietly dropped them would leave the car painted
+ * in flat base colours with no obvious cause. Normals are recomputed rather
+ * than carried: everything here renders flat-shaded, so the originals would be
+ * thrown away anyway.
+ */
 function mergeGeometries(geoms) {
   if (geoms.length === 1) return geoms[0].index ? geoms[0].toNonIndexed() : geoms[0];
+
+  const sources = geoms.map((g) => (g.index ? g.toNonIndexed() : g));
+  const withUv = sources.every((g) => g.getAttribute('uv'));
+
   const verts = [];
-  for (const geo of geoms) {
-    const src = geo.index ? geo.toNonIndexed() : geo;
+  const uvs = [];
+  for (const src of sources) {
     const pos = src.getAttribute('position');
-    for (let i = 0; i < pos.count; i++) verts.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    const uv = withUv ? src.getAttribute('uv') : null;
+    for (let i = 0; i < pos.count; i++) {
+      verts.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+      if (uv) uvs.push(uv.getX(i), uv.getY(i));
+    }
   }
+
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  if (withUv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.computeVertexNormals();
   return g;
 }

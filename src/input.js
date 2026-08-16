@@ -15,6 +15,7 @@ export class Input {
   constructor() {
     this.state = {
       steer: 0, steerRaw: 0, throttle: 0, brake: 0, handbrake: 0,
+      lookX: 0, lookY: 0,
       shiftUp: false, shiftDown: false,
       reset: false, camera: false, toggleGearbox: false,
       source: 'none',
@@ -96,6 +97,7 @@ export class Input {
     } else if (s.source !== 'keyboard') {
       s.source = 'keyboard';
       s.steer = 0; s.steerRaw = 0; s.throttle = 0; s.brake = 0; s.handbrake = 0;
+      s.lookX = 0; s.lookY = 0;
     }
 
     // The keyboard stays live even with a pad attached, so you can nudge the
@@ -153,6 +155,10 @@ export class Input {
       throttle = axisTrigger(5);
       brake = axisTrigger(4);
     }
+
+    // Right stick, for looking around the car. Axes 2/3 on a standard pad.
+    s.lookX = pad.axes[2] || 0;
+    s.lookY = pad.axes[3] || 0;
 
     s.throttle = clamp01(throttle);
     s.brake = clamp01(brake);
