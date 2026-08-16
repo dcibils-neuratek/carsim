@@ -1,0 +1,145 @@
+// lil-gui panel over the TUNING object.
+//
+// Most values are read fresh every physics step, so they take effect as you
+// drag. The handful that define the rigid body itself (mass, centre of mass,
+// dimensions, wheel positions) need the car rebuilt, and are wired to do that.
+
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { TUNING, saveTuning, resetTuning, dumpTuning } from './tuning.js';
+
+export function createGui({ onRebuild, onToast }) {
+  const gui = new GUI({ title: 'carsim tuning', width: 310 });
+  gui.close();
+
+  const save = () => saveTuning();
+  const rebuild = () => { saveTuning(); onRebuild(); };
+
+  const chassis = gui.addFolder('chassis (rebuilds car)');
+  chassis.add(TUNING.chassis, 'mass', 700, 2200, 10).onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'comY', -0.8, 0.2, 0.01).name('com Y (lower = stabler)').onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'comZ', -0.8, 0.8, 0.01).name('com Z (rear = oversteer)').onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'halfHeight', 0.25, 0.8, 0.01).onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'colliderOffsetY', -0.2, 0.6, 0.01).name('body lift (clearance)').onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'inertiaScale', 0.4, 2.0, 0.05).name('yaw inertia').onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'angularDamping', 0, 1.5, 0.01).onFinishChange(rebuild);
+  chassis.add(TUNING.chassis, 'linearDamping', 0, 0.5, 0.005).onFinishChange(rebuild);
+  chassis.close();
+
+  const susp = gui.addFolder('suspension');
+  // Damping is relative to 2*sqrt(stiffness), so these ranges have to reach
+  // well past 1 -- at stiffness 80, critical damping is about 17.9.
+  susp.add(TUNING.suspension, 'restLength', 0.10, 0.6, 0.01).onChange(save);
+  susp.add(TUNING.suspension, 'stiffness', 10, 200, 1).onChange(save);
+  susp.add(TUNING.suspension, 'compression', 0.1, 20, 0.1).name('damping: bump').onChange(save);
+  susp.add(TUNING.suspension, 'relaxation', 0.1, 25, 0.1).name('damping: rebound').onChange(save);
+  susp.add(TUNING.suspension, 'maxTravel', 0.05, 0.6, 0.01).onChange(save);
+  susp.add(TUNING.suspension, 'maxForce', 5000, 80000, 500).onChange(save);
+  susp.close();
+
+  const grip = gui.addFolder('grip');
+  grip.add(TUNING.wheels, 'frictionFront', 0.3, 5, 0.05).onChange(save);
+  grip.add(TUNING.wheels, 'frictionRear', 0.3, 5, 0.05).onChange(save);
+  grip.add(TUNING.wheels, 'sideFrictionStiffness', 0.1, 3, 0.05).onChange(save);
+  grip.add(TUNING.wheels, 'loadSensitivity', 0, 0.6, 0.01).name('load sensitivity').onChange(save);
+  grip.add(TUNING.surfaces, 'grassGripMult', 0.05, 1, 0.01).name('grass grip').onChange(save);
+  grip.add(TUNING.surfaces, 'grassDrag', 0, 30, 0.5).onChange(save);
+  grip.close();
+
+  const wheels = gui.addFolder('wheels (rebuilds car)');
+  wheels.add(TUNING.wheels, 'radius', 0.2, 0.6, 0.01).onFinishChange(rebuild);
+  wheels.add(TUNING.wheels, 'trackHalf', 0.5, 1.2, 0.01).name('track/2').onFinishChange(rebuild);
+  wheels.add(TUNING.wheels, 'frontZ', 0.8, 2.0, 0.01).onFinishChange(rebuild);
+  wheels.add(TUNING.wheels, 'rearZ', 0.8, 2.0, 0.01).onFinishChange(rebuild);
+  wheels.add(TUNING.wheels, 'connectionY', -0.6, 0.3, 0.01).onFinishChange(rebuild);
+  wheels.close();
+
+  const engine = gui.addFolder('engine');
+  engine.add(TUNING.engine, 'idleRpm', 500, 1500, 10).onChange(save);
+  engine.add(TUNING.engine, 'redlineRpm', 4000, 9500, 50).onChange(save);
+  engine.add(TUNING.engine, 'maxRpm', 4000, 10000, 50).onChange(save);
+  engine.add(TUNING.engine, 'engineBrakeTorque', 0, 200, 1).name('engine braking').onChange(save);
+  engine.add(TUNING.engine, 'revSpeed', 1, 20, 0.1).onChange(save);
+  engine.close();
+
+  const trans = gui.addFolder('transmission');
+  trans.add(TUNING.transmission, 'automatic').onChange(save);
+  trans.add(TUNING.transmission, 'final', 2, 6, 0.05).name('final drive').onChange(save);
+  trans.add(TUNING.transmission, 'efficiency', 0.5, 1, 0.01).onChange(save);
+  trans.add(TUNING.transmission, 'autoUpshiftRpm', 3000, 9000, 50).onChange(save);
+  trans.add(TUNING.transmission, 'autoDownshiftRpm', 1000, 6000, 50).onChange(save);
+  trans.add(TUNING.transmission, 'shiftTime', 0, 1, 0.01).onChange(save);
+  TUNING.transmission.gears.forEach((_, i) => {
+    trans.add(TUNING.transmission.gears, String(i), 0.4, 5, 0.01).name(`gear ${i + 1}`).onChange(save);
+  });
+  trans.close();
+
+  const brakes = gui.addFolder('brakes');
+  brakes.add(TUNING.brakes, 'maxBrakeForce', 0, 40000, 250).name('brake force (N)').onChange(save);
+  brakes.add(TUNING.brakes, 'frontBias', 0.3, 0.9, 0.01).onChange(save);
+  brakes.add(TUNING.brakes, 'holdBrake', 0, 400, 5).name('hold at rest').onChange(save);
+  brakes.add(TUNING.brakes, 'handbrake', 0, 800, 5).onChange(save);
+  brakes.add(TUNING.brakes, 'handbrakeGripMult', 0.05, 1, 0.01).name('handbrake grip').onChange(save);
+  brakes.close();
+
+  const steer = gui.addFolder('steering');
+  steer.add(TUNING.steering, 'maxAngleLow', 0.1, 1.0, 0.01).name('lock at 0 km/h').onChange(save);
+  steer.add(TUNING.steering, 'maxAngleHigh', 0.02, 0.6, 0.01).name('lock at speed').onChange(save);
+  steer.add(TUNING.steering, 'falloffSpeed', 10, 100, 1).onChange(save);
+  steer.add(TUNING.steering, 'rateLimit', 0.5, 12, 0.1).onChange(save);
+  steer.add(TUNING.steering, 'returnRate', 0.5, 20, 0.1).onChange(save);
+  steer.add(TUNING.steering, 'inputExponent', 0, 2, 0.05).name('stick curve').onChange(save);
+  steer.add(TUNING.steering, 'deadzone', 0, 0.4, 0.01).onChange(save);
+  steer.add(TUNING.steering, 'counterSteerAssist', 0, 1, 0.02).name('counter-steer assist').onChange(save);
+  steer.close();
+
+  const aero = gui.addFolder('aero');
+  aero.add(TUNING.aero, 'dragCoeff', 0, 3, 0.02).name('drag').onChange(save);
+  aero.add(TUNING.aero, 'downforce', 0, 20, 0.1).onChange(save);
+  aero.add(TUNING.aero, 'rollingResistance', 0, 150, 1).onChange(save);
+  aero.close();
+
+  const snd = gui.addFolder('audio');
+  snd.add(TUNING.audio, 'volume', 0, 1, 0.02).onChange(save);
+  snd.add(TUNING.audio, 'pitchPerRpm', 0.05, 0.5, 0.01).name('pitch / rpm').onChange(save);
+  snd.add(TUNING.audio, 'blendLowRpm', 500, 6000, 100).name('blend low rpm').onChange(save);
+  snd.add(TUNING.audio, 'blendHighRpm', 2000, 9000, 100).name('blend high rpm').onChange(save);
+  snd.close();
+
+  const skid = gui.addFolder('skidmarks');
+  skid.add(TUNING.skidmarks, 'enabled').onChange(save);
+  skid.add(TUNING.skidmarks, 'opacity', 0, 1, 0.02).onChange(save);
+  skid.add(TUNING.skidmarks, 'slipStart', 0.02, 0.5, 0.01).name('slip start (rad)').onChange(save);
+  skid.add(TUNING.skidmarks, 'slipFull', 0.05, 0.8, 0.01).name('slip full (rad)').onChange(save);
+  skid.add(TUNING.skidmarks, 'brakeStartG', 0.1, 1.5, 0.05).name('brake start (g)').onChange(save);
+  skid.add(TUNING.skidmarks, 'brakeFullG', 0.2, 2.0, 0.05).name('brake full (g)').onChange(save);
+  skid.add(TUNING.skidmarks, 'minSpeed', 0, 10, 0.5).name('min speed (m/s)').onChange(save);
+  skid.close();
+
+  const cam = gui.addFolder('camera');
+  cam.add(TUNING.camera, 'distance', 2, 16, 0.1).onChange(save);
+  cam.add(TUNING.camera, 'height', 0.5, 8, 0.1).onChange(save);
+  cam.add(TUNING.camera, 'lookAhead', 0, 30, 0.5).onChange(save);
+  cam.add(TUNING.camera, 'stiffness', 1, 25, 0.5).onChange(save);
+  cam.add(TUNING.camera, 'velocityBlend', 0, 1, 0.02).name('drift follow').onChange(save);
+  cam.add(TUNING.camera, 'fovBase', 40, 100, 1).onChange(save);
+  cam.add(TUNING.camera, 'fovGain', 0, 45, 1).onChange(save);
+  cam.close();
+
+  const actions = {
+    copySetup() {
+      dumpTuning();
+      onToast('setup copied to clipboard');
+    },
+    resetDefaults() {
+      resetTuning();
+      gui.controllersRecursive().forEach((c) => c.updateDisplay());
+      onRebuild();
+      onToast('tuning reset to defaults');
+    },
+  };
+  gui.add(actions, 'copySetup').name('copy setup JSON');
+  gui.add(actions, 'resetDefaults').name('reset to defaults');
+
+  gui.hide();
+  return gui;
+}

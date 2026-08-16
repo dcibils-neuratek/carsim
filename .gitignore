@@ -1,0 +1,11 @@
+# Vendored reference repo: 53 MB of someone else's project, kept locally only.
+# The engine-audio technique is reimplemented in src/audio.js and the five
+# samples we actually use live in assets/audio/.
+engine-audio-master/
+
+node_modules/
+.DS_Store
+*.log
+
+# Local machine settings, not shared
+.claude/settings.local.json

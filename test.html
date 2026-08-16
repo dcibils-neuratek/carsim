@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carsim — physics tests</title>
+<style>
+  body { margin:0; padding:22px; background:#0d1117; color:#d7e0ea;
+         font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size:13px; }
+  pre { white-space: pre-wrap; line-height:1.55; margin:0; }
+  .pass { color:#57d97a; } .fail { color:#ff5c5c; } .info { color:#8fa3b8; }
+  h1 { font-size:15px; letter-spacing:3px; margin:0 0 14px; }
+</style>
+</head>
+<body>
+<h1>CARSIM PHYSICS TESTS</h1>
+<pre id="out">running…</pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs"
+  }
+}
+</script>
+
+<script type="module">
+import { runAll } from './test/physics-tests.js';
+runAll(document.getElementById('out')).catch((err) => {
+  document.getElementById('out').textContent = 'HARNESS ERROR\n' + (err && err.stack || err);
+  window.__testsDone = true;
+  window.__testsFailed = 1;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carsim</title>
+<style>
+  :root {
+    --fg: #e8eef5;
+    --dim: #8fa3b8;
+    --accent: #ffd23f;
+    --danger: #ff4d4d;
+    --panel: rgba(10, 16, 24, 0.62);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #10141a;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ---- speed / gear cluster, bottom right ---- */
+  #cluster {
+    position: absolute; right: 26px; bottom: 22px;
+    display: flex; align-items: flex-end; gap: 18px;
+  }
+  #speed { text-align: right; line-height: 1; }
+  #speed .val {
+    font-size: 76px; font-weight: 700; letter-spacing: -3px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 14px rgba(0,0,0,.75);
+  }
+  #speed .unit { font-size: 13px; color: var(--dim); letter-spacing: 3px; }
+  #gear {
+    font-size: 48px; font-weight: 700; width: 58px; text-align: center;
+    color: var(--accent); text-shadow: 0 2px 14px rgba(0,0,0,.75);
+    padding-bottom: 6px;
+  }
+
+  /* ---- circular tachometer ---- */
+  #tach {
+    position: absolute; right: 212px; bottom: 14px;
+    width: 132px; height: 132px;
+  }
+  #tach svg { width: 100%; height: 100%; overflow: visible; }
+  #tachTrack { fill: none; stroke: rgba(10,16,24,.62); stroke-width: 11; stroke-linecap: round; }
+  #tachRed { fill: none; stroke: rgba(255,77,77,.35); stroke-width: 11; stroke-linecap: butt; }
+  #tachValue {
+    fill: none; stroke: var(--accent); stroke-width: 11; stroke-linecap: round;
+    transition: none;
+  }
+  #tach.redline #tachValue { stroke: var(--danger); filter: drop-shadow(0 0 6px var(--danger)); }
+  #tachNeedle { stroke: #fff; stroke-width: 2.5; stroke-linecap: round; }
+  #tachTicks line { stroke: rgba(232,238,245,.45); stroke-width: 2; }
+  #tachRpm {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; pointer-events: none;
+  }
+  #tachRpm .n { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  #tachRpm .u { font-size: 8px; color: var(--dim); letter-spacing: 2px; margin-top: 3px; }
+
+  /* ---- g meter ---- */
+  #gmeter {
+    position: absolute; left: 18px; bottom: 108px;
+    width: 118px; height: 118px; background: var(--panel); border-radius: 50%;
+  }
+  #gmeter svg { width: 100%; height: 100%; }
+  #gmeter .ring { fill: none; stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
+  #gmeter .cross { stroke: rgba(232,238,245,.16); stroke-width: 1.5; }
+  #gDot { fill: var(--accent); }
+  #gTrail { fill: rgba(255,210,63,.22); }
+  #gLabel {
+    position: absolute; left: -20px; right: -20px; bottom: -17px; text-align: center;
+    font-size: 10px; color: var(--fg); letter-spacing: 0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  #gLabel .neg { color: #ff8a5c; }   /* braking */
+  #gLabel .pos { color: #7ad97a; }   /* accelerating */
+  #gLabel .k { color: var(--dim); }
+
+  /* ---- balance (understeer / oversteer) ---- */
+  #balance {
+    position: absolute; left: 18px; bottom: 240px; width: 118px;
+    font-size: 10px; letter-spacing: 1px; color: var(--dim); text-align: center;
+  }
+  #balanceBar {
+    position: relative; height: 7px; margin-top: 5px;
+    background: var(--panel); border-radius: 4px; overflow: hidden;
+  }
+  #balanceFill {
+    position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
+    background: var(--accent);
+  }
+  #balanceBar::after {
+    content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 1px; background: rgba(232,238,245,.35);
+  }
+  #balanceText { margin-top: 4px; color: var(--fg); font-weight: 600; }
+
+  #trackName {
+    position: absolute; right: 26px; top: 0; padding: 6px 14px 5px;
+    font-size: 11px; letter-spacing: 4px; color: var(--accent);
+    background: var(--panel); border-radius: 0 0 8px 8px;
+  }
+
+  /* ---- lap times, top right ---- */
+  #laps {
+    position: absolute; right: 26px; top: 40px; text-align: right;
+    background: var(--panel); padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.75; letter-spacing: .5px;
+  }
+  #laps .k { color: var(--dim); margin-right: 10px; }
+  #laps .cur { font-size: 20px; font-weight: 700; letter-spacing: 0; }
+  #laps .best { color: var(--accent); }
+
+  /* ---- minimap + lap progress ---- */
+  #minimap {
+    position: absolute; right: 26px; top: 132px;
+    width: 148px; background: var(--panel); border-radius: 8px;
+    padding: 10px 10px 8px;
+  }
+  #minimap svg { width: 100%; height: 104px; display: block; overflow: visible; }
+  #mmTrack { fill: none; stroke: rgba(232,238,245,.30); stroke-width: 5;
+             stroke-linejoin: round; stroke-linecap: round; }
+  #mmDone  { fill: none; stroke: var(--accent); stroke-width: 5;
+             stroke-linejoin: round; stroke-linecap: round; }
+  #mmStart { stroke: #f2f2f2; stroke-width: 2.5; }
+  #mmDot   { fill: #fff; stroke: #10141a; stroke-width: 1.5; }
+  #mmBar {
+    position: relative; height: 5px; margin-top: 8px; border-radius: 3px;
+    background: rgba(232,238,245,.14); overflow: hidden;
+  }
+  #mmBarFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+               background: var(--accent); }
+  #mmPct { margin-top: 5px; font-size: 10px; color: var(--dim);
+           letter-spacing: 1px; text-align: center; }
+
+  /* ---- debug panel, top left ---- */
+  #debug {
+    position: absolute; left: 18px; top: 18px;
+    background: var(--panel); padding: 10px 14px; border-radius: 8px;
+    font-size: 11px; line-height: 1.6; white-space: pre;
+    display: none; max-height: 88vh; overflow: hidden;
+  }
+  #debug.on { display: block; }
+
+  /* ---- help, bottom left ---- */
+  #help {
+    position: absolute; left: 18px; bottom: 18px;
+    font-size: 11px; color: var(--dim); line-height: 1.7;
+    background: var(--panel); padding: 9px 13px; border-radius: 8px;
+  }
+  #help b { color: var(--fg); font-weight: 600; }
+
+  /* ---- toast ---- */
+  #toast {
+    position: absolute; left: 50%; top: 16%; transform: translateX(-50%);
+    font-size: 15px; letter-spacing: 1px; padding: 9px 18px;
+    background: var(--panel); border-radius: 8px; opacity: 0;
+    transition: opacity .25s;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ---- boot / press-any-button overlay ---- */
+  #boot {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; background: #10141a; text-align: center;
+    overflow-y: auto; padding: 22px 0;
+  }
+  #boot h1 {
+    font-size: 40px; letter-spacing: 12px; margin: 0; font-weight: 700;
+  }
+  #boot .sub { color: var(--dim); font-size: 13px; letter-spacing: 2px; }
+  #boot .prompt { color: var(--accent); font-size: 14px; letter-spacing: 2px; }
+  #boot .prompt.blink { animation: blink 1.15s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  #boot .err { color: var(--danger); font-size: 12px; max-width: 460px; line-height: 1.7; }
+  #boot.hidden { display: none; }
+
+  /* ---- track selection ---- */
+  #trackMenu { display: none; gap: 18px; margin-top: 8px; flex-wrap: wrap;
+               justify-content: center; max-width: 1560px; padding: 0 24px; }
+  #trackMenu.on { display: flex; }
+  .trackCard {
+    width: 352px; padding: 0 0 15px; border-radius: 14px; cursor: pointer;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10);
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    text-align: center; overflow: hidden;
+  }
+  .trackCard:hover, .trackCard:focus {
+    transform: translateY(-3px); border-color: var(--accent);
+    background: rgba(255,210,63,.08); outline: none;
+  }
+  .trackCard .swatch { height: 168px; display: block; width: 100%; line-height: 0; }
+  .trackCard .swatch svg { width: 100%; height: 100%; display: block; }
+  .trackCard .nm { font-size: 20px; font-weight: 700; letter-spacing: 3px; margin-top: 12px; }
+  .trackCard .tag { font-size: 12px; color: var(--dim); line-height: 1.55;
+                    margin: 7px 18px 0; min-height: 34px; }
+  .trackCard .diff { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-top: 11px; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="hud">
+  <div id="tach">
+    <svg viewBox="0 0 120 120">
+      <!-- 240 degree sweep, starting bottom-left -->
+      <path id="tachTrack" d="M 24.6 95.4 A 50 50 0 1 1 95.4 95.4" />
+      <path id="tachRed" d="" />
+      <path id="tachValue" d="M 24.6 95.4 A 50 50 0 1 1 95.4 95.4"
+            stroke-dasharray="209.4" stroke-dashoffset="209.4" />
+      <g id="tachTicks"></g>
+      <line id="tachNeedle" x1="60" y1="60" x2="60" y2="18" />
+      <circle cx="60" cy="60" r="4" fill="#e8eef5" />
+    </svg>
+    <div id="tachRpm"><div class="n" id="tachRpmVal">0</div><div class="u">RPM</div></div>
+  </div>
+
+  <div id="balance">
+    UNDER &nbsp;·&nbsp; OVER
+    <div id="balanceBar"><div id="balanceFill"></div></div>
+    <div id="balanceText">NEUTRAL</div>
+  </div>
+
+  <div id="gmeter">
+    <svg viewBox="0 0 100 100">
+      <circle class="ring" cx="50" cy="50" r="46" />
+      <circle class="ring" cx="50" cy="50" r="30" />
+      <circle class="ring" cx="50" cy="50" r="15" />
+      <line class="cross" x1="4" y1="50" x2="96" y2="50" />
+      <line class="cross" x1="50" y1="4" x2="50" y2="96" />
+      <circle id="gTrail" cx="50" cy="50" r="0" />
+      <circle id="gDot" cx="50" cy="50" r="4.5" />
+    </svg>
+    <div id="gLabel"><span class="k">LON</span> 0.00 <span class="k">LAT</span> 0.00</div>
+  </div>
+
+  <div id="cluster">
+    <div id="gear">N</div>
+    <div id="speed"><div class="val">0</div><div class="unit">KM/H</div></div>
+  </div>
+
+  <div id="trackName">—</div>
+
+  <div id="laps">
+    <div class="cur" id="lapCur">--:--.---</div>
+    <div><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
+    <div><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
+  </div>
+
+  <div id="minimap">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+      <path id="mmTrack" d=""/>
+      <path id="mmDone" d="" stroke-dasharray="0 9999"/>
+      <line id="mmStart" x1="0" y1="0" x2="0" y2="0"/>
+      <circle id="mmDot" cx="50" cy="50" r="4"/>
+    </svg>
+    <div id="mmBar"><div id="mmBarFill"></div></div>
+    <div id="mmPct">LAP 0%</div>
+  </div>
+
+  <div id="debug"></div>
+
+  <div id="help">
+    <b>LS</b>/<b>A,D</b> steer &nbsp; <b>RT</b>/<b>W</b> gas &nbsp; <b>LT</b>/<b>S</b> brake &nbsp; <b>A</b>/<b>Space</b> handbrake<br>
+    <b>LB,RB</b>/<b>Shift,Ctrl</b> gears &nbsp; <b>Y</b>/<b>C</b> camera &nbsp; <b>Start</b>/<b>R</b> reset<br>
+    <b>`</b> debug &nbsp; <b>G</b> tuning panel &nbsp; <b>M</b> manual gearbox
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<div id="boot">
+  <h1>CARSIM</h1>
+  <div class="sub">LOW-POLY ARCADE DRIVING</div>
+  <div class="prompt" id="bootPrompt">LOADING…</div>
+  <div id="trackMenu"></div>
+  <div class="err" id="bootErr"></div>
+</div>
+
+<script type="module">
+  import { boot } from './src/main.js';
+  boot().catch((err) => {
+    console.error(err);
+    document.getElementById('bootPrompt').textContent = 'FAILED TO START';
+    document.getElementById('bootPrompt').classList.remove('blink');
+    document.getElementById('bootErr').textContent = String(err && err.stack || err);
+  });
+</script>
+</body>
+</html>
