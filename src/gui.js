@@ -121,10 +121,11 @@ export function createGui({ onRebuild, onToast }) {
   tyre.add(TUNING.audio.tyre, 'squealStart', 0.3, 0.95, 0.01).name('squeal starts at').onChange(save);
   tyre.add(TUNING.audio.tyre, 'loadVolume', 0, 1, 0.02).name('loaded loudness').onChange(save);
   tyre.add(TUNING.audio.tyre, 'slideVolume', 1, 3, 0.05).name('slide loudness').onChange(save);
-  tyre.add(TUNING.audio.tyre, 'freqFront', 400, 2400, 20).name('front pitch').onChange(save);
-  tyre.add(TUNING.audio.tyre, 'freqRear', 400, 2400, 20).name('rear pitch').onChange(save);
-  tyre.add(TUNING.audio.tyre, 'qLoaded', 1, 16, 0.5).name('timbre gripping').onChange(save);
-  tyre.add(TUNING.audio.tyre, 'qSliding', 1, 16, 0.5).name('timbre sliding').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'pitchFront', 0.5, 2, 0.02).name('front pitch').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'pitchRear', 0.5, 2, 0.02).name('rear pitch').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'speedPitch', 1, 2, 0.02).name('pitch from speed').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'toneLoaded', 300, 8000, 100).name('tone gripping').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'toneSliding', 300, 12000, 100).name('tone sliding').onChange(save);
   tyre.add(TUNING.audio.tyre.road, 'volume', 0, 0.5, 0.01).name('road noise').onChange(save);
   snd.close();
 

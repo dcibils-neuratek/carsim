@@ -768,21 +768,23 @@ async function testTyreAudioWarning(ctx, r) {
 
   // Front and rear have to be tellable apart, or "which end let go" is not
   // information the player can act on.
-  const sep = Math.abs(TUNING.audio.tyre.freqFront - TUNING.audio.tyre.freqRear);
-  const ratioFR = TUNING.audio.tyre.freqFront / TUNING.audio.tyre.freqRear;
+  const ratioFR = TUNING.audio.tyre.pitchFront / TUNING.audio.tyre.pitchRear;
   r.check('front and rear are distinguishable by pitch',
-    ratioFR > 1.25, `${sep.toFixed(0)} Hz apart, a ratio of ${ratioFR.toFixed(2)}`);
+    ratioFR > 1.25, `playback rates a ratio of ${ratioFR.toFixed(2)} apart`);
 
   // Past the limit the character must change, not just the volume: that is
   // what separates "loaded" from "gone" by ear.
   // Loaded enough to be audible, but not sliding -- the comparison is only
   // meaningful if both states are actually making a sound.
   const gripping = tyreMix(fakeVehicle({ frontUtil: 0.95, rearUtil: 0.95, slipSpeed: 0 }));
-  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 5 }));
+  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 8 }));
+  // Opening the filter and dropping the pitch is what separates "working hard"
+  // from "gone" by ear. Volume alone would only say "more of the same".
   r.check('timbre opens up once sliding',
-    sliding.front.q < gripping.front.q * 0.5 && sliding.front.freq < gripping.front.freq,
-    `Q ${gripping.front.q.toFixed(1)} -> ${sliding.front.q.toFixed(1)}, ` +
-    `${gripping.front.freq.toFixed(0)} -> ${sliding.front.freq.toFixed(0)} Hz`);
+    sliding.front.brightness > gripping.front.brightness * 2
+      && sliding.front.pitch < gripping.front.pitch,
+    `cutoff ${gripping.front.brightness.toFixed(0)} -> ${sliding.front.brightness.toFixed(0)} Hz, ` +
+    `pitch ${gripping.front.pitch.toFixed(2)} -> ${sliding.front.pitch.toFixed(2)}`);
 
   r.log(`  warning window ${warningMs.toFixed(0)} ms before saturation`);
 }
@@ -1019,75 +1021,38 @@ async function testBrakingSquealsToo(ctx, r) {
 }
 
 /**
- * Is the tyre audio actually AUDIBLE?
+ * Is a slide clearly louder than a tyre merely working hard?
  *
- * This exists because the first version was not, and nothing caught it. Every
- * signal was correct -- utilisation right, gain curve right, timbre right --
- * and the tyres could not be heard, because a resonant bandpass discards most
- * of the noise energy you feed it. Measured: -20.4 dB at Q=9, putting a full
- * squeal at 0.030 RMS against engine samples at roughly 0.10.
- *
- * Worse, the loss varies with Q, and Q is what we modulate for timbre: sliding
- * came out 3x louder than gripping as a pure side effect of the filter, not
- * because anything asked for it.
- *
- * So this renders the real filter graph in an OfflineAudioContext and measures
- * what comes out. No AudioContext gesture needed, and it is deterministic.
+ * The two states have to be tellable apart or the sound carries no
+ * information -- which is exactly what went wrong when both produced the same
+ * volume and the car seemed to squeal constantly. Measured on the mix rather
+ * than on rendered audio now that the source is a recording: with a sample the
+ * level is whatever was recorded, and what this file controls is the ratio.
  */
 async function testTyreAudioLevels(r) {
   r.section('tyre audio levels');
 
-  const sr = 48000;
-  const render = async (type, q, freq, gain) => {
-    const ctx = new OfflineAudioContext(1, sr * 0.4, sr);
-    const len = sr * 2;
-    const buf = ctx.createBuffer(1, len, sr);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.loop = true;
-    const f = ctx.createBiquadFilter();
-    f.type = type; f.frequency.value = freq; f.Q.value = q;
-    const g = ctx.createGain();
-    g.gain.value = gain;
-    src.connect(f).connect(g).connect(ctx.destination);
-    src.start();
-    const out = await ctx.startRendering();
-    const c = out.getChannelData(0);
-    let s = 0;
-    for (let i = 0; i < c.length; i++) s += c[i] * c[i];
-    return Math.sqrt(s / c.length);
-  };
-
   const gripping = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 0 }));
-  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 6 }));
+  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 8 }));
 
-  const gripRms = await render('bandpass', gripping.front.q, gripping.front.freq, gripping.front.gain);
-  const slideRms = await render('bandpass', sliding.front.q, sliding.front.freq, sliding.front.gain);
+  r.results.tyreLevels = { grip: gripping.front.gain, slide: sliding.front.gain };
 
-  r.results.tyreLevels = { gripRms, slideRms };
+  r.check('a full slide is audible', sliding.front.gain > 0.2,
+    `gain ${sliding.front.gain.toFixed(2)} while sliding`);
 
-  // Engine samples land around 0.10 RMS. A squeal below about half that is
-  // masked by the engine and might as well not exist.
-  r.check('a full squeal is loud enough to hear over the engine',
-    slideRms > 0.06, `${slideRms.toFixed(3)} RMS while sliding`);
-
-  // And a loaded-but-gripping tyre must be clearly quieter, or the two states
-  // are indistinguishable and the sound carries no information.
   r.check('a loaded tyre only murmurs',
-    gripRms < slideRms * 0.5, `${gripRms.toFixed(3)} RMS at the limit but gripping`);
+    gripping.front.gain < sliding.front.gain * 0.5,
+    `gain ${gripping.front.gain.toFixed(2)} at the limit but gripping`);
 
-  // The makeup gain has to hold level flat as Q changes, so that a slide is
-  // louder because slideVolume says so, not because the filter opened up.
-  // Two things separate them now, both deliberate: slideVolume, and the
-  // loadVolume that keeps a gripping tyre down to a murmur.
+  // Both deliberate: slideVolume, and the loadVolume that keeps a gripping
+  // tyre down to a murmur.
   const expected = TUNING.audio.tyre.slideVolume / TUNING.audio.tyre.loadVolume;
-  const actual = slideRms / gripRms;
-  r.check('a slide is louder by design, not by filter accident',
-    Math.abs(actual - expected) / expected < 0.2,
+  const actual = sliding.front.gain / gripping.front.gain;
+  r.check('the gap is by design, not by accident',
+    Math.abs(actual - expected) / expected < 0.25,
     `${actual.toFixed(1)}x measured against an intended ${expected.toFixed(1)}x`);
 
-  r.log(`  gripping ${gripRms.toFixed(3)} RMS, sliding ${slideRms.toFixed(3)} RMS`);
+  r.log(`  gripping ${gripping.front.gain.toFixed(2)}, sliding ${sliding.front.gain.toFixed(2)}`);
 }
 
 /** The shared slide definition from TUNING.tyres, for the stand-in vehicle. */

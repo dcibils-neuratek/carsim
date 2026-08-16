@@ -389,7 +389,10 @@ export async function boot() {
       // Browsers only allow an AudioContext to start from a user gesture, and
       // this is the first one we get.
       audio.start().then(() => {
-        if (audio.ready && !tyreAudio) tyreAudio = new TyreAudio(audio.ctx, audio.buses);
+        if (audio.ready && !tyreAudio) {
+          tyreAudio = new TyreAudio(audio.ctx, audio.buses);
+          tyreAudio.load();   // the squeal sample, fetched without holding anything up
+        }
         // Started separately and not awaited: the track is megabytes against
         // the engine's kilobytes, and the car should not be silent while it
         // downloads.

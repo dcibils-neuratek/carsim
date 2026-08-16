@@ -227,7 +227,8 @@ The track menu is navigable with the d-pad or left stick, `A` to choose.
 | `src/editor/` | The track editor: plan view, elevation, inspector, 3D preview |
 | `src/tuning.js` | Every physics constant, plus save/load |
 | `src/telemetry.js` | Per-wheel tyre load, force and friction utilisation |
-| `src/tyreaudio.js` | Synthesised tyre squeal and road noise |
+| `src/music.js` | Background music on its own bus |
+| `src/tyreaudio.js` | Tyre squeal (sampled) and road noise |
 | `src/input.js` | Gamepad and keyboard |
 | `src/scene.js` | Renderer, lights, sky, car mesh |
 | `src/camera.js` | Chase / hood / orbit cameras |
@@ -325,9 +326,10 @@ than for driving anything from.
 ## Tyre audio
 
 With no wheel to feel, sound is the only channel that can tell you the limit is
-*coming* rather than that it has arrived. `src/tyreaudio.js` synthesises it —
-white noise through a resonant bandpass, because that is physically what a
-squeal is.
+*coming* rather than that it has arrived. `src/tyreaudio.js` plays a looping
+screech recording — `assets/audio/tyre-screeching.m4a` — one voice per axle,
+pitched and filtered by what the tyre is doing. Road noise is still
+synthesised, because a broadband rumble is what filtered noise already is.
 
 Two signals drive it, doing different jobs:
 
@@ -338,12 +340,16 @@ Two signals drive it, doing different jobs:
   **confirmation**. Utilisation is clamped, so it pins at 1.0 and says nothing
   about how far past the limit you are.
 
-Together they give a sound that *rises* before the limit and *changes
-character* after it. Q is the trick: narrow and tonal is a tyre gripping hard,
-broad and low is one that has gone.
+Road speed is a third input: a slide at walking pace is a chirp, the same slide
+at 150 km/h is a howl.
 
-Front and rear are separate voices, 1320 Hz and 880 Hz, so you can hear **which
-end** let go and correct the right way.
+Together they give a sound that *rises* before the limit and *changes
+character* after it. The filter is the trick — a loaded tyre is a muted whine
+at 1.5 kHz, a sliding one opens to 7 kHz and gets harsh — and the pitch drops
+as it lets go.
+
+Front and rear are separate voices at playback rates 1.18 and 0.82, so you can
+hear **which end** let go and correct the right way.
 
 Measured on a skidpad ramp: **2.3 s between the tyre becoming audible and
 saturating**, silent below 40% utilisation. `testTyreAudioWarning` guards that.

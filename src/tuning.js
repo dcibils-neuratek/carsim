@@ -216,16 +216,24 @@ export const DEFAULTS = {
       loadVolume: 0.3,
       squealFull: 1.0,
 
-      // Front and rear are deliberately far apart in pitch. This is what lets
-      // you hear WHICH end let go, and so which way to correct.
-      freqFront: 1320,
-      freqRear: 880,
-      freqRise: 0.28,     // how far the pitch climbs as the tyre loads up
+      // Playback rate of the screech recording, per axle. Deliberately far
+      // apart: this is what lets you hear WHICH end let go, and so which way
+      // to correct.
+      pitchFront: 1.18,
+      pitchRear: 0.82,
+      pitchRise: 0.12,    // how far pitch climbs as the tyre loads up
+      speedPitch: 1.25,   // and how much road speed lifts it on top
 
-      // Timbre. High Q is a narrow, tonal squeal -- a tyre gripping hard. Low
-      // Q is broadband scrub -- a tyre that has gone.
-      qLoaded: 9.0,
-      qSliding: 2.0,
+      // Lowpass cutoff, in Hz. A loaded tyre is a muted whine; a sliding one
+      // opens up and gets harsh, so more of the recording's top end comes
+      // through the further past the limit it is.
+      toneLoaded: 1500,
+      toneSliding: 7000,
+
+      // A slide at walking pace is a chirp, not a howl. This is how much of
+      // full volume remains at the slowest speed that makes any sound at all.
+      speedFloor: 0.45,
+      speedFull: 32,      // m/s at which speed stops adding
 
       // Past the limit, driven by scrub speed rather than utilisation, which
       // is clamped and so says nothing about how far gone you are.
