@@ -177,6 +177,12 @@ export function buildCarFromModel(loaded, tuning, palette) {
     return flattened.get(material.uuid);
   };
 
+  // The shell hangs in its own group so it can be leant on its springs
+  // independently of the wheels, which have to stay on the road. See
+  // Vehicle._leanBody.
+  const bodyGroup = new THREE.Group();
+  group.add(bodyGroup);
+
   const lift = physicsHubY - modelHubY;
   const bodyMeshes = bodyParts.map(({ geo, material, name }) => {
     const g = geo.clone();
@@ -185,7 +191,7 @@ export function buildCarFromModel(loaded, tuning, palette) {
     const mesh = new THREE.Mesh(g, flatten(material));
     mesh.castShadow = true;
     mesh.name = material?.name || name || '';
-    group.add(mesh);
+    bodyGroup.add(mesh);
     return mesh;
   });
 
@@ -229,7 +235,7 @@ export function buildCarFromModel(loaded, tuning, palette) {
     }
   };
 
-  return { group, wheelMeshes, bodyMesh, bodyMeshes, setBrakeLights, tailMats };
+  return { group, bodyGroup, wheelMeshes, bodyMesh, bodyMeshes, setBrakeLights, tailMats };
 }
 
 /**

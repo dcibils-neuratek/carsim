@@ -53,6 +53,22 @@ export class Vehicle {
     this.lastAccel = 0;
     this._prevSpeed = 0;
 
+    // What the driver is asking for, mirrored for the audio and the HUD.
+    //
+    // Initialised HERE and not only at the end of _applyBrakes, because a
+    // renderer frame can land before the first physics step has run. They were
+    // undefined until then, and `undefined - 0` is NaN -- which the engine
+    // audio smooths into its running throttle and never recovers from, since
+    // NaN + (x - NaN) * k stays NaN forever. That poisoned every gain it set,
+    // and the exception took the whole frame -- including the render -- with
+    // it. The game simply froze.
+    this.braking = false;
+    this.throttleInput = 0;
+    this.brakeInput = 0;
+    this.handbrakeInput = 0;
+    this.driveForce = 0;
+    this.holding = false;
+
     // Two snapshots of the render-relevant state so frames can interpolate
     // between physics steps.
     this.prev = makeSnapshot();
@@ -693,7 +709,7 @@ export class Vehicle {
   }
 
   /** Write interpolated physics state onto the car meshes. */
-  syncMesh(group, wheelMeshes, alpha) {
+  syncMesh(group, wheelMeshes, alpha, bodyGroup = null) {
     const a = THREE.MathUtils.clamp(alpha, 0, 1);
     const A = this.prev, B = this.curr;
 
@@ -704,17 +720,63 @@ export class Vehicle {
     _qb.set(B.qx, B.qy, B.qz, B.qw);
     group.quaternion.copy(_qa).slerp(_qb, a);
 
+    const susp = _susp;
     for (let i = 0; i < 4; i++) {
       const mesh = wheelMeshes[i];
       const p = this.wheelPositions[i];
-      const susp = lerp(A.wheels[i].suspension, B.wheels[i].suspension, a);
-      mesh.position.set(p.x, p.y - susp, p.z);
+      susp[i] = lerp(A.wheels[i].suspension, B.wheels[i].suspension, a);
+      mesh.position.set(p.x, p.y - susp[i], p.z);
       mesh.rotation.set(0, 0, 0);
       mesh.rotateY(lerp(A.wheels[i].steering, B.wheels[i].steering, a));
       // The axle points along -X, so a positive reported rotation spins the
       // wheel backwards in mesh space.
       mesh.rotateX(-shortestLerpAngle(A.wheels[i].rotation, B.wheels[i].rotation, a));
     }
+
+    if (bodyGroup) this._leanBody(bodyGroup, susp);
+  }
+
+  /**
+   * Exaggerate how far the shell leans on its springs -- the visual mesh only,
+   * never the collider.
+   *
+   * The point is to make load transfer VISIBLE. The outside front tyre is the
+   * one about to give up, and the clearest picture of where the weight has gone
+   * is the body rolling onto it. The real angles are small enough to miss from
+   * a chase camera, so the shell is leant a little further than the physics.
+   *
+   * Derived from SUSPENSION COMPRESSION, not from the chassis' attitude in the
+   * world. Using world attitude would exaggerate the terrain as well as the
+   * springs: every hill would pitch the body relative to its own wheels and
+   * every banked corner would roll it, permanently, with the car sitting
+   * perfectly level on its suspension. Compression only moves when load moves,
+   * which is the thing worth showing.
+   *
+   * Applied to the body alone rather than the whole car, because the wheels
+   * have to stay on the road. That also happens to be what really occurs: the
+   * shell leans relative to its wheels, not with them.
+   */
+  _leanBody(bodyGroup, susp) {
+    const v = TUNING.visual;
+    const extra = v.leanScale - 1;
+    if (extra <= 0) { bodyGroup.rotation.set(0, 0, 0); return; }
+
+    const w = TUNING.wheels;
+    // A longer strut means the body sits FURTHER from that wheel, so that
+    // corner is higher. Left wheels are at +X, front at +Z.
+    const roll = ((susp[WHEEL.FL] + susp[WHEEL.RL]) - (susp[WHEEL.FR] + susp[WHEEL.RR]))
+                 / (4 * w.trackHalf);
+    const pitch = ((susp[WHEEL.FL] + susp[WHEEL.FR]) - (susp[WHEEL.RL] + susp[WHEEL.RR]))
+                  / (2 * (w.frontZ + w.rearZ));
+
+    // Rotating about +Z by a positive angle raises the +X side, which matches
+    // the sign of `roll` above. Nose-up is a NEGATIVE rotation about +X, hence
+    // the minus on pitch.
+    bodyGroup.rotation.set(
+      THREE.MathUtils.clamp(-pitch * extra, -v.leanMax, v.leanMax),
+      0,
+      THREE.MathUtils.clamp(roll * extra, -v.leanMax, v.leanMax),
+    );
   }
 
   reset(spawn = this.spawn) {
@@ -757,6 +819,8 @@ function makeSnapshot() {
 
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
+// Interpolated strut lengths, reused every frame so syncMesh allocates nothing.
+const _susp = [0, 0, 0, 0];
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 

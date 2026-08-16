@@ -234,22 +234,26 @@ export class TyreAudio {
     if (!this.road && !this.ready) return;
     const mix = tyreMix(vehicle, this.roadGrip);
     const now = this.ctx.currentTime;
-    const smoothing = TUNING.audio.tyre.smoothing;
+    // Web Audio throws on a non-finite value, and a throw here would stop the
+    // whole frame -- the render call sits further down the same function, so a
+    // single bad number would freeze the picture, not just the sound.
+    const ok = (v, fallback) => (Number.isFinite(v) ? v : fallback);
+    const smoothing = Math.max(ok(TUNING.audio.tyre.smoothing, 0.035), 0.001);
 
     if (this.ready) {
       for (const name of ['front', 'rear']) {
         const axle = this.axles[name];
         const m = mix[name];
-        axle.gain.gain.setTargetAtTime(m.gain, now, smoothing);
-        axle.filter.frequency.setTargetAtTime(m.brightness, now, smoothing);
+        axle.gain.gain.setTargetAtTime(ok(m.gain, 0), now, smoothing);
+        axle.filter.frequency.setTargetAtTime(ok(m.brightness, 1500), now, smoothing);
         // playbackRate rather than detune: it drags the whole recording,
         // which is what a contact patch moving faster actually does.
-        axle.source.playbackRate.setTargetAtTime(m.pitch, now, smoothing);
+        axle.source.playbackRate.setTargetAtTime(ok(m.pitch, 1), now, smoothing);
       }
     }
     if (this.road) {
-      this.road.gain.gain.setTargetAtTime(mix.road.gain, now, smoothing);
-      this.road.filter.frequency.setTargetAtTime(mix.road.freq, now, smoothing);
+      this.road.gain.gain.setTargetAtTime(ok(mix.road.gain, 0), now, smoothing);
+      this.road.filter.frequency.setTargetAtTime(ok(mix.road.freq, 400), now, smoothing);
     }
 
     this.state = {

@@ -20,6 +20,7 @@ import { createGui } from './gui.js';
 import { loadCarModel, buildCarFromModel } from './carmodel.js';
 import { PALETTE } from './scene.js';
 import { Skidmarks } from './skidmarks.js';
+import { TyreSmoke } from './smoke.js';
 import { loadTracks, TRACK_IDS, getTrack, hasTrack, registerTrack } from './tracks.js';
 import { loadStashedTrack, EDITOR_TRACK_ID } from './editor/state.js';
 import { EngineAudio } from './audio.js';
@@ -256,6 +257,8 @@ export async function boot() {
   const track = new Track(world, RAPIER, scene, trackDef);
   const debug = new PhysicsDebug(scene);
   const skidmarks = new Skidmarks(scene, 2400, trackDef);
+  const smoke = new TyreSmoke(scene, 700, trackDef);
+  smoke.setViewportHeight(window.innerHeight);
   const audio = new EngineAudio();
   // Built once the engine's AudioContext exists, so both share one context
   // and one master gain -- mute and volume stay in a single place.
@@ -377,6 +380,9 @@ export async function boot() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // Point size is in pixels, so smoke has to be told or it changes size
+    // with the window.
+    smoke.setViewportHeight(window.innerHeight);
   });
 
   window.addEventListener('keydown', (e) => {
@@ -388,7 +394,7 @@ export async function boot() {
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
     if (e.code === 'KeyO') hud.toast(toggleWireframe());
-    if (e.code === 'KeyK') { skidmarks.clear(); hud.toast('skidmarks cleared'); }
+    if (e.code === 'KeyK') { skidmarks.clear(); smoke.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
     if (e.code === 'KeyN') {
       if (music?.ready) hud.toast(music.toggle() ? 'music off' : 'music on');
@@ -403,7 +409,7 @@ export async function boot() {
     carsim: {
       get vehicle() { return vehicle; },
       get car() { return car; },
-      track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks,
+      track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks, smoke,
     },
   });
 
@@ -484,9 +490,10 @@ export async function boot() {
     }
 
     // --- render ---
-    vehicle.syncMesh(car.group, car.wheelMeshes, stepper.alpha);
+    vehicle.syncMesh(car.group, car.wheelMeshes, stepper.alpha, car.bodyGroup);
     car.setBrakeLights?.(vehicle.braking);
     skidmarks.update(vehicle);
+    smoke.update(dt, vehicle);
     audio.update(vehicle, dt);
     if (tyreAudio && !audio.muted) tyreAudio.update(vehicle);
 
@@ -540,6 +547,7 @@ export async function boot() {
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
     vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
+    skidmarks, smoke,
     get tyreAudio() { return tyreAudio; },
   };
 

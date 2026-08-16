@@ -297,6 +297,43 @@ export const DEFAULTS = {
     spinFull: 1.25,
   },
 
+  // How much further the shell leans than the springs really move.
+  //
+  // The angles are honest but small, and a chase camera flattens them further.
+  // The outside front tyre is the one about to give up, and the body rolling
+  // onto it is the clearest picture of that -- so it is drawn a little larger
+  // than life. Mesh only; the collider never sees this.
+  visual: {
+    leanScale: 1.45,     // 1.0 = exactly what the physics does
+    leanMax: 0.10,       // rad (~5.7 deg) of ADDED lean, so a big hit cannot
+                         // fold the body through its own wheels
+  },
+
+  // Tyre smoke. The visual half of the event the squeal and the marks report,
+  // driven from the same telemetry slide figure so the three cannot disagree.
+  smoke: {
+    enabled: true,
+    minSpeed: 4.0,       // m/s below which a scrubbing tyre just chirps
+    slideStart: 0.35,    // of telemetry's 0..1 slide, where smoke begins
+    loadFull: 4500,      // N of wheel load counted as "fully loaded"
+    loadFloor: 0.35,     // how much an unloaded tyre still smokes
+    rate: 90,            // puffs per second at full intensity, per wheel
+    burstMax: 6,         // cap per wheel per frame, so a stutter cannot flood
+    life: 1.15,          // seconds at full intensity
+    size: 0.55,          // metres across at birth
+    growth: 2.6,         // how much it expands over its life
+    opacity: 0.30,
+    color: 0xd8d5cf,     // warm grey; pure white reads as steam
+    rise: 0.85,          // m/s upward off the contact patch
+    buoyancy: 0.55,      // m/s^2 of continued lift
+    spread: 0.14,        // m of scatter at the contact patch
+    scatter: 0.7,        // m/s of random sideways drift
+    drag: 0.16,          // fraction of the car's velocity the puff inherits
+    slow: 1.5,           // 1/s the puff loses its initial velocity
+    speedFloor: 0.4,     // smoke at minSpeed, as a fraction of full
+    speedFull: 30,       // m/s at which speed stops adding
+  },
+
   skidmarks: {
     enabled: true,
     opacity: 0.55,

@@ -156,6 +156,24 @@ export function createGui({ onRebuild, onToast }) {
   tyre.add(TUNING.audio.tyre.road, 'volume', 0, 0.5, 0.01).name('road noise').onChange(save);
   snd.close();
 
+  // How far the shell leans past what the springs really do. Mesh only -- the
+  // collider never sees it, so this cannot change how the car handles.
+  const look = gui.addFolder('body lean');
+  look.add(TUNING.visual, 'leanScale', 1, 2.2, 0.05).name('lean x physical').onChange(save);
+  look.add(TUNING.visual, 'leanMax', 0, 0.3, 0.01).name('max added (rad)').onChange(save);
+  look.close();
+
+  const smoke = gui.addFolder('tyre smoke');
+  smoke.add(TUNING.smoke, 'enabled').onChange(save);
+  smoke.add(TUNING.smoke, 'rate', 0, 300, 5).name('puffs/s').onChange(save);
+  smoke.add(TUNING.smoke, 'opacity', 0, 1, 0.02).onChange(save);
+  smoke.add(TUNING.smoke, 'life', 0.2, 4, 0.05).name('life (s)').onChange(save);
+  smoke.add(TUNING.smoke, 'size', 0.1, 2, 0.05).name('size (m)').onChange(save);
+  smoke.add(TUNING.smoke, 'growth', 0, 6, 0.1).name('expansion').onChange(save);
+  smoke.add(TUNING.smoke, 'slideStart', 0, 0.9, 0.02).name('starts at slide').onChange(save);
+  smoke.add(TUNING.smoke, 'rise', 0, 3, 0.05).name('rise (m/s)').onChange(save);
+  smoke.close();
+
   const skid = gui.addFolder('skidmarks');
   skid.add(TUNING.skidmarks, 'enabled').onChange(save);
   skid.add(TUNING.skidmarks, 'opacity', 0, 1, 0.02).onChange(save);

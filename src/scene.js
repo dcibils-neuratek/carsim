@@ -207,6 +207,10 @@ function flatMat(color, opts = {}) {
 
 export function createCarMesh(tuning) {
   const car = new THREE.Group();
+  // Everything except the wheels hangs here, so the shell can lean on its
+  // springs while the wheels stay on the road. See Vehicle._leanBody.
+  const bodyGroup = new THREE.Group();
+  car.add(bodyGroup);
 
   // Body: a wedge that's widest at the doors and tapers to nose and tail.
   const body = new THREE.Mesh(loft([
@@ -219,7 +223,7 @@ export function createCarMesh(tuning) {
     { z:  2.10, hw: 0.70, yb: -0.30, yt: -0.03 },
   ]), flatMat(PALETTE.carBody, { roughness: 0.45, metalness: 0.25 }));
   body.castShadow = true;
-  car.add(body);
+  bodyGroup.add(body);
 
   // Greenhouse: fastback, narrower than the body so the shoulders read.
   // The roof sits 0.47 above the body origin, which with the car's ride height
@@ -231,7 +235,7 @@ export function createCarMesh(tuning) {
     { z:  0.72, hw: 0.63, yb: 0.16, yt: 0.26 },
   ]), flatMat(PALETTE.carCabin, { roughness: 0.35 }));
   cabin.castShadow = true;
-  car.add(cabin);
+  bodyGroup.add(cabin);
 
   // Windscreen and rear glass, inset a hair so they don't z-fight the cabin.
   const glassMat = flatMat(PALETTE.carGlass, {
@@ -240,18 +244,18 @@ export function createCarMesh(tuning) {
   const windscreen = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 0.66), glassMat);
   windscreen.position.set(0, 0.36, 0.47);
   windscreen.rotation.x = -0.80;
-  car.add(windscreen);
+  bodyGroup.add(windscreen);
 
   const rearGlass = new THREE.Mesh(new THREE.PlaneGeometry(1.18, 0.78), glassMat);
   rearGlass.position.set(0, 0.35, -1.16);
   rearGlass.rotation.x = Math.PI + 0.86;
-  car.add(rearGlass);
+  bodyGroup.add(rearGlass);
 
   // Modest ducktail rather than a big wing -- the A110 doesn't wear one.
   const wing = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.05, 0.26), flatMat(PALETTE.carBody));
   wing.position.set(0, 0.20, -1.94);
   wing.castShadow = true;
-  car.add(wing);
+  bodyGroup.add(wing);
 
   // Lights. Taillights get swapped to a hot emissive when braking.
   const headMat = new THREE.MeshStandardMaterial({
@@ -260,7 +264,7 @@ export function createCarMesh(tuning) {
   for (const sx of [-1, 1]) {
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.06), headMat);
     head.position.set(sx * 0.40, -0.06, 2.09);
-    car.add(head);
+    bodyGroup.add(head);
   }
 
   const tailMat = new THREE.MeshStandardMaterial({
@@ -269,7 +273,7 @@ export function createCarMesh(tuning) {
   for (const sx of [-1, 1]) {
     const tail = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.11, 0.06), tailMat);
     tail.position.set(sx * 0.40, -0.04, -2.10);
-    car.add(tail);
+    bodyGroup.add(tail);
   }
 
   // Wheels, built separately so the physics can place each one every frame.
@@ -282,7 +286,7 @@ export function createCarMesh(tuning) {
   // through one call whichever car it is looking at.
   const setBrakeLights = (on) => { tailMat.emissiveIntensity = on ? 1.7 : 0.35; };
 
-  return { group: car, wheelMeshes, tailMat, setBrakeLights };
+  return { group: car, bodyGroup, wheelMeshes, tailMat, setBrakeLights };
 }
 
 function createWheelMesh(radius, width) {

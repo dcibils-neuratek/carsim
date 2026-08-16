@@ -35,6 +35,9 @@ function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 function ratio(v, start, end) { return clamp((v - start) / (end - start), 0, 1); }
 
+/** Web Audio throws on a non-finite value, and a throw here stops the frame. */
+function finite(v, fallback) { return Number.isFinite(v) ? v : fallback; }
+
 export class EngineAudio {
   constructor() {
     this.ctx = null;
@@ -173,9 +176,19 @@ export class EngineAudio {
 
     // Smooth the inputs a little. Raw per-step rpm makes the pitch grainy, and
     // throttle steps between 0 and 1 on a keyboard.
-    const k = Math.min(dt * a.responsiveness, 1);
-    this._rpm += (vehicle.rpm - this._rpm) * k;
-    this._throttle += ((vehicle.brakeInput > 0.05 ? 0 : vehicle.throttleInput) - this._throttle) * k;
+    // Guarded, because these are SMOOTHED values: a single non-finite sample
+    // does not cause a single bad frame, it sticks forever, since
+    // NaN + (x - NaN) * k is NaN for every subsequent frame. One glitch used
+    // to silence the engine permanently AND throw out of setTargetAtTime every
+    // frame after, which killed the render call further down the same
+    // function. An audio hiccup must never be able to stop the picture.
+    const k = Math.min(dt * a.responsiveness, 1) || 0;
+    const rpmIn = finite(vehicle.rpm, e.idleRpm);
+    const pedalIn = vehicle.brakeInput > 0.05 ? 0 : finite(vehicle.throttleInput, 0);
+    if (!Number.isFinite(this._rpm)) this._rpm = rpmIn;
+    if (!Number.isFinite(this._throttle)) this._throttle = pedalIn;
+    this._rpm += (rpmIn - this._rpm) * k;
+    this._throttle += (pedalIn - this._throttle) * k;
 
     const rpm = this._rpm;
     const band = crossFade(rpm, a.blendLowRpm, a.blendHighRpm);
@@ -194,12 +207,13 @@ export class EngineAudio {
       if (!node.noPitch) {
         // detune is in cents; scale how far the engine is from the sample's
         // reference rpm.
-        node.source.detune.value = (rpm - node.refRpm) * a.pitchPerRpm;
+        node.source.detune.value = finite((rpm - node.refRpm) * a.pitchPerRpm, 0);
       }
       // setTargetAtTime avoids the clicks that assigning .value directly
       // produces when a gain jumps between frames.
       node.gain.gain.setTargetAtTime(
-        gains[key] * node.volume, this.ctx.currentTime, a.smoothing,
+        finite(gains[key] * node.volume, 0), this.ctx.currentTime,
+        Math.max(finite(a.smoothing, 0.02), 0.001),
       );
     }
   }
