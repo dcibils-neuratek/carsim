@@ -5,7 +5,7 @@
 // dimensions, wheel positions) need the car rebuilt, and are wired to do that.
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { TUNING, saveTuning, resetTuning, dumpTuning } from './tuning.js';
+import { TUNING, saveTuning, resetTuning, dumpTuning, peakPowerHp, setPeakPowerHp } from './tuning.js';
 
 export function createGui({ onRebuild, onToast }) {
   const gui = new GUI({ title: 'carsim tuning', width: 310 });
@@ -53,9 +53,35 @@ export function createGui({ onRebuild, onToast }) {
   wheels.add(TUNING.wheels, 'connectionY', -0.6, 0.3, 0.01).onFinishChange(rebuild);
   wheels.close();
 
+  // Engine output, in the two units engines are actually quoted in.
+  //
+  // These two sliders MOVE EACH OTHER, and that is not a bug: power is torque
+  // times revs, so for a fixed torque curve the hp figure is decided by the Nm
+  // figure. Two free sliders would let you ask for an engine that cannot exist
+  // and then quietly hand you a different one. Both are offered because people
+  // think in both -- "I want 500 hp" is the natural request, and 566 Nm is the
+  // answer to it.
   const engine = gui.addFolder('engine');
+  const output = {
+    get hp() { return Math.round(peakPowerHp()); },
+    set hp(v) { setPeakPowerHp(v); },
+  };
+  // Declared first so each slider's callback can refresh the other; only ever
+  // read from inside a callback, by which point both are assigned.
+  let hpCtl, torqueCtl;
+
+  torqueCtl = engine.add(TUNING.engine, 'peakTorque', 100, 900, 5)
+    .name('peak torque (Nm)')
+    .onChange(() => { save(); hpCtl.updateDisplay(); });
+  hpCtl = engine.add(output, 'hp', 60, 1000, 5)
+    .name('peak power (hp)')
+    .onChange(() => { save(); torqueCtl.updateDisplay(); });
+
   engine.add(TUNING.engine, 'idleRpm', 500, 1500, 10).onChange(save);
-  engine.add(TUNING.engine, 'redlineRpm', 4000, 9500, 50).onChange(save);
+  // Power is measured only up to the redline, so lowering it can strangle the
+  // engine before its power peak -- as on a real one.
+  engine.add(TUNING.engine, 'redlineRpm', 4000, 9500, 50)
+    .onChange(() => { save(); hpCtl.updateDisplay(); });
   engine.add(TUNING.engine, 'maxRpm', 4000, 10000, 50).onChange(save);
   engine.add(TUNING.engine, 'engineBrakeTorque', 0, 200, 1).name('engine braking').onChange(save);
   engine.add(TUNING.engine, 'revSpeed', 1, 20, 0.1).onChange(save);
@@ -77,6 +103,7 @@ export function createGui({ onRebuild, onToast }) {
   brakes.add(TUNING.brakes, 'maxBrakeForce', 0, 40000, 250).name('brake force (N)').onChange(save);
   brakes.add(TUNING.brakes, 'frontBias', 0.3, 0.9, 0.01).onChange(save);
   brakes.add(TUNING.brakes, 'holdBrake', 0, 400, 5).name('hold at rest').onChange(save);
+  brakes.add(TUNING.brakes, 'holdSpeed', 0, 1.5, 0.05).name('hill hold under (m/s)').onChange(save);
   brakes.add(TUNING.brakes, 'handbrake', 0, 800, 5).onChange(save);
   brakes.add(TUNING.brakes, 'handbrakeGripMult', 0.05, 1, 0.01).name('handbrake grip').onChange(save);
   brakes.close();

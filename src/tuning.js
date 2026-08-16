@@ -91,8 +91,14 @@ export const DEFAULTS = {
   },
 
   engine: {
+    // How strong the engine is. The curve below is only a SHAPE: torqueAt()
+    // normalises it so its peak is exactly peakTorque, which makes this one
+    // number the whole engine's output and something a slider can drive.
+    peakTorque: 340,      // Nm
+
     // [rpm, torque Nm]. Turbo four: a flat 340 Nm plateau from 2400-6000, with
-    // peak power at 6400 (340 Nm x 6400 rpm ~= 224 kW = 300 hp).
+    // peak power at 6400 (340 Nm x 6400 rpm ~= 224 kW = 300 hp). Absolute
+    // values here no longer matter -- only the shape does.
     curve: [
       [1000, 190], [1500, 265], [2000, 320], [2400, 340], [3000, 340],
       [4000, 340], [5000, 340], [6000, 340], [6400, 334], [6800, 300], [7000, 250],
@@ -132,6 +138,11 @@ export const DEFAULTS = {
     maxBrakeForce: 14000,
     frontBias: 0.62,
     holdBrake: 90,            // Rapier brake impulse, only to hold it at rest
+    // Below this, a braked car is pinned outright rather than being pushed
+    // around by forces it cannot win against. 0.4 m/s is 1.4 km/h -- slow
+    // enough that being snapped to a stop is invisible, fast enough that the
+    // hold catches the car before it can start rolling. See _applyHillHold.
+    holdSpeed: 0.4,           // m/s
     handbrake: 240,           // rear-only Rapier brake impulse: locks the rears
     handbrakeGripMult: 0.32,  // rear friction while the handbrake is pulled
   },
@@ -377,16 +388,86 @@ export function dumpTuning() {
   return json;
 }
 
+// ---------------------------------------------------------------------------
+// Engine output.
+//
+// The authored curve is a SHAPE -- how the pull is distributed across the rev
+// range -- and peakTorque scales it. That keeps the well-tuned A110 character
+// (flat turbo plateau, tailing off past 6400) while letting one number decide
+// how hard the thing actually pushes.
+//
+// Power is NOT a second free parameter. Power is torque times revs, so for a
+// fixed shape and rev ceiling the hp figure is pinned to the Nm figure: this
+// engine makes 0.88 hp per Nm and nothing in the panel can change that without
+// changing the shape. peakPowerHp() therefore derives it rather than storing
+// it, and setPeakPowerHp() converts back -- two views of one engine, so you can
+// ask in whichever unit you happen to think in.
+
+const WATTS_PER_HP = 745.7;
+const RPM_TO_RADS = Math.PI / 30;
+
+// The peak-normalised curve. Rebuilt only when the curve array is swapped
+// (resetTuning does that) because torqueAt() runs 120 times a second and this
+// scans the whole table. Nothing edits the points in place.
+let _shape = { curve: null, points: null };
+
+function shapedCurve() {
+  const e = TUNING.engine;
+  if (_shape.curve === e.curve) return _shape.points;
+
+  let max = 0;
+  for (const [, t] of e.curve) if (t > max) max = t;
+  const points = max > 0 ? e.curve.map(([r, t]) => [r, t / max]) : e.curve;
+
+  _shape = { curve: e.curve, points };
+  return points;
+}
+
 // Interpolate the engine torque curve. Flat beyond either end.
 export function torqueAt(rpm) {
-  const c = TUNING.engine.curve;
-  if (rpm <= c[0][0]) return c[0][1];
+  const c = shapedCurve();
+  const scale = TUNING.engine.peakTorque ?? 340;
+  if (rpm <= c[0][0]) return c[0][1] * scale;
   for (let i = 1; i < c.length; i++) {
     if (rpm <= c[i][0]) {
       const [r0, t0] = c[i - 1];
       const [r1, t1] = c[i];
-      return t0 + (t1 - t0) * ((rpm - r0) / (r1 - r0));
+      return (t0 + (t1 - t0) * ((rpm - r0) / (r1 - r0))) * scale;
     }
   }
-  return c[c.length - 1][1];
+  return c[c.length - 1][1] * scale;
+}
+
+/**
+ * Peak power in hp, over the usable rev range.
+ *
+ * Derived rather than stored: power is not a free parameter, it is what the
+ * torque curve and the redline come to between them. Capped at the redline
+ * because revs you cannot use make no power you can use -- which is also why
+ * raising the redline alone gains horsepower, exactly as on a real engine.
+ */
+export function peakPowerHp() {
+  const redline = TUNING.engine.redlineRpm;
+  let best = 0;
+  for (let rpm = 1000; rpm <= redline; rpm += 25) {
+    const watts = torqueAt(rpm) * rpm * RPM_TO_RADS;
+    if (watts > best) best = watts;
+  }
+  return best / WATTS_PER_HP;
+}
+
+/**
+ * Ask for a power figure and get the torque that produces it.
+ *
+ * Power is linear in peakTorque for a fixed shape, so this is exact in one
+ * step rather than a search.
+ */
+export function setPeakPowerHp(hp) {
+  const now = peakPowerHp();
+  // Rounded, or the back-solve leaves 339.78895364399017 in the panel and in
+  // the copied setup JSON. A tenth of a Nm is under a tenth of a horsepower.
+  if (now > 1 && hp > 0) {
+    TUNING.engine.peakTorque = Math.round(TUNING.engine.peakTorque * (hp / now) * 10) / 10;
+  }
+  return TUNING.engine.peakTorque;
 }

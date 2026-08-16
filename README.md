@@ -1,8 +1,16 @@
-# Carsim
+# VROOM
 
-A 3D low-poly arcade driving sim with real vehicle physics. Three.js for
-rendering, Rapier3D for physics, gamepad for control. No build step, no npm —
-just static files and an import map.
+A 3D low-poly arcade driving game with real vehicle physics, by Diego Cibils.
+Three.js for rendering, Rapier3D for physics, gamepad for control. No build
+step, no npm — just static files and an import map.
+
+Aimed squarely at what the arcade and console racers of the 90s and 2000s got
+right — Top Gear, Daytona, Cruis'n USA: pick a circuit, drive. No accounts, no
+purchases, no tutorial, no menus to climb.
+
+The repository, the module names and the `carsim.*` localStorage keys keep the
+old name. Renaming them would throw away every saved setup and gamepad binding
+for nothing a player would ever see.
 
 ## Run
 

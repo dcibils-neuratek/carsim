@@ -407,10 +407,17 @@ export async function boot() {
     },
   });
 
-  prompt.textContent = `${trackDef.name.toUpperCase()} — PRESS ANY BUTTON OR KEY`;
+  prompt.textContent = `${trackDef.name.toUpperCase()} — GO`;
   prompt.classList.add('blink');
 
   const bootEl = document.getElementById('boot');
+  // No second gate. Picking a circuit IS the button press, and making someone
+  // press another one to confirm the thing they just chose is the opposite of
+  // pick-up-and-play. It only ever existed to give the AudioContext a user
+  // gesture to start from -- and a click or an Enter on a card is one, so the
+  // common paths are already covered. The exception is choosing with a
+  // gamepad, which browsers do not count as activation; that case is handled
+  // below by asking for a key only when the audio really is still blocked.
   let started = false;
   let stuckTimer = 0;
   let last = performance.now();
@@ -424,7 +431,7 @@ export async function boot() {
 
     const state = input.update(dt);
 
-    if (!started && input.ready) {
+    if (!started) {
       started = true;
       // Browsers only allow an AudioContext to start from a user gesture, and
       // this is the first one we get.

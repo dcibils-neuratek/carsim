@@ -190,6 +190,9 @@ export class Vehicle {
     this._prevSpeed = this.speed;
 
     const pedals = this._resolvePedals(input);
+    // Before anything else touches the body, so the render snapshot taken at
+    // the end of this step shows the held position rather than the drifted one.
+    this._applyHillHold(pedals, input);
     this._updateSteering(dt, input);
     this._updateSurfaceGrip(surfaceGripAt, input);
     this._updateGearbox(dt, pedals, input);
@@ -213,6 +216,68 @@ export class Vehicle {
       return { drive: input.brake, braking: input.throttle };
     }
     return { drive: input.throttle, braking: input.brake };
+  }
+
+  /**
+   * Hill hold: brake to a stop on a slope and STAY there.
+   *
+   * The service brake opposes travel, so it has to know which way you are
+   * travelling -- and within a deadband either side of zero there is no answer,
+   * only jitter. _applyBrakes therefore drops to no brake force at all below
+   * 0.15 m/s, which left nothing but Rapier's own weak brake impulse holding
+   * the car. On any gradient gravity beat it, the car rolled, and the moment it
+   * passed the deadband the brake nipped it and let go again. That stutter is
+   * the "it keeps moving backwards" -- not one slide but hundreds of tiny ones.
+   *
+   * No amount of brake force fixes this, because the bug is the deadband, not
+   * the strength. A stopped car with the pedal down is not doing dynamics at
+   * all: it is pinned by static friction. So pin it -- kill the horizontal
+   * velocity and put the body back where it was.
+   *
+   * Restoring the POSITION is what makes it exact. Zeroing velocity alone still
+   * creeps, because within each step gravity accelerates the body to g*dt and
+   * it travels half a millimetre before the next step zeroes it again -- about
+   * 8 cm/s of drift that never shows up in the velocity you are watching.
+   * Re-anchoring cannot accumulate: every step puts it back on the same spot.
+   */
+  _applyHillHold(pedals, input) {
+    const b = TUNING.brakes;
+
+    let grounded = 0;
+    for (let i = 0; i < 4; i++) if (this.controller.wheelIsInContact(i)) grounded++;
+
+    // The handbrake holds too -- that is what a parking brake is for. Any
+    // request to GO releases the hold, in either gear: the pedals swap in
+    // reverse, and asking about pedals.drive rather than the raw input means
+    // this does not have to care which way round they are.
+    // The trigger is simply "stopped and not asking to go anywhere". Keying it
+    // on the brake pedal was too narrow: the car rolled away just as happily
+    // sitting in first with no pedal touched at all -- 2.2 m in six seconds --
+    // because in neutral, at idle, or coasting to rest there is nothing holding
+    // it either. Asking about pedals.drive covers every one of those at once,
+    // and works in reverse too, where the pedals swap.
+    //
+    // A real automatic creeps forward against the slope; this is the arcade
+    // version of the same promise, which is that a stopped car stays stopped.
+    const hold = pedals.drive < 0.05 && grounded >= 3
+                 && Math.abs(this.speed) < b.holdSpeed;
+
+    if (!hold) {
+      this._holdAnchor = null;
+      this.holding = false;
+      return;
+    }
+
+    const p = this.body.translation();
+    if (!this._holdAnchor) this._holdAnchor = { x: p.x, z: p.z };
+
+    const v = this.body.linvel();
+    // Vertical is left alone below zero so the suspension can still settle,
+    // but not above it, or a compressed spring bounces the car off its anchor.
+    this.body.setLinvel({ x: 0, y: Math.min(v.y, 0), z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.body.setTranslation({ x: this._holdAnchor.x, y: p.y, z: this._holdAnchor.z }, true);
+    this.holding = true;
   }
 
   _updateSteering(dt, input) {

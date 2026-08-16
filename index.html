@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Carsim</title>
+<title>VROOM</title>
 <style>
   :root {
     --fg: #e8eef5;
@@ -14,6 +14,14 @@
        faint smudge and the thin marks inside them disappeared entirely. These
        sit over bright grass and asphalt, so they have to hold their own. */
     --panel: rgba(8, 13, 20, 0.82);
+    /* The bottom-left rail: the grip panel and the controls list, stacked and
+       so read as one column. Set by the WIDEST line of the controls list --
+       measures 200px of ink plus 11px of padding each side -- because those
+       lines cannot wrap without splitting a key from what it does. At 172px
+       they simply overflowed and the text sat outside the panel behind it.
+       Measure with a Range over the row, not scrollWidth: scrollWidth leaves
+       out the right padding on overflowing content and reads 12px short. */
+    --rail: 224px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -107,7 +115,9 @@
 
   /* ---- grip: g-meter + balance, one panel bottom left ---- */
   #grip {
-    position: absolute; left: 22px; bottom: 116px; width: 172px;
+    /* Clear of the controls list below: at 116px the two panels sat 2px apart
+       and read as one box with a seam through it. */
+    position: absolute; left: 22px; bottom: 128px; width: var(--rail);
     background: var(--panel); border-radius: 10px; overflow: hidden;
   }
   #grip .head {
@@ -203,9 +213,11 @@
   /* Keeps to its own lane on the left so it never runs under the dials, which
      sit centred and are the one thing on the overlay you read at a glance. */
   #help {
-    position: absolute; left: 22px; bottom: 20px; width: 172px;
+    position: absolute; left: 22px; bottom: 20px; width: var(--rail);
     font-size: 9.5px; color: var(--dim); line-height: 1.65;
     background: var(--panel); padding: 8px 11px; border-radius: 10px;
+    /* Each line pairs keys with what they do, so wrapping would strand a key
+       on its own row. The panel is sized to the longest line instead. */
     white-space: nowrap;
   }
   #help b { color: var(--fg); font-weight: 600; }
@@ -226,10 +238,47 @@
     gap: 10px; background: #10141a; text-align: center;
     overflow-y: auto; padding: 22px 0;
   }
-  #boot h1 {
-    font-size: 40px; letter-spacing: 12px; margin: 0; font-weight: 700;
+  /* A hint of the sky the game actually renders, so the title card and the
+     first corner belong to the same world. */
+  #boot::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(120% 78% at 50% 118%, rgba(255,210,63,.10), transparent 60%),
+      radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.16), transparent 62%);
   }
+  #boot > * { position: relative; }
+
+  #logo { width: min(560px, 84vw); }
+  #logo svg { width: 100%; height: auto; display: block; overflow: visible; }
+  #logo .word {
+    font-family: inherit; font-size: 116px; font-weight: 800; letter-spacing: 6px;
+    fill: url(#chrome);
+    /* The 90s cabinet look in three parts: a hard shear so it leans into the
+       corner, a dark rim so it reads against any backdrop, and a warm glow
+       under it standing in for the bezel light. */
+    transform: skewX(-9deg); transform-origin: 168px 112px;
+    stroke: #2a1408; stroke-width: 3.5; paint-order: stroke fill;
+    filter: drop-shadow(0 6px 0 rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255,150,40,.42));
+  }
+  /* Sheared to match the wordmark, or they read as three stray dashes parked
+     next to it rather than as the air it is tearing through. */
+  #logo .streak { transform: skewX(-9deg); transform-origin: 168px 112px; }
+  #logo .streak rect { fill: var(--accent); opacity: .34; }
+  #logo .streak rect:nth-child(2) { opacity: .20; }
+  #logo .streak rect:nth-child(3) { opacity: .27; }
+
   #boot .sub { color: var(--dim); font-size: 13px; letter-spacing: 2px; }
+  #boot .creed {
+    color: rgba(232,238,245,.45); font-size: 10.5px; letter-spacing: 2.5px;
+    margin-top: -2px;
+  }
+  /* Credit sits under the cards rather than over them: it should be findable,
+     not the first thing between you and driving. */
+  #boot .byline {
+    margin-top: 20px; font-size: 10.5px; letter-spacing: 2.5px;
+    color: rgba(232,238,245,.38);
+  }
+  #boot .byline b { color: rgba(232,238,245,.72); font-weight: 600; }
   #boot .prompt { color: var(--accent); font-size: 14px; letter-spacing: 2px; }
   #boot .prompt.blink { animation: blink 1.15s ease-in-out infinite; }
   @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
@@ -312,8 +361,10 @@
 
 <div id="hud">
   <!-- Grip panel: the g-meter and the balance bar are one reading, not two --
-       where the load is, and which end is giving up first. Same shape and
-       width as the lap panel opposite so the two corners are siblings. -->
+       where the load is, and which end is giving up first. Shares --rail with
+       the controls list directly below it: those two are stacked and so get
+       compared edge to edge, which matters more than matching the lap panel
+       diagonally opposite. -->
   <div id="grip">
     <div class="head">GRIP</div>
 
@@ -420,12 +471,42 @@
   <div id="toast"></div>
 </div>
 
+<!-- Title card. One screen: the name, what it is, and the circuits -- no
+     splash to click past, no menu tree. The cards are the front page, because
+     the fastest way to a game that feels like an arcade cabinet is to put the
+     track select where the attract screen would be. -->
 <div id="boot">
-  <h1>CARSIM</h1>
+  <div id="logo">
+    <!-- Drawn rather than an image file: it scales to any screen, themes off
+         the same palette as the game, and costs no request. -->
+    <svg viewBox="0 0 620 150" role="img" aria-label="VROOM">
+      <defs>
+        <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#fff4cf"/>
+          <stop offset="42%"  stop-color="#ffd23f"/>
+          <stop offset="52%"  stop-color="#f07f2a"/>
+          <stop offset="100%" stop-color="#c8322c"/>
+        </linearGradient>
+      </defs>
+      <!-- Speed lines: the wordmark is moving, and it should look like it. -->
+      <g class="streak">
+        <rect x="0"  y="46"  width="150" height="7" rx="3.5"/>
+        <rect x="26" y="70"  width="112" height="7" rx="3.5"/>
+        <rect x="4"  y="94"  width="140" height="7" rx="3.5"/>
+      </g>
+      <text class="word" x="168" y="112">VROOM</text>
+    </svg>
+  </div>
+
   <div class="sub">LOW-POLY ARCADE DRIVING</div>
+  <!-- The pitch, in the words that actually mean something to someone who
+       grew up on these: no accounts, no store, no tutorial. -->
+  <div class="creed">NO ACCOUNTS &nbsp;·&nbsp; NO PURCHASES &nbsp;·&nbsp; NO NONSENSE &nbsp;·&nbsp; JUST DRIVE</div>
+
   <div class="prompt" id="bootPrompt">LOADING…</div>
   <div id="trackMenu"></div>
   <div class="err" id="bootErr"></div>
+  <div class="byline">BUILT BY <b>DIEGO CIBILS</b></div>
 </div>
 
 <div id="padPanel">
