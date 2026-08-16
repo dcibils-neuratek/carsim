@@ -28,7 +28,7 @@ export const CARS = [
   {
     id: 'alfa',
     name: 'Alfa Romeo GTV-6',
-    file: './assets/Cars/1986_alfa_romeo_gtv-6.glb',
+    file: './assets/cars/1986_alfa_romeo_gtv-6-optimized.glb',
     tagline: 'Soft, tail-happy and eighties. Rolls onto its outside wheel and stays there.',
     badge: 'CLASSIC',
     stats: { power: '160 hp', weight: '1250 kg', drive: 'Front RWD' },
@@ -49,7 +49,7 @@ export const CARS = [
   {
     id: 'charger',
     name: 'Dodge Charger R/T',
-    file: './assets/Cars/1970_dodge_charger_rt_fast_and_furious_edition.glb',
+    file: './assets/cars/1970_dodge_charger_rt_fast_and_furious_edition-optimized.glb',
     tagline: 'Two tonnes of torque and not enough tyre. Terrifying on tarmac, perfect on dirt.',
     badge: 'MUSCLE',
     stats: { power: '425 hp', weight: '1750 kg', drive: 'Front RWD' },
@@ -71,9 +71,13 @@ export const CARS = [
   {
     id: 'ferrari',
     name: 'Ferrari 296',
-    file: './assets/Cars/2026_ferrari_296_speciale_a.glb',
+    file: './assets/cars/2026_ferrari_296_speciale_a-optimized.glb',
     tagline: 'Downforce, grip and far too much power. Wants Mediterranean and nothing else.',
     badge: 'HYPER',
+    // Authored nose-along-negative, so it drove backwards until this was
+    // stated. See the note on yawFix in carmodel.js -- "longest axis"
+    // finds the line the car lies on, never the direction it faces.
+    modelYaw: Math.PI,
     stats: { power: '830 hp', weight: '1470 kg', drive: 'Mid RWD' },
     tuning: {
       chassis: { mass: 1470, comY: -0.32, comZ: -0.14, inertiaScale: 0.92 },

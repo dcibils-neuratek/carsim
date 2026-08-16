@@ -428,7 +428,7 @@ export async function boot() {
     let built;
     if (carModel) {
       try {
-        built = buildCarFromModel(carModel, TUNING, PALETTE);
+        built = buildCarFromModel(carModel, TUNING, PALETTE, carDef.modelYaw ?? 0);
       } catch (err) {
         console.warn('car model could not be built, using the procedural car:', err);
         built = createCarMesh(TUNING);

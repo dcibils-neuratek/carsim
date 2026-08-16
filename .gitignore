@@ -9,3 +9,11 @@ node_modules/
 
 # Local machine settings, not shared
 .claude/settings.local.json
+
+# Unoptimised car source models. The -optimized.glb files beside them are what
+# the game loads: 43 MB of raw exports became 4.5 MB through mesh optimisation
+# and Draco, which for a game whose whole pitch is "open it and drive" is the
+# difference between a playable download and a broken promise. Keep the
+# originals locally to re-export from; they have no business in the repo.
+assets/cars/*[!d].glb
+!assets/cars/*-optimized.glb

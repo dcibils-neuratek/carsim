@@ -120,7 +120,7 @@ function geometricWheelTest(parts) {
  * Build the render car from a loaded model, matched to the tuned dimensions.
  * Returns the same shape as scene.js createCarMesh().
  */
-export function buildCarFromModel(loaded, tuning, palette) {
+export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
   const { bodyParts, wheelGeoms } = loaded;
   const all = bodyParts.map((p) => p.geo).concat(wheelGeoms);
   if (!all.length) throw new Error('model contained no meshes');
@@ -157,8 +157,21 @@ export function buildCarFromModel(loaded, tuning, palette) {
   basis.makeBasis(ax, ay, az);
   orient.copy(basis).invert();
 
+  // Which END is the front cannot be measured, only stated.
+  //
+  // The basis above finds the model's length axis and points it along +Z, but
+  // "longest axis" is symmetric -- it identifies the LINE the car lies on, not
+  // the direction it faces. A model authored nose-down-negative comes out
+  // driving backwards, and no amount of looking at the bounding box can tell
+  // you which it is: a car is not reliably taller, wider or blunter at either
+  // end (a mid-engined Ferrari and a front-engined Charger disagree about all
+  // three). So it is a per-car number in cars.js rather than a heuristic that
+  // would be wrong half the time and inscrutable when it was.
+  const yawFix = new THREE.Matrix4().makeRotationY(yaw);
+
   const transform = new THREE.Matrix4()
     .makeScale(scale, scale, scale)
+    .multiply(yawFix)
     .multiply(orient)
     .multiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z));
 
