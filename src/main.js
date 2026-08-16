@@ -20,7 +20,7 @@ import { createGui } from './gui.js';
 import { loadCarModel, buildCarFromModel } from './carmodel.js';
 import { PALETTE } from './scene.js';
 import { Skidmarks } from './skidmarks.js';
-import { TRACKS, TRACK_IDS, getTrack } from './tracks.js';
+import { loadTracks, TRACK_IDS, getTrack, hasTrack } from './tracks.js';
 import { EngineAudio } from './audio.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
@@ -37,7 +37,7 @@ const CAR_MODEL_URL = './assets/car.glb';
  */
 function chooseTrack() {
   const requested = new URLSearchParams(location.search).get('track');
-  if (requested && TRACKS[requested]) return Promise.resolve(requested);
+  if (requested && hasTrack(requested)) return Promise.resolve(requested);
 
   const prompt = document.getElementById('bootPrompt');
   const menu = document.getElementById('trackMenu');
@@ -158,6 +158,17 @@ export async function boot() {
   const prompt = document.getElementById('bootPrompt');
 
   loadTuning();
+
+  // Circuits are data files, so the catalogue has to be fetched before the
+  // menu can be drawn. Four small JSON files, fetched in parallel.
+  prompt.textContent = 'LOADING CIRCUITS…';
+  try {
+    await loadTracks();
+  } catch (err) {
+    prompt.textContent = 'COULD NOT LOAD CIRCUITS';
+    console.error(err);
+    throw err;
+  }
 
   // Pick the circuit before building anything, so the world is created once.
   const trackId = await chooseTrack();

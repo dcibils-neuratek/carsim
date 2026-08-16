@@ -1,0 +1,86 @@
+{
+  "format": "carsim.track",
+  "version": 1,
+  "id": "snow",
+  "name": "Snow",
+  "tagline": "Wide, flowing and very short on grip",
+  "difficulty": "Slippery",
+
+  "notes": [
+    "Long open curves, deliberately few hard braking points -- stopping is the hard part here, so the layout gives you room to run out of grip in.",
+    "Wide road (15 m) because you will need it.",
+    "Steeply banked bowls: with this little grip, camber is what holds you on.",
+    "The last three control points turn back south well west of the start straight, so the two ribbons never overlap, and arrive almost in line with it.",
+    "The closing hairpin is still tighter than the 12 m guideline (~5.6 m). It is driveable -- the autopilot laps it -- but it reads as a kink, and there is 38 m of clear ground around it, so the fix is to open the layout out rather than to smooth harder."
+  ],
+
+  "road": {
+    "halfWidth": 7.5,
+    "banking": { "gain": 230, "maxDegrees": 4.5 },
+    "surface": { "roadGrip": 0.55, "grassGrip": 0.22 },
+    "controlPoints": [
+      [0, 0.0, -190],
+      [0, 0.5, -80],
+      [20, 1.5, 30],
+      [74, 2.0, 120],
+      [150, 1.5, 158],
+      [226, 0.5, 132],
+      [262, 0.0, 50],
+      [244, 0.0, -40],
+      [180, 0.5, -104],
+      [186, 1.5, -170],
+      [128, 2.0, -222],
+      [46, 1.0, -238],
+      [-30, 0.0, -252],
+      [-84, 0.0, -210],
+      [-92, 0.0, -140],
+      [-60, 0.0, -92],
+      [-26, 0.0, -132],
+      [-30, 0.0, -196],
+      [-2, 0.0, -224]
+    ]
+  },
+
+  "terrain": {
+    "hills": { "amplitude": 1.3, "scale": 0.8 }
+  },
+
+  "environment": {
+    "fog": { "near": 180, "far": 900 },
+    "sun": { "color": "#eaf1ff", "intensity": 1.9, "position": [-80, 100, 60] },
+    "palette": {
+      "sky": "#bcd3e6",
+      "skyHigh": "#7d9fc0",
+      "horizon": "#eef4f8",
+      "ground": "#eef2f6",
+      "groundDark": "#cdd8e4",
+      "asphalt": "#5c626b",
+      "asphaltEdge": "#474d55",
+      "curbA": "#cf4d4d",
+      "curbB": "#f7f9fb",
+      "ridge": "#b9cbdc",
+      "trunk": "#4a4034",
+      "leaf": "#2f4a3f",
+      "post": "#d94141",
+      "postStripe": "#f2f2f2",
+      "skidmark": "#3c4550"
+    }
+  },
+
+  "scenery": {
+    "trees": {
+      "count": 420,
+      "height": [4.5, 9.0],
+      "radius": [1.4, 2.2],
+      "segments": 6,
+      "clearance": 20
+    },
+    "ridges": {
+      "count": 56,
+      "height": [90, 260],
+      "radius": 1050,
+      "jitter": 220
+    },
+    "posts": { "spacing": 10 }
+  }
+}

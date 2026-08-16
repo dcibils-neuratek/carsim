@@ -17,7 +17,11 @@ import { TUNING, resetTuning } from '../src/tuning.js';
 import { initPhysics, RAPIER } from '../src/physics.js';
 import { Track } from '../src/track.js';
 import { Vehicle } from '../src/vehicle.js';
-import { getTrack, TRACK_IDS } from '../src/tracks.js';
+import { loadTracks, getTrack, TRACK_IDS, DEFAULT_TRACK } from '../src/tracks.js';
+import {
+  validateTrackFile, normaliseTrack, mergeDefaults, parseColor, formatColor,
+  TrackFormatError,
+} from '../src/trackfile.js';
 
 const DT = TUNING.world.fixedStep;
 const CHUNK = 400;              // steps between yields, keeps the page alive
@@ -176,9 +180,112 @@ function makeAutopilot(track) {
 
 // --- tests -----------------------------------------------------------------
 
+/**
+ * The track file format itself: that the shipped circuits load and land on
+ * sane values, and that the validator actually rejects the mistakes it claims
+ * to. A validator nobody has watched reject anything is decoration -- and this
+ * one is meant to be the thing a future track editor leans on, so it gets to
+ * prove it catches a missing field, a bad colour and a folded control point
+ * list before anyone trusts it with a layout.
+ */
+async function testTrackFiles(r) {
+  r.section('track files');
+
+  r.check('catalogue loaded', TRACK_IDS.length === 4, TRACK_IDS.join(', '));
+  r.check('default circuit resolves', Boolean(getTrack(DEFAULT_TRACK)), DEFAULT_TRACK);
+  r.check('unknown id falls back to default',
+    getTrack('nope-not-a-track').id === DEFAULT_TRACK);
+
+  // Every circuit must arrive with the fields Track and Scene read directly.
+  // Missing any of these used to be a TypeError deep inside a mesh builder.
+  for (const id of TRACK_IDS) {
+    const d = getTrack(id);
+    const ok =
+      typeof d.name === 'string' && d.name.length > 0 &&
+      d.halfWidth > 0 && d.curbWidth >= 0 &&
+      Array.isArray(d.controlPoints) && d.controlPoints.length >= 4 &&
+      Number.isFinite(d.envSlope) && Number.isFinite(d.roadClearance) &&
+      Number.isFinite(d.surface.roadGrip) && Number.isFinite(d.surface.grassGrip) &&
+      Number.isFinite(d.banking.gain) && Number.isFinite(d.hills.amplitude) &&
+      Number.isFinite(d.fog.near) && Number.isFinite(d.fog.far) &&
+      typeof d.sun.color === 'number' && d.sun.position.length === 3 &&
+      Number.isFinite(d.scenery.treeCount) && d.scenery.treeHeight.length === 2 &&
+      Number.isFinite(d.scenery.postSpacing);
+    r.check(`complete runtime shape — ${id}`, ok,
+      `${d.controlPoints.length} pts, ${(d.halfWidth * 2).toFixed(1)} m wide, grip ${d.surface.roadGrip}`);
+  }
+
+  // Palette colours must be numbers by the time they reach three.js: a
+  // "#rrggbb" string that slipped through renders as black, silently.
+  for (const id of TRACK_IDS) {
+    const p = getTrack(id).palette;
+    const bad = Object.entries(p).filter(([, v]) => typeof v !== 'number');
+    r.check(`palette parsed to numbers — ${id}`, bad.length === 0,
+      bad.length ? bad.map(([k]) => k).join(', ') : `${Object.keys(p).length} colours`);
+  }
+
+  // Defaults must actually reach a file that doesn't restate them: forest
+  // declares nothing but control points, so every other value it has is
+  // inherited. If merging broke, this is where it shows.
+  const forest = getTrack('forest');
+  r.check('defaults merge into a sparse file',
+    forest.halfWidth === 6.0 && forest.scenery.treeCount === 620 &&
+    forest.surface.grassGrip === 0.45 && forest.palette.skidmark === 0x101216,
+    'forest inherits width, scenery, grip and skidmark colour');
+
+  // ...and a track that overrides one key of a nested group must keep its
+  // siblings. Mountains sets terrain.envelope only; hills comes from defaults.
+  const mountains = getTrack('mountains');
+  r.check('nested override keeps siblings',
+    mountains.envSlope === 0.20 && mountains.roadClearance === 0.30 &&
+    mountains.hills.scale === 1.2,
+    'envelope overridden, hills its own, neither clobbered');
+
+  r.check('colour round trip', formatColor(parseColor('#74b6e8', 'x')) === '#74b6e8');
+
+  // Rejections. Each starts from a known-good file and breaks exactly one
+  // thing, so a pass means the validator caught that specific mistake.
+  const good = JSON.parse(JSON.stringify(forest.source));
+  const rejects = (label, mutate) => {
+    const bad = JSON.parse(JSON.stringify(good));
+    mutate(bad);
+    let caught = null;
+    try { validateTrackFile(bad, 'test'); } catch (err) { caught = err; }
+    r.check(`rejects ${label}`, caught instanceof TrackFormatError,
+      caught ? caught.message.slice(0, 64) : 'NOT REJECTED');
+  };
+
+  rejects('a wrong format tag', (b) => { b.format = 'something.else'; });
+  rejects('a future version', (b) => { b.version = 99; });
+  rejects('a missing road width', (b) => { delete b.road.halfWidth; });
+  rejects('a negative road width', (b) => { b.road.halfWidth = -1; });
+  rejects('too few control points', (b) => { b.road.controlPoints = [[0, 0, 0], [1, 0, 1]]; });
+  rejects('a 2D control point', (b) => { b.road.controlPoints[3] = [10, 20]; });
+  rejects('a NaN control point', (b) => { b.road.controlPoints[3] = [10, NaN, 20]; });
+  rejects('a malformed colour', (b) => { b.environment.palette.asphalt = 'dark grey'; });
+  rejects('fog far inside fog near', (b) => { b.environment.fog.far = 10; });
+  rejects('an inverted tree height range', (b) => { b.scenery.trees.height = [9, 2]; });
+  rejects('an impossible grip value', (b) => { b.road.surface.roadGrip = 0; });
+
+  // The happy path has to still pass, or the checks above prove nothing.
+  let ok = true;
+  try { normaliseTrack(validateTrackFile(good, 'test')); } catch { ok = false; }
+  r.check('accepts a valid file', ok);
+
+  r.check('merge replaces arrays wholesale',
+    mergeDefaults({ a: [1, 2, 3] }, { a: [9] }).a.length === 1,
+    'a partially overridden point list is never what anyone means');
+}
+
 export async function runAll(el) {
   const r = new Report(el);
   resetTuning();                       // always test the defaults, not a saved setup
+
+  // Circuits are data files now, so they have to be fetched before anything
+  // can be built from them.
+  r.log('loading track files…');
+  await loadTracks();
+  await testTrackFiles(r);
 
   r.log('building world (rapier + track)…');
   const t0 = performance.now();

@@ -37,7 +37,7 @@ and fails if the car ever stalls at full throttle. Every "the car hits an
 invisible wall" bug this project has had would have been caught by it
 automatically, without anyone looking at the screen.
 
-Current baseline — **46 of 48 green**:
+Current baseline — **73 of 75 green**:
 
 | | |
 | --- | --- |
@@ -68,10 +68,18 @@ with `?track=snow`.
 | **Snow** | 1.6 km | 15.0 m | **0.55** | Wide and flowing — the hard part is stopping |
 | **Mountains** | 1.7 km | 12.4 m | 0.98 | 18 m of climb, then a descent that arrives far too fast |
 
-Each is pure data in `src/tracks.js`: a hand-laid centerline plus palette, fog,
-sun angle, scenery density, terrain roughness and surface grip. Adding a circuit
-means adding an entry and nothing else — the road mesh, collider, curbs,
-terrain, tree scatter, horizon silhouette and lap timing all derive from it.
+Each is a JSON file under `assets/tracks/`, merged over `defaults.track.json`
+so a circuit only states what makes it different — a hand-laid centerline plus
+palette, fog, sun angle, scenery density, terrain roughness and surface grip.
+Adding a circuit means dropping a file in that directory and adding a line to
+`index.json`; no code changes. The road mesh, collider, curbs, terrain, tree
+scatter, horizon silhouette and lap timing all derive from it at load time.
+
+The file is a **recipe, not geometry** — see [docs/track-format.md](docs/track-format.md)
+for the schema and for why that beats baking a mesh into glTF. Files are
+validated on load and the validator names the offending field, so a typo is
+"missing required field road.halfWidth" rather than a stack trace from inside a
+mesh builder.
 
 Sharp vertices are relaxed automatically: any control point turning more than
 55 deg is replaced by two points set back along its own legs (Chaikin corner
@@ -83,7 +91,8 @@ Two constraints when editing a layout, both learned the hard way:
 
 - **No corner tighter than ~12 m radius.** The road is swept as a ribbon; below
   `halfWidth + curbWidth` the inner edge folds through itself.
-- **Watch `envSlope` on circuits that double back over themselves.** Terrain is
+- **Watch `terrain.envelope.slope` on circuits that double back over
+  themselves.** Terrain is
   the lower envelope of nearby road surfaces, so where a high section passes
   within 70 m of a low one, too shallow a slope digs a trench at the road edge
   that the car falls into — and too steep makes the heightfield chord *above*
@@ -157,6 +166,8 @@ triggers swap roles.
 | `src/vehicle.js` | Chassis, suspension, drivetrain, steering, aero |
 | `src/physics.js` | Rapier world, step accumulator, collider debug view |
 | `src/track.js` | Procedural circuit, terrain, surface grip, projection |
+| `src/tracks.js` | Loads the circuit catalogue from `assets/tracks/` |
+| `src/trackfile.js` | Track file format: validate, merge, normalise |
 | `src/tuning.js` | Every physics constant, plus save/load |
 | `src/input.js` | Gamepad and keyboard |
 | `src/scene.js` | Renderer, lights, sky, car mesh |

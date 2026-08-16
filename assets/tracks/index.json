@@ -1,0 +1,12 @@
+{
+  "format": "carsim.trackindex",
+  "version": 1,
+  "defaults": "defaults.track.json",
+  "default": "forest",
+  "tracks": [
+    "forest.track.json",
+    "woods.track.json",
+    "snow.track.json",
+    "mountains.track.json"
+  ]
+}

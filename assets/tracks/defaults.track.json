@@ -1,0 +1,55 @@
+{
+  "format": "carsim.track.defaults",
+  "version": 1,
+
+  "road": {
+    "halfWidth": 6.0,
+    "curbWidth": 1.4,
+    "banking": { "gain": 190, "maxDegrees": 3.5 },
+    "surface": { "roadGrip": 1.0, "grassGrip": 0.45 }
+  },
+
+  "terrain": {
+    "hills": { "amplitude": 1.0, "scale": 1.0 },
+    "envelope": { "slope": 0.06, "roadClearance": 0.15 }
+  },
+
+  "environment": {
+    "fog": { "near": 260, "far": 1150 },
+    "sun": { "color": "#fff3dd", "intensity": 2.4, "position": [70, 110, 45] },
+    "palette": {
+      "sky": "#74b6e8",
+      "skyHigh": "#2f6ea8",
+      "horizon": "#cfe6f5",
+      "ground": "#5f9e4a",
+      "groundDark": "#4a7f3a",
+      "asphalt": "#3a3f47",
+      "asphaltEdge": "#2b2f35",
+      "curbA": "#d94141",
+      "curbB": "#f2f2f2",
+      "ridge": "#6b7f96",
+      "trunk": "#59452f",
+      "leaf": "#3f7a35",
+      "post": "#dfe4ea",
+      "postStripe": "#d94141",
+      "skidmark": "#101216"
+    }
+  },
+
+  "scenery": {
+    "trees": {
+      "count": 620,
+      "height": [3.2, 6.6],
+      "radius": [1.5, 2.4],
+      "segments": 6,
+      "clearance": 16
+    },
+    "ridges": {
+      "count": 64,
+      "height": [55, 200],
+      "radius": 1150,
+      "jitter": 190
+    },
+    "posts": { "spacing": 12 }
+  }
+}
