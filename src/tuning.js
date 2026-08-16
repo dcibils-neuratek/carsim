@@ -192,12 +192,19 @@ export const DEFAULTS = {
       // when it still has 40% of its grip in hand. Raise it and the car goes
       // quiet until it is too late; lower it and it squeals constantly and the
       // signal stops meaning anything.
-      // 0.58 was too eager: the tyres sang through ordinary cornering and the
-      // signal stopped carrying information. A real tyre is quiet until it is
-      // genuinely close to letting go, so this starts at 82% of LATERAL
-      // capacity -- still comfortably before the limit, but silent for the
-      // vast majority of normal driving.
-      squealStart: 0.82,
+      // How much notice you get, and the number this whole file exists to set.
+      //
+      // Raised from 0.58 twice, by measurement, after the car was reported as
+      // squealing through ordinary turns. A moderate autopilot lap spends 10%
+      // of its time above 0.82 of lateral capacity, which is not "about to
+      // lose the car" -- it is just cornering.
+      //
+      // 0.91 is close to the practical floor. The cost is warning time, and
+      // at this value there is 458 ms between becoming audible and
+      // saturating, against a design target of 400. Going higher buys quiet
+      // by spending the warning the sound exists to give, so raise it only if
+      // it still speaks too readily by ear.
+      squealStart: 0.91,
       squealFull: 1.0,
 
       // Front and rear are deliberately far apart in pitch. This is what lets
@@ -220,10 +227,10 @@ export const DEFAULTS = {
       // actually lock. 1.0 is exactly at the tyre's longitudinal capacity.
       //
       // Measured: a threshold stop at 1.35 g sits at 86-88% of capacity, and a
-      // first-gear launch spins the rears past 100%. 0.82 catches both while
-      // staying above ordinary braking, and matches squealStart -- the tyre
-      // speaks at the same fraction of its capacity in either direction.
-      lockStart: 0.82,
+      // first-gear launch spins the rears past 100%. 0.86 puts the squeal at
+      // the point the brakes are genuinely at the tyres' limit -- which is
+      // also where skidmarks start -- without firing on ordinary slowing down.
+      lockStart: 0.86,
       lockFull: 1.05,
       slideVolume: 1.7,   // sliding is louder than working hard
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways

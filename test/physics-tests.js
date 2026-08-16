@@ -810,20 +810,33 @@ async function testTyresAreQuietNormally(ctx, r) {
   await run(ctx, 5200, drive, (v) => {
     if (Math.abs(v.speed) < 4) return;
     const mix = tyreMix(v);
-    const gain = Math.max(mix.front.gain, mix.rear.gain);
-    peak = Math.max(peak, gain);
-    if (gain > 0.02) audible++;
+    // Measured on `load`, the 0..1 loudness driver, NOT on `gain`. Gain
+    // carries the filter makeup (~5.7x), so a gain of 0.02 is about 0.001 RMS
+    // against an engine at 0.10 -- silence, counted as noise. Judging the
+    // metric on the wrong quantity is how this looked worse than it was.
+    const loud = Math.max(mix.front.load, mix.rear.load);
+    peak = Math.max(peak, loud);
+    if (loud > 0.1) audible++;
     samples++;
   });
 
   const fraction = samples > 0 ? audible / samples : 0;
   r.results.tyreQuiet = { fraction, peak, samples };
 
+  // 15%, against a measured 13%. Set just above where the car actually sits
+  // rather than where it would be nice for it to sit: the job of this check is
+  // to catch a regression back toward continuous squealing, and a bar the code
+  // already fails is a bar nobody can act on.
+  //
+  // Whether 13% is the RIGHT number is not something a test can decide -- the
+  // autopilot corners to a fixed lateral budget and takes full throttle out of
+  // every corner, so it spends more of a lap near the limit than a person
+  // would. Judge it by ear and move squealStart.
   r.check('a moderate lap is mostly silent',
-    fraction < 0.25,
+    fraction < 0.15,
     `audible for ${(fraction * 100).toFixed(0)}% of the lap`);
 
-  r.log(`  ${(fraction * 100).toFixed(0)}% audible over ${samples} samples, peak gain ${peak.toFixed(2)}`);
+  r.log(`  ${(fraction * 100).toFixed(0)}% audible over ${samples} samples, peak loudness ${peak.toFixed(2)}`);
 }
 
 /**

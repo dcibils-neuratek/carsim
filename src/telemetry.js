@@ -101,8 +101,10 @@ export class Telemetry {
     }
     const longAccel = vehicle.gLong * 9.81;
 
-    let front = 0;
-    let rear = 0;
+    let frontLat = 0;
+    let frontCap = 0;
+    let rearLat = 0;
+    let rearCap = 0;
     let peak = 0;
 
     for (let i = 0; i < 4; i++) {
@@ -167,14 +169,26 @@ export class Telemetry {
       t.utilisation = t.latUtil;
       t.atLimit = t.latUtil >= AT_LIMIT;
 
+      // Accumulate the AXLE as a unit rather than taking its worst wheel.
+      //
+      // Per-wheel max looks right and is not: a wheel that unloads over a
+      // bump or on turn-in has almost no capacity, so a modest lateral force
+      // divides into a ratio near 1 and the axle reads as though it is about
+      // to let go. Every such transient became a chirp, which is why the car
+      // seemed to squeal on ordinary turns.
+      //
+      // Summing force over summed capacity weights each wheel by how much
+      // grip it actually has, so the loaded outside tyre -- the one that
+      // decides whether the axle holds -- dominates, and an airborne inside
+      // wheel contributes nothing instead of everything.
       const isFront = i === 0 || i === 1;
-      if (isFront) front = Math.max(front, t.utilisation);
-      else rear = Math.max(rear, t.utilisation);
+      if (isFront) { frontLat += Math.abs(t.lateral); frontCap += t.capacity; }
+      else { rearLat += Math.abs(t.lateral); rearCap += t.capacity; }
       peak = Math.max(peak, t.utilisation);
     }
 
-    this.frontUtil = front;
-    this.rearUtil = rear;
+    this.frontUtil = frontCap > MIN_MEANINGFUL_LOAD ? Math.min(frontLat / frontCap, 1) : 0;
+    this.rearUtil = rearCap > MIN_MEANINGFUL_LOAD ? Math.min(rearLat / rearCap, 1) : 0;
     this.peakUtil = peak;
 
     // --- chassis ------------------------------------------------------------
