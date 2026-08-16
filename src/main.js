@@ -405,6 +405,15 @@ export async function boot() {
     return track.gripAt(_grip, TUNING.surfaces);
   }
 
+  // A handle on the running game, for poking at from the console. Audio in
+  // particular is close to impossible to debug by ear alone -- being able to
+  // hang an AnalyserNode off the master and measure what is actually coming
+  // out is the difference between tuning it and guessing at it.
+  window.__carsim = {
+    vehicle, track, audio, hud, camera: carCamera,
+    get tyreAudio() { return tyreAudio; },
+  };
+
   requestAnimationFrame(frame);
 }
 

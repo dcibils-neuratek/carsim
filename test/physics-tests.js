@@ -322,6 +322,7 @@ export async function runAll(el) {
   await testTopSpeed(ctx, r);
   await testUtilisationSignal(ctx, r);
   await testTyreAudioWarning(ctx, r);
+  await testTyreAudioLevels(r);
   await testHandbrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
@@ -773,6 +774,71 @@ async function testTyreAudioWarning(ctx, r) {
     `${gripping.front.freq.toFixed(0)} -> ${sliding.front.freq.toFixed(0)} Hz`);
 
   r.log(`  warning window ${warningMs.toFixed(0)} ms before saturation`);
+}
+
+/**
+ * Is the tyre audio actually AUDIBLE?
+ *
+ * This exists because the first version was not, and nothing caught it. Every
+ * signal was correct -- utilisation right, gain curve right, timbre right --
+ * and the tyres could not be heard, because a resonant bandpass discards most
+ * of the noise energy you feed it. Measured: -20.4 dB at Q=9, putting a full
+ * squeal at 0.030 RMS against engine samples at roughly 0.10.
+ *
+ * Worse, the loss varies with Q, and Q is what we modulate for timbre: sliding
+ * came out 3x louder than gripping as a pure side effect of the filter, not
+ * because anything asked for it.
+ *
+ * So this renders the real filter graph in an OfflineAudioContext and measures
+ * what comes out. No AudioContext gesture needed, and it is deterministic.
+ */
+async function testTyreAudioLevels(r) {
+  r.section('tyre audio levels');
+
+  const sr = 48000;
+  const render = async (type, q, freq, gain) => {
+    const ctx = new OfflineAudioContext(1, sr * 0.4, sr);
+    const len = sr * 2;
+    const buf = ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start();
+    const out = await ctx.startRendering();
+    const c = out.getChannelData(0);
+    let s = 0;
+    for (let i = 0; i < c.length; i++) s += c[i] * c[i];
+    return Math.sqrt(s / c.length);
+  };
+
+  const gripping = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 0 }));
+  const sliding = tyreMix(fakeVehicle({ frontUtil: 1.0, rearUtil: 1.0, slipSpeed: 6 }));
+
+  const gripRms = await render('bandpass', gripping.front.q, gripping.front.freq, gripping.front.gain);
+  const slideRms = await render('bandpass', sliding.front.q, sliding.front.freq, sliding.front.gain);
+
+  r.results.tyreLevels = { gripRms, slideRms };
+
+  // Engine samples land around 0.10 RMS. A squeal below about half that is
+  // masked by the engine and might as well not exist.
+  r.check('a full squeal is loud enough to hear over the engine',
+    gripRms > 0.06, `${gripRms.toFixed(3)} RMS at the limit`);
+
+  // The makeup gain has to hold level flat as Q changes, so that a slide is
+  // louder because slideVolume says so, not because the filter opened up.
+  const expected = TUNING.audio.tyre.slideVolume;
+  const actual = slideRms / gripRms;
+  r.check('a slide is louder by design, not by filter accident',
+    Math.abs(actual - expected) / expected < 0.2,
+    `${actual.toFixed(2)}x measured against slideVolume ${expected}`);
+
+  r.log(`  gripping ${gripRms.toFixed(3)} RMS, sliding ${slideRms.toFixed(3)} RMS`);
 }
 
 /** A stand-in vehicle, for exercising the mix at states a skidpad won't reach. */

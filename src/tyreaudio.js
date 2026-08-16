@@ -34,6 +34,29 @@ function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 function ratio(v, start, end) { return clamp((v - start) / (end - start), 0, 1); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+// Makeup gain for the filters, and it is not optional.
+//
+// A resonant bandpass throws away almost all of the noise you feed it: measured
+// -20.4 dB at Q=9 / 1320 Hz, which put full squeal at 0.030 RMS against the
+// engine's ~0.10. Inaudible. The first version of this file shipped without it
+// and the tyres simply could not be heard.
+//
+// Worse, the loss depends on Q, and Q is exactly what we modulate for timbre.
+// Measured: dropping Q from 9 to 2 made the output 3x LOUDER on its own, so a
+// slide got most of its volume from a filter side effect rather than from
+// anything deliberate.
+//
+// A 2-pole filter's noise bandwidth is proportional to f0/Q, so output level
+// goes as sqrt(f0/Q) and sqrt(Q/f0) cancels it. With this applied, output is
+// flat within 1% across Q 2..9 and f0 880..1320, which makes `volume` an
+// absolute control and leaves slideVolume as the only thing deciding how loud
+// a slide is. Constants are fitted to measurement, not derived.
+const BANDPASS_MAKEUP = 69.6;
+const LOWPASS_MAKEUP = 64.3;
+
+function bandpassMakeup(q, freq) { return BANDPASS_MAKEUP * Math.sqrt(q / freq); }
+function lowpassMakeup(freq) { return LOWPASS_MAKEUP / Math.sqrt(freq); }
+
 /** A couple of seconds of white noise, looped. The raw material for everything here. */
 function makeNoiseBuffer(ctx, seconds = 2) {
   const length = Math.floor(ctx.sampleRate * seconds);
@@ -68,16 +91,20 @@ export function tyreMix(vehicle) {
     // The warning. Starts well before the limit, which is the entire point:
     // by the time a tyre is audibly past it, the useful moment has gone.
     const load = ratio(util, t.squealStart, t.squealFull);
+    // Pitch climbs as the tyre loads up, then falls as it lets go. A rising
+    // tone that suddenly drops and broadens reads as losing the car without
+    // anyone having to be told what it means.
+    const freq = base * lerp(1 - t.freqRise, 1, load) * lerp(1, t.slideDrop, slide);
+    // Timbre: narrow and tonal while gripping, broad and noisy once scrubbing.
+    const q = lerp(t.qLoaded, t.qSliding, slide);
     return {
       load,
-      // Sliding is louder than merely working hard.
-      gain: alive * t.volume * load * lerp(1, t.slideVolume, slide),
-      // Pitch climbs as the tyre loads up, then falls as it lets go. A rising
-      // tone that suddenly drops and broadens reads as losing the car without
-      // anyone having to be told what it means.
-      freq: base * lerp(1 - t.freqRise, 1, load) * lerp(1, t.slideDrop, slide),
-      // Timbre: narrow and tonal while gripping, broad and noisy once scrubbing.
-      q: lerp(t.qLoaded, t.qSliding, slide),
+      freq,
+      q,
+      // Sliding is louder than merely working hard -- and only because
+      // slideVolume says so, not as a side effect of Q changing.
+      gain: alive * t.volume * load * lerp(1, t.slideVolume, slide)
+            * bandpassMakeup(q, freq),
     };
   };
 
@@ -91,10 +118,14 @@ export function tyreMix(vehicle) {
     slide,
     front: axle(tel.frontUtil, t.freqFront),
     rear: axle(tel.rearUtil, t.freqRear),
-    road: {
-      gain: alive * t.road.volume * speedFrac * (1 + rough * t.road.roughBoost),
-      freq: t.road.freq * lerp(1, t.road.roughDamp, rough),
-    },
+    road: (() => {
+      const freq = t.road.freq * lerp(1, t.road.roughDamp, rough);
+      return {
+        freq,
+        gain: alive * t.road.volume * speedFrac * (1 + rough * t.road.roughBoost)
+              * lowpassMakeup(freq),
+      };
+    })(),
   };
 }
 
@@ -182,7 +213,13 @@ export class TyreAudio {
     this.road.gain.gain.setTargetAtTime(mix.road.gain, now, smoothing);
     this.road.filter.frequency.setTargetAtTime(mix.road.freq, now, smoothing);
 
-    this.state = { front: mix.front.gain, rear: mix.rear.gain, road: mix.road.gain, slide: mix.slide };
+    // `load` rather than `gain` for the overlay: gain now carries the filter
+    // makeup, which is a fixed correction and says nothing about how hard the
+    // tyre is working. load is the 0..1 the meter actually wants.
+    this.state = {
+      front: mix.front.load, rear: mix.rear.load,
+      road: mix.road.gain, slide: mix.slide,
+    };
   }
 
   dispose() {

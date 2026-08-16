@@ -174,7 +174,10 @@ export const DEFAULTS = {
     // through a wheel, it is the only thing that can tell you the limit is
     // coming rather than that it has already arrived. See src/tyreaudio.js.
     tyre: {
-      volume: 0.55,
+      // Absolute, thanks to the filter makeup gain in tyreaudio.js: output RMS
+      // is about 0.32 * volume regardless of Q or pitch. The engine samples sit
+      // around 0.10, so this puts a full squeal comfortably on top of them.
+      volume: 0.36,
       minSpeed: 2.5,      // m/s below which tyres are silent
 
       // The warning window. squealStart is the important number in this whole
@@ -204,7 +207,7 @@ export const DEFAULTS = {
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
 
       road: {
-        volume: 0.16,
+        volume: 0.10,     // background texture, deliberately well under the tyres
         freq: 430,        // lowpass corner on tarmac
         speedFull: 55,    // m/s at which road noise is at full volume
         roughBoost: 1.4,  // extra gain off-surface (grass, snow, gravel)

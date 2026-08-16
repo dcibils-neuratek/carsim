@@ -323,8 +323,7 @@ export class Hud {
     if (tyreAudio?.ready) {
       const s = tyreAudio.state;
       lines.push(
-        `tyre snd front ${meter(s.front / TUNING.audio.tyre.volume)} ` +
-        `rear ${meter(s.rear / TUNING.audio.tyre.volume)}  ` +
+        `tyre snd front ${meter(s.front)} rear ${meter(s.rear)}  ` +
         `slide ${(s.slide * 100).toFixed(0)}%  road ${s.road.toFixed(2)}`,
       );
     }
