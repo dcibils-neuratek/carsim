@@ -155,6 +155,22 @@ export function buildCarFromModel(loaded, tuning, palette) {
     if (!flattened.has(material.uuid)) {
       const m = material.clone();
       m.flatShading = true;
+
+      // Trade refraction for plain transparency on the glass.
+      //
+      // A single material with transmission > 0 makes three render the WHOLE
+      // SCENE a second time into a framebuffer so the glass can refract it.
+      // Measured here: three such meshes cost 2.45 ms of a 4.50 ms frame --
+      // 54% of the render, for physically-correct refraction through side
+      // windows, on a car made of flat-shaded polygons, seen from behind at
+      // 200 km/h. Nobody will ever see what it buys.
+      if ((m.transmission ?? 0) > 0) {
+        m.transmission = 0;
+        m.transparent = true;
+        m.opacity = 0.34;
+        m.depthWrite = false;
+      }
+
       m.needsUpdate = true;
       flattened.set(material.uuid, m);
     }

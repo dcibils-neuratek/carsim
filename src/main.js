@@ -489,7 +489,7 @@ export async function boot() {
   // hang an AnalyserNode off the master and measure what is actually coming
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
-    vehicle, track, audio, hud, camera: carCamera,
+    vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
     get tyreAudio() { return tyreAudio; },
   };
 
