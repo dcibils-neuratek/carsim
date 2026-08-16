@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VROOM</title>
+<!-- Titles only. Loaded with display=swap and a real fallback, because this is
+     the one external request the game makes and it must never be able to hold
+     up the title screen -- if Google is slow or blocked, the text draws in the
+     fallback and swaps in later rather than sitting invisible. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap">
 <style>
   :root {
     --fg: #e8eef5;
@@ -22,6 +30,12 @@
        Measure with a Range over the row, not scrollWidth: scrollWidth leaves
        out the right padding on overflowing content and reads 12px short. */
     --rail: 224px;
+
+    /* Titles only -- the wordmark and the circuit names. Everything that is a
+       READING (speed, revs, lap times, the controls list) stays monospace: a
+       marker face has no tabular figures, so numbers would jitter sideways as
+       they changed, and small caps in it are barely legible. */
+    --title: "Permanent Marker", "Comic Sans MS", cursive;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -251,18 +265,20 @@
   #logo { width: min(560px, 84vw); }
   #logo svg { width: 100%; height: auto; display: block; overflow: visible; }
   #logo .word {
-    font-family: inherit; font-size: 116px; font-weight: 800; letter-spacing: 6px;
+    /* A marker face already carries its own slant and weight, so the shear is
+       gentler and the tracking tighter than the monospace version needed. */
+    font-family: var(--title); font-size: 112px; font-weight: 400; letter-spacing: 2px;
     fill: url(#chrome);
     /* The 90s cabinet look in three parts: a hard shear so it leans into the
        corner, a dark rim so it reads against any backdrop, and a warm glow
        under it standing in for the bezel light. */
-    transform: skewX(-9deg); transform-origin: 168px 112px;
-    stroke: #2a1408; stroke-width: 3.5; paint-order: stroke fill;
+    transform: skewX(-6deg); transform-origin: 168px 112px;
+    stroke: #2a1408; stroke-width: 3; paint-order: stroke fill;
     filter: drop-shadow(0 6px 0 rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255,150,40,.42));
   }
   /* Sheared to match the wordmark, or they read as three stray dashes parked
      next to it rather than as the air it is tearing through. */
-  #logo .streak { transform: skewX(-9deg); transform-origin: 168px 112px; }
+  #logo .streak { transform: skewX(-6deg); transform-origin: 168px 112px; }
   #logo .streak rect { fill: var(--accent); opacity: .34; }
   #logo .streak rect:nth-child(2) { opacity: .20; }
   #logo .streak rect:nth-child(3) { opacity: .27; }
@@ -343,7 +359,10 @@
 
   .trackCard .swatch { height: 168px; display: block; width: 100%; line-height: 0; }
   .trackCard .swatch svg { width: 100%; height: 100%; display: block; }
-  .trackCard .nm { font-size: 20px; font-weight: 700; letter-spacing: 3px; margin-top: 12px; }
+  .trackCard .nm {
+    font-family: var(--title); font-size: 25px; font-weight: 400;
+    letter-spacing: 1px; margin-top: 12px;
+  }
   .trackCard .tag { font-size: 12px; color: var(--dim); line-height: 1.55;
                     margin: 7px 18px 0; min-height: 34px; }
   .trackCard .diff { font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-top: 11px; }

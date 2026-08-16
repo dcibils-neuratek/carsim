@@ -5,77 +5,173 @@
   "name": "Woods",
   "tagline": "Narrow, twisty and hemmed in by trees",
   "difficulty": "Hard",
-
   "notes": [
     "Tight and busy: a compact loop with direction changes one after another.",
-    "Narrow lanes get modest camber -- the wheel-height difference across the road is halfTrack * tan(bank), and on a 9.2 m road that adds up faster than it looks."
+    "Narrow lanes get modest camber -- the wheel-height difference across the road is halfTrack * tan(bank), and on a 9.2 m road that adds up faster than it looks.",
+    "Palette, fog and sun are overridden rather than inherited. Woods used to state only its scenery counts, which meant it rendered in the shared defaults -- the same green grass, green pines and bright blue sky as Forest. Two circuits that differ only in layout look identical from the menu and nearly identical from the seat. This is the deep, damp, overcast version of the same forest: darker ground, colder light, and fog pulled in to 120/620 so the trees close the sightlines the tagline promises."
   ],
-
   "road": {
     "halfWidth": 4.6,
     "curbWidth": 1.0,
-    "banking": { "gain": 150, "maxDegrees": 2.5 },
-    "surface": { "roadGrip": 0.96, "grassGrip": 0.34 },
+    "banking": {
+      "gain": 150,
+      "maxDegrees": 2.5
+    },
+    "surface": {
+      "roadGrip": 0.96,
+      "grassGrip": 0.34
+    },
     "controlPoints": [
-      [0, 0.0, -120],
-      [0, 1.0, -55],
-      [-28, 2.5, -14],
-      [-16, 3.5, 40],
-      [26, 3.0, 62],
-      [44, 1.5, 18],
-      [86, 0.5, 6],
-      [118, 1.5, 46],
-      [154, 2.5, 30],
-      [150, 2.0, -26],
-      [112, 1.0, -44],
-      [122, 0.0, -96],
-      [88, -1.0, -130],
-      [46, -1.6, -152],
-      [-6, -1.0, -178],
-      [-48, -0.4, -152],
-      [-34, 0.0, -108]
+      [
+        0,
+        0.0,
+        -120
+      ],
+      [
+        0,
+        1.0,
+        -55
+      ],
+      [
+        -28,
+        2.5,
+        -14
+      ],
+      [
+        -16,
+        3.5,
+        40
+      ],
+      [
+        26,
+        3.0,
+        62
+      ],
+      [
+        44,
+        1.5,
+        18
+      ],
+      [
+        86,
+        0.5,
+        6
+      ],
+      [
+        118,
+        1.5,
+        46
+      ],
+      [
+        154,
+        2.5,
+        30
+      ],
+      [
+        150,
+        2.0,
+        -26
+      ],
+      [
+        112,
+        1.0,
+        -44
+      ],
+      [
+        122,
+        0.0,
+        -96
+      ],
+      [
+        88,
+        -1.0,
+        -130
+      ],
+      [
+        46,
+        -1.6,
+        -152
+      ],
+      [
+        -6,
+        -1.0,
+        -178
+      ],
+      [
+        -48,
+        -0.4,
+        -152
+      ],
+      [
+        -34,
+        0.0,
+        -108
+      ]
     ]
   },
-
   "terrain": {
-    "hills": { "amplitude": 1.5, "scale": 1.6 }
-  },
-
-  "environment": {
-    "fog": { "near": 120, "far": 620 },
-    "sun": { "color": "#dfeccd", "intensity": 1.7, "position": [50, 90, -60] },
-    "palette": {
-      "sky": "#9fc2b4",
-      "skyHigh": "#3f6b62",
-      "horizon": "#d6e3d2",
-      "ground": "#3e6b33",
-      "groundDark": "#2c4f27",
-      "asphalt": "#36383a",
-      "asphaltEdge": "#24262a",
-      "curbA": "#c8b34a",
-      "curbB": "#2f3330",
-      "ridge": "#51684f",
-      "trunk": "#4a3826",
-      "leaf": "#2f5c2a",
-      "post": "#d8dcc8",
-      "postStripe": "#c8b34a"
+    "hills": {
+      "amplitude": 1.5,
+      "scale": 1.6
     }
   },
-
+  "environment": {
+    "fog": {
+      "near": 120,
+      "far": 620
+    },
+    "sun": {
+      "color": "#d8e4dd",
+      "intensity": 1.8,
+      "position": [
+        40,
+        130,
+        20
+      ]
+    },
+    "palette": {
+      "sky": "#6f95ad",
+      "skyHigh": "#2b4a63",
+      "horizon": "#b9c9c2",
+      "ground": "#41632f",
+      "groundDark": "#2e4a23",
+      "asphalt": "#33393b",
+      "asphaltEdge": "#252a2c",
+      "curbA": "#b8453f",
+      "curbB": "#e2e2dc",
+      "ridge": "#54636b",
+      "trunk": "#3d2f21",
+      "leaf": "#25502a",
+      "post": "#d8ddda",
+      "postStripe": "#b8453f",
+      "skidmark": "#0d0f11"
+    }
+  },
   "scenery": {
     "trees": {
       "count": 1400,
-      "height": [5.0, 11.0],
-      "radius": [1.2, 2.0],
+      "height": [
+        5.0,
+        11.0
+      ],
+      "radius": [
+        1.2,
+        2.0
+      ],
       "segments": 5,
       "clearance": 9
     },
     "ridges": {
       "count": 48,
-      "height": [40, 90],
+      "height": [
+        40,
+        90
+      ],
       "radius": 800,
       "jitter": 120
     },
-    "posts": { "spacing": 9 }
+    "posts": {
+      "spacing": 9
+    }
   }
 }

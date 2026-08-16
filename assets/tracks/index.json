@@ -6,6 +6,7 @@
   "tracks": [
     "forest.track.json",
     "woods.track.json",
+    "mediterranean.track.json",
     "snow.track.json",
     "dirt.track.json",
     "mountains.track.json"

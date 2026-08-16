@@ -1,0 +1,87 @@
+{
+  "format": "carsim.track",
+  "version": 1,
+  "id": "mediterranean",
+  "name": "Mediterranean",
+  "tagline": "Hot, dry and open — cypress and fast sweepers",
+  "difficulty": "Fast",
+  "notes": [
+    "The fast circuit. roadGrip 1.02 and the widest, most open corners here -- this is the one where the car's aero and top gear finally matter, and the counterweight to Dirt at the other end of the grip range.",
+    "Control points are on a POLAR sweep about (60, -40), radius swung 145-240 m. Ordering by angle is what guarantees a closed loop cannot fold through itself; see the same note on Dirt. The radius range is deliberately narrower and larger than Dirt's, which is what makes this flow rather than dart.",
+    "Cypress rather than pine, and it is done with the SAME cone generator: tall and narrow (6-13 m tall, 0.8-1.4 m radius) reads as cypress, where short and wide reads as pine. No new geometry -- the shape of the parameters carries the whole change of country.",
+    "No `dust` in the palette, deliberately. This is tarmac, so tyres throw grey rubber smoke and the shared default is correct. Dirt overrides it because gravel throws the ground itself.",
+    "Banking is stronger than the other circuits (210 / 4 degrees). Long fast sweepers with no banking feel like they are fighting you at speed, and this is the only track quick enough for that to show.",
+    "The first control point is pulled IN off the polar radius (272 rather than 300). On a pure polar loop the start line lands wherever the sweep happens to be, and here that was mid-corner -- a 50 degree kink across the start straight. Pulling that one point back onto the chord between its neighbours flattens the join to 14 degrees and moves the corner to where it belongs, one point earlier."
+  ],
+
+  "road": {
+    "halfWidth": 6.5,
+    "curbWidth": 1.5,
+    "banking": { "gain": 210, "maxDegrees": 4.0 },
+    "surface": {
+      "roadGrip": 1.02,
+      "grassGrip": 0.42
+    },
+    "controlPoints": [
+      [272, 0.0, -42],
+      [255, -2.0, 39],
+      [226, -3.5, 126],
+      [122, -1.0, 113],
+      [60, 2.0, 105],
+      [-11, 4.5, 136],
+      [-99, 5.0, 119],
+      [-121, 3.0, 33],
+      [-90, 0.0, -40],
+      [-107, -2.5, -107],
+      [-103, -4.0, -203],
+      [-30, -3.0, -263],
+      [60, 0.0, -225],
+      [116, 3.0, -179],
+      [198, 4.0, -178],
+      [269, 2.0, -124]
+    ]
+  },
+
+  "terrain": {
+    "hills": { "amplitude": 1.2, "scale": 1.1 },
+    "envelope": { "slope": 0.07, "roadClearance": 0.16 }
+  },
+
+  "environment": {
+    "fog": { "near": 320, "far": 1450 },
+    "sun": {
+      "color": "#fff0d0",
+      "intensity": 2.8,
+      "position": [60, 130, 60]
+    },
+    "palette": {
+      "sky": "#8fc0dd",
+      "skyHigh": "#3d78a8",
+      "horizon": "#f2e6c8",
+      "ground": "#a89a5e",
+      "groundDark": "#877c48",
+      "asphalt": "#4a4740",
+      "asphaltEdge": "#38352f",
+      "curbA": "#c8443a",
+      "curbB": "#f0ece0",
+      "ridge": "#b0a184",
+      "trunk": "#6b5238",
+      "leaf": "#2f5233",
+      "post": "#f0ece0",
+      "postStripe": "#c8443a",
+      "skidmark": "#14161a"
+    }
+  },
+
+  "scenery": {
+    "trees": {
+      "count": 900,
+      "height": [6.0, 13.0],
+      "radius": [0.8, 1.4],
+      "segments": 5,
+      "clearance": 15
+    },
+    "ridges": { "count": 50, "height": [40, 140], "radius": 1000, "jitter": 180 },
+    "posts": { "spacing": 13 }
+  }
+}
