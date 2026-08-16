@@ -393,10 +393,25 @@ export class Vehicle {
     const tx = TUNING.transmission;
     const ratio = this.gearRatio * tx.final;
 
+    // Clear FIRST, every step, whatever happens next.
+    //
+    // _wheelForce is a per-step accumulator: this method writes drive into it
+    // and _applyBrakes subtracts braking from it. Any path that leaves it
+    // holding the previous step's value turns it into a running total, and a
+    // running total of brake force diverges within seconds.
+    //
+    // The neutral branch below used to return without doing this -- it zeroed
+    // the CONTROLLER instead, which _applyBrakes then overwrote anyway, so the
+    // stale force survived. Braking to a stop drops the gearbox into neutral,
+    // so every hard stop wound the rear wheel force up without bound: measured
+    // at 183 kN against a 2.7 kN cap, which launched the car off the map.
+    this._wheelForce[WHEEL.FL] = 0;
+    this._wheelForce[WHEEL.FR] = 0;
+    this._wheelForce[WHEEL.RL] = 0;
+    this._wheelForce[WHEEL.RR] = 0;
+
     if (this.gear === 0 || ratio === 0) {
       this.driveForce = 0;
-      for (const i of REAR_WHEELS) this.controller.setWheelEngineForce(i, 0);
-      for (const i of FRONT_WHEELS) this.controller.setWheelEngineForce(i, 0);
       return;
     }
 
@@ -407,8 +422,6 @@ export class Vehicle {
     // Rear-wheel drive: the drive torque goes to the rears only.
     // Written to _wheelForce rather than the controller, because _applyBrakes
     // combines drive and braking into a single longitudinal force per wheel.
-    this._wheelForce[WHEEL.FL] = 0;
-    this._wheelForce[WHEEL.FR] = 0;
     this._wheelForce[WHEEL.RL] = force / 2;
     this._wheelForce[WHEEL.RR] = force / 2;
   }

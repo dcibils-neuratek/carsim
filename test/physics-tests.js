@@ -327,6 +327,7 @@ export async function runAll(el) {
   await testTyresAreQuietNormally(ctx, r);
   await testHandbrake(ctx, r);
   await testHandbrakeUnderPower(ctx, r);
+  await testStaysStoppedOnTheBrake(ctx, r);
   await testLap(ctx, r, ' — forest');
 
   // Every other circuit gets its own world, and the two checks that catch a
@@ -784,6 +785,71 @@ async function testTyreAudioWarning(ctx, r) {
     `${gripping.front.freq.toFixed(0)} -> ${sliding.front.freq.toFixed(0)} Hz`);
 
   r.log(`  warning window ${warningMs.toFixed(0)} ms before saturation`);
+}
+
+/**
+ * Braking to a stop and STAYING on the brake has to leave the car still.
+ *
+ * It did not. _wheelForce is a per-step accumulator -- drive writes it,
+ * braking subtracts from it -- and the neutral branch of _applyDrive returned
+ * without clearing it. Braking to a stop drops the gearbox into neutral, so
+ * from that moment every step subtracted another helping of brake force from
+ * the previous total. Measured at 183 kN of rear wheel force against a 2.7 kN
+ * cap, which bucked the car at +/-12 m/s and threw it off the map.
+ *
+ * The existing braking test stopped measuring at the stop, so it never saw
+ * any of this. This one keeps holding the pedal, which is what a player does.
+ */
+async function testStaysStoppedOnTheBrake(ctx, r) {
+  r.section('stays stopped while holding the brake');
+  const { world } = ctx;
+  const pad = makePad(world);
+  const car = new Vehicle(world, RAPIER, pad.spawn(8000));
+  const padCtx = { world, track: ctx.track, vehicle: car, grip: null };
+
+  await run(padCtx, 60);
+  car.body.setLinvel({ x: 0, y: 0, z: 28 }, true);
+
+  // Brake to a stop, then keep the pedal down for another eight seconds.
+  let peakForce = 0;
+  let peakSpeedAfterStop = 0;
+  let stopped = false;
+  let moved = false;
+  let departed = 0;
+
+  await run(padCtx, 1600, () => input({ brake: 1 }), (v) => {
+    const speed = Math.abs(v.speed);
+    // currentVehicleSpeed only catches up after the first updateVehicle, so
+    // the car has to be seen MOVING before a low reading counts as stopped --
+    // otherwise the flag latches on step zero and the launch speed gets
+    // recorded as post-stop creep.
+    if (speed > 5) moved = true;
+    if (moved && !stopped && speed < 0.3) stopped = true;
+    if (!stopped) return;
+    peakSpeedAfterStop = Math.max(peakSpeedAfterStop, speed);
+    for (let i = 0; i < 4; i++) peakForce = Math.max(peakForce, Math.abs(v._wheelForce[i]));
+    departed = Math.max(departed, Math.abs(v.body.translation().y - 0.9));
+  });
+
+  const finalSpeed = Math.abs(car.speed);
+  car.dispose();
+  pad.remove();
+
+  r.results.stoppedOnBrake = { peakForce, peakSpeedAfterStop, finalSpeed };
+
+  r.check('reaches a stop', stopped);
+
+  // The cap is maxBrakeForce shared over the axles; anything far above it means
+  // the accumulator is running away again.
+  const cap = TUNING.brakes.maxBrakeForce;
+  r.check('wheel force stays within the brake\'s own limit',
+    peakForce < cap, `peak ${(peakForce / 1000).toFixed(1)} kN against a ${(cap / 1000).toFixed(0)} kN cap`);
+
+  r.check('the car does not set off again',
+    peakSpeedAfterStop < 1.5, `crept to ${peakSpeedAfterStop.toFixed(2)} m/s after stopping`);
+
+  r.check('and does not leave the ground', departed < 1.0,
+    `moved ${departed.toFixed(2)} m vertically`);
 }
 
 /**
