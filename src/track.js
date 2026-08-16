@@ -56,8 +56,62 @@ const UP = new THREE.Vector3(0, 1, 0);
  * The result is resampled at uniform arc length so downstream code can treat
  * sample index as distance along the lap.
  */
+/**
+ * Cut corners that are too sharp to sweep a road around.
+ *
+ * A B-spline's corner radius is governed by the turn angle at each control
+ * point: measured across these circuits, ~110 deg gives a 20 m radius and
+ * ~148 deg collapses to 9 m, which is narrower than the road is wide. Rather
+ * than hand-placing points to avoid it, any vertex that turns more than
+ * `maxTurnDeg` is replaced by two points set back along its own legs -- the
+ * Chaikin corner-cutting step. One pass halves the angle, so a few passes turn
+ * any hairpin into an arc the road can actually follow.
+ *
+ * Self-limiting: it stops as soon as nothing is too sharp, so gentle layouts
+ * pass through untouched.
+ */
+function relaxSharpCorners(controlPoints, maxTurnDeg = 55, passes = 6) {
+  let pts = controlPoints.map((p) => [p[0], p[1], p[2]]);
+
+  for (let pass = 0; pass < passes; pass++) {
+    const n = pts.length;
+    const out = [];
+    let cut = false;
+
+    for (let i = 0; i < n; i++) {
+      const prev = pts[(i - 1 + n) % n];
+      const cur = pts[i];
+      const next = pts[(i + 1) % n];
+      const inV = [cur[0] - prev[0], cur[1] - prev[1], cur[2] - prev[2]];
+      const outV = [next[0] - cur[0], next[1] - cur[1], next[2] - cur[2]];
+      const li = Math.hypot(inV[0], inV[2]);
+      const lo = Math.hypot(outV[0], outV[2]);
+      if (li < 1 || lo < 1) { out.push(cur); continue; }
+
+      const dot = (inV[0] * outV[0] + inV[2] * outV[2]) / (li * lo);
+      const turn = Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+
+      if (turn > maxTurnDeg) {
+        // 0.25 is the classic Chaikin ratio. Cutting deeper leaves the two
+        // new points close together, and short legs make tight corners -- the
+        // very thing being fixed.
+        const t = 0.25;
+        out.push([cur[0] - inV[0] * t, cur[1] - inV[1] * t, cur[2] - inV[2] * t]);
+        out.push([cur[0] + outV[0] * t, cur[1] + outV[1] * t, cur[2] + outV[2] * t]);
+        cut = true;
+      } else {
+        out.push(cur);
+      }
+    }
+
+    pts = out;
+    if (!cut) break;
+  }
+  return pts;
+}
+
 export function sampleCircuit(controlPoints, count, elevationSmoothMetres = 0, roundingPasses = 0) {
-  const P = controlPoints.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+  const P = relaxSharpCorners(controlPoints).map(([x, y, z]) => new THREE.Vector3(x, y, z));
   const n = P.length;
   const STEPS = 32;
   const dense = [];

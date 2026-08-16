@@ -37,7 +37,7 @@ and fails if the car ever stalls at full throttle. Every "the car hits an
 invisible wall" bug this project has had would have been caught by it
 automatically, without anyone looking at the screen.
 
-Current baseline — **45 of 48 green**:
+Current baseline — **46 of 48 green**:
 
 | | |
 | --- | --- |
@@ -47,10 +47,11 @@ Current baseline — **45 of 48 green**:
 | Handbrake | yaw 1.0 → 5.0 rad/s, rear slip 0.5° → 90° |
 | Autopilot lap | all four circuits, never stalls |
 
-The 3 failures are all the same known issue: a corner tighter than the road can
-be swept around, at the closing join of Forest (10.7 m), Snow (5.1 m) and
-Mountains (4.9 m). They are driveable — the autopilot laps every track — but
-they read as a kink. See the note under Circuits.
+The 2 failures are the closing-join hairpins on Snow (5.6 m radius, wants 13.4)
+and Mountains (4.4 m, wants 11.4). Both are driveable — the autopilot laps every
+circuit — but they read as a kink. Note that both have plenty of room around
+them (38 m and 67 m of clearance), so the layouts are simply not using the space
+available; opening them out is a layout job, not a smoothing one.
 
 ## Circuits
 
@@ -71,6 +72,12 @@ Each is pure data in `src/tracks.js`: a hand-laid centerline plus palette, fog,
 sun angle, scenery density, terrain roughness and surface grip. Adding a circuit
 means adding an entry and nothing else — the road mesh, collider, curbs,
 terrain, tree scatter, horizon silhouette and lap timing all derive from it.
+
+Sharp vertices are relaxed automatically: any control point turning more than
+55 deg is replaced by two points set back along its own legs (Chaikin corner
+cutting), repeatedly, until nothing is too sharp. Turn angle is what governs
+corner radius — measured here, ~110 deg gives 20 m and ~148 deg collapses to
+9 m — so this removes a whole class of hand-placement mistake.
 
 Two constraints when editing a layout, both learned the hard way:
 
