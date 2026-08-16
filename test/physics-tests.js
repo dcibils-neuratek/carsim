@@ -326,6 +326,7 @@ export async function runAll(el) {
   await testBrakingSquealsToo(ctx, r);
   await testTyresAreQuietNormally(ctx, r);
   await testHandbrake(ctx, r);
+  await testHandbrakeUnderPower(ctx, r);
   await testLap(ctx, r, ' — forest');
 
   // Every other circuit gets its own world, and the two checks that catch a
@@ -786,6 +787,55 @@ async function testTyreAudioWarning(ctx, r) {
 }
 
 /**
+ * The handbrake has to work ON THROTTLE, which is when you actually want it.
+ *
+ * Rapier inherits Bullet's rolling-friction rule, where the brake is consulted
+ * only if engine force is zero. Any throttle therefore made setWheelBrake a
+ * complete no-op, and pulling the handbrake mid-corner with the power on --
+ * the entire reason a handbrake is a steering tool -- did nothing at all.
+ */
+async function testHandbrakeUnderPower(ctx, r) {
+  r.section('handbrake works while accelerating');
+  const { world } = ctx;
+  const pad = makePad(world);
+  const padCtx = { world, track: ctx.track, vehicle: null, grip: null };
+
+  // Same steering and throttle both times; the handbrake is the only variable.
+  const run1 = async (handbrake) => {
+    const car = new Vehicle(world, RAPIER, pad.spawn(8000));
+    padCtx.vehicle = car;
+    await run(padCtx, 60);
+    car.body.setLinvel({ x: 0, y: 0, z: 18 }, true);
+    await run(padCtx, 40, () => input({ throttle: 0.6, steer: 0.35 }));
+
+    let peakYaw = 0;
+    let rearSlip = 0;
+    await run(padCtx, 260, () => input({ throttle: 0.6, steer: 0.35, handbrake }), (v) => {
+      peakYaw = Math.max(peakYaw, Math.abs(v.telemetry.yawRate));
+      // Peak during the run, not the value at the end: by then the car has
+      // spun and slowed, and slip has decayed back to nothing.
+      rearSlip = Math.max(rearSlip, Math.abs(v.slipRear) * 180 / Math.PI);
+    });
+    car.dispose();
+    return { peakYaw, rearSlip };
+  };
+
+  const without = await run1(0);
+  const with_ = await run1(1);
+  pad.remove();
+
+  r.results.handbrakeUnderPower = { without, with_ };
+
+  r.check('the handbrake still rotates the car under power',
+    with_.peakYaw > without.peakYaw * 1.15,
+    `yaw ${without.peakYaw.toFixed(2)} -> ${with_.peakYaw.toFixed(2)} rad/s on throttle`);
+
+  r.check('and breaks the rear axle loose',
+    with_.rearSlip > without.rearSlip + 3,
+    `rear slip ${without.rearSlip.toFixed(1)} -> ${with_.rearSlip.toFixed(1)} deg`);
+}
+
+/**
  * How much of a normal lap is spent squealing?
  *
  * The check that would have caught the worst tyre-audio regression this
@@ -804,6 +854,7 @@ async function testTyresAreQuietNormally(ctx, r) {
 
   const drive = makeAutopilot(track);
   let audible = 0;
+  let squealing = 0;
   let samples = 0;
   let peak = 0;
 
@@ -817,11 +868,17 @@ async function testTyresAreQuietNormally(ctx, r) {
     const loud = Math.max(mix.front.load, mix.rear.load);
     peak = Math.max(peak, loud);
     if (loud > 0.1) audible++;
+    // A murmur and a squeal are different events and lumping them together is
+    // what made this hard to reason about. Above 0.5 the tyre is genuinely
+    // making a noise; below it, it is the quiet "getting close" that the whole
+    // channel exists to provide.
+    if (loud > 0.5) squealing++;
     samples++;
   });
 
   const fraction = samples > 0 ? audible / samples : 0;
-  r.results.tyreQuiet = { fraction, peak, samples };
+  const loudFraction = samples > 0 ? squealing / samples : 0;
+  r.results.tyreQuiet = { fraction, loudFraction, peak, samples };
 
   // 15%, against a measured 13%. Set just above where the car actually sits
   // rather than where it would be nice for it to sit: the job of this check is
@@ -832,11 +889,18 @@ async function testTyresAreQuietNormally(ctx, r) {
   // autopilot corners to a fixed lateral budget and takes full throttle out of
   // every corner, so it spends more of a lap near the limit than a person
   // would. Judge it by ear and move squealStart.
-  r.check('a moderate lap is mostly silent',
-    fraction < 0.15,
-    `audible for ${(fraction * 100).toFixed(0)}% of the lap`);
+  // The bar is on SQUEALING, not on any sound at all. A faint murmur through
+  // a hard corner is the warning working; it is the loud one that must be rare
+  // or the signal stops meaning anything.
+  r.check('a moderate lap rarely squeals',
+    loudFraction < 0.06,
+    `properly squealing for ${(loudFraction * 100).toFixed(0)}% of the lap`);
 
-  r.log(`  ${(fraction * 100).toFixed(0)}% audible over ${samples} samples, peak loudness ${peak.toFixed(2)}`);
+  r.check('and is not murmuring constantly either',
+    fraction < 0.20,
+    `any tyre sound at all for ${(fraction * 100).toFixed(0)}% of the lap`);
+
+  r.log(`  ${(loudFraction * 100).toFixed(0)}% squealing, ${(fraction * 100).toFixed(0)}% murmuring or louder`);
 }
 
 /**
@@ -940,15 +1004,22 @@ async function testTyreAudioLevels(r) {
   // Engine samples land around 0.10 RMS. A squeal below about half that is
   // masked by the engine and might as well not exist.
   r.check('a full squeal is loud enough to hear over the engine',
-    gripRms > 0.06, `${gripRms.toFixed(3)} RMS at the limit`);
+    slideRms > 0.06, `${slideRms.toFixed(3)} RMS while sliding`);
+
+  // And a loaded-but-gripping tyre must be clearly quieter, or the two states
+  // are indistinguishable and the sound carries no information.
+  r.check('a loaded tyre only murmurs',
+    gripRms < slideRms * 0.5, `${gripRms.toFixed(3)} RMS at the limit but gripping`);
 
   // The makeup gain has to hold level flat as Q changes, so that a slide is
   // louder because slideVolume says so, not because the filter opened up.
-  const expected = TUNING.audio.tyre.slideVolume;
+  // Two things separate them now, both deliberate: slideVolume, and the
+  // loadVolume that keeps a gripping tyre down to a murmur.
+  const expected = TUNING.audio.tyre.slideVolume / TUNING.audio.tyre.loadVolume;
   const actual = slideRms / gripRms;
   r.check('a slide is louder by design, not by filter accident',
     Math.abs(actual - expected) / expected < 0.2,
-    `${actual.toFixed(2)}x measured against slideVolume ${expected}`);
+    `${actual.toFixed(1)}x measured against an intended ${expected.toFixed(1)}x`);
 
   r.log(`  gripping ${gripRms.toFixed(3)} RMS, sliding ${slideRms.toFixed(3)} RMS`);
 }
@@ -967,7 +1038,7 @@ function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, long
       frontSlip: frontSlip ?? slipSpeed ?? 0,
       rearSlip: rearSlip ?? slipSpeed ?? 0,
       // Longitudinal saturation stands in for locking and wheelspin.
-      wheels: [0, 1, 2, 3].map(() => ({ longUtil: longUtil ?? 0 })),
+      wheels: [0, 1, 2, 3].map(() => ({ longUtil: longUtil ?? 0, longitudinal: 0 })),
     },
   };
 }

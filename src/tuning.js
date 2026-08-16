@@ -204,7 +204,16 @@ export const DEFAULTS = {
       // saturating, against a design target of 400. Going higher buys quiet
       // by spending the warning the sound exists to give, so raise it only if
       // it still speaks too readily by ear.
-      squealStart: 0.91,
+      squealStart: 0.88,
+
+      // How loud a tyre gets from LOAD alone, before it is actually sliding.
+      //
+      // The reason the car sounded like it squealed constantly: being at the
+      // limit and having gone past it produced the same volume, so every hard
+      // corner was as loud as a slide. At 0.3 a loaded tyre murmurs and a
+      // sliding one squeals, which is both what a real car does and what makes
+      // the sound worth listening to.
+      loadVolume: 0.3,
       squealFull: 1.0,
 
       // Front and rear are deliberately far apart in pitch. This is what lets
@@ -220,8 +229,13 @@ export const DEFAULTS = {
 
       // Past the limit, driven by scrub speed rather than utilisation, which
       // is clamped and so says nothing about how far gone you are.
-      slideStart: 0.6,    // m/s of scrub where it starts to open up
-      slideFull: 4.5,     // m/s for a fully "gone" sound
+      // m/s of sideways scrub at the axle. 0.6 was far too low: a car merely
+      // cornering at 1 g carries ~0.5 m/s of axle lateral velocity from its
+      // own slip angle, so the slide term fired through ordinary turns and
+      // took the volume with it. At 2.0 m/s and 24 m/s road speed that is
+      // about 5 degrees of slip, which is genuinely sliding.
+      slideStart: 2.0,
+      slideFull: 6.0,
       // Locking and wheelspin, read from longitudinal force saturation rather
       // than from speed, because Rapier's wheels spin kinematically and never
       // actually lock. 1.0 is exactly at the tyre's longitudinal capacity.
@@ -231,7 +245,13 @@ export const DEFAULTS = {
       // the point the brakes are genuinely at the tyres' limit -- which is
       // also where skidmarks start -- without firing on ordinary slowing down.
       lockStart: 0.86,
-      lockFull: 1.05,
+      lockFull: 1.00,
+      // Wheelspin, which is the DRIVE direction and needs a higher bar.
+      // Accelerating out of a corner reaches the high 80s of longitudinal
+      // capacity at moderate throttle while gripping perfectly well; only
+      // genuine spin exceeds capacity outright.
+      spinStart: 1.02,
+      spinFull: 1.25,
       slideVolume: 1.7,   // sliding is louder than working hard
       slideDrop: 0.72,    // and lower: pitch falls to 72% when properly sideways
 

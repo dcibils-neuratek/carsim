@@ -425,6 +425,26 @@ export class Vehicle {
     const b = TUNING.brakes;
     const speed = this.speed;
 
+    // A pulled handbrake has to cut rear DRIVE, not just add rear brake.
+    //
+    // Rapier inherits Bullet's rolling-friction rule, which reads roughly:
+    //
+    //     if (engineForce != 0) rollingFriction = engineForce * dt;
+    //     else                  rollingFriction = -brake ...;
+    //
+    // The brake is consulted ONLY when engine force is zero, so any throttle
+    // at all made setWheelBrake a no-op and the handbrake did nothing while
+    // accelerating -- which is exactly the moment you want it for a
+    // handbrake turn. Releasing the rear drive lets the brake path run, and
+    // is what a real locked wheel does anyway: it puts no power down.
+    //
+    // Applied here rather than in _applyDrive because at this point
+    // _wheelForce still holds drive alone; the service brake is subtracted
+    // below, and must not be scaled away with it.
+    const handRelease = 1 - Math.min(input.handbrake, 1);
+    this._wheelForce[WHEEL.RL] *= handRelease;
+    this._wheelForce[WHEEL.RR] *= handRelease;
+
     const total = pedals.braking * b.maxBrakeForce;
     const perFront = (total * b.frontBias) / 2;
     const perRear = (total * (1 - b.frontBias)) / 2;

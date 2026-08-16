@@ -119,6 +119,7 @@ export function createGui({ onRebuild, onToast }) {
   const tyre = gui.addFolder('tyre audio');
   tyre.add(TUNING.audio.tyre, 'volume', 0, 1.5, 0.02).onChange(save);
   tyre.add(TUNING.audio.tyre, 'squealStart', 0.3, 0.95, 0.01).name('squeal starts at').onChange(save);
+  tyre.add(TUNING.audio.tyre, 'loadVolume', 0, 1, 0.02).name('loaded loudness').onChange(save);
   tyre.add(TUNING.audio.tyre, 'slideVolume', 1, 3, 0.05).name('slide loudness').onChange(save);
   tyre.add(TUNING.audio.tyre, 'freqFront', 400, 2400, 20).name('front pitch').onChange(save);
   tyre.add(TUNING.audio.tyre, 'freqRear', 400, 2400, 20).name('rear pitch').onChange(save);
