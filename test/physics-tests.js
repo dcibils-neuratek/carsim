@@ -323,6 +323,7 @@ export async function runAll(el) {
   await testUtilisationSignal(ctx, r);
   await testTyreAudioWarning(ctx, r);
   await testTyreAudioLevels(r);
+  await testNoScreechOffRoad(r);
   await testBrakingSquealsToo(ctx, r);
   await testTyresAreQuietNormally(ctx, r);
   await testHandbrake(ctx, r);
@@ -1021,6 +1022,40 @@ async function testBrakingSquealsToo(ctx, r) {
 }
 
 /**
+ * Tyres screech on asphalt, not on grass.
+ *
+ * Rubber howling over a verge is one of the fastest ways to make a car sound
+ * fake, and the skidmarks already knew this while the audio did not.
+ *
+ * The trap is that "on the road" cannot be an absolute grip figure: Snow's
+ * asphalt is 0.55, so any fixed threshold decides the entire circuit is grass.
+ * It has to be measured against the track's own road grip, which is what the
+ * skidmarks do and what this checks.
+ */
+async function testNoScreechOffRoad(r) {
+  r.section('tyres are quiet off the asphalt');
+
+  // A tyre well past the limit, so only the surface can silence it.
+  const sliding = { frontUtil: 1, rearUtil: 1, slipSpeed: 9 };
+  const on = tyreMix(fakeVehicle({ ...sliding, gripMult: [1, 1, 1, 1] }), 1);
+  const off = tyreMix(fakeVehicle({ ...sliding, gripMult: [0.45, 0.45, 0.45, 0.45] }), 1);
+
+  r.check('a slide on the road is loud', on.front.gain > 0.2,
+    `gain ${on.front.gain.toFixed(2)}`);
+  r.check('the same slide on grass is silent', off.front.gain < 0.01,
+    `gain ${off.front.gain.toFixed(3)}`);
+
+  // Snow's road IS 0.55 grip. Judged absolutely it would read as grass, and
+  // the circuit would be silent end to end.
+  const snowRoad = tyreMix(fakeVehicle({ ...sliding, gripMult: [0.55, 0.55, 0.55, 0.55] }), 0.55);
+  const snowGrass = tyreMix(fakeVehicle({ ...sliding, gripMult: [0.22, 0.22, 0.22, 0.22] }), 0.55);
+  r.check('a low-grip circuit still screeches on its own asphalt',
+    snowRoad.front.gain > 0.2, `gain ${snowRoad.front.gain.toFixed(2)} at 0.55 road grip`);
+  r.check('and still goes quiet on its verges',
+    snowGrass.front.gain < 0.01, `gain ${snowGrass.front.gain.toFixed(3)}`);
+}
+
+/**
  * Is a slide clearly louder than a tyre merely working hard?
  *
  * The two states have to be tellable apart or the sound carries no
@@ -1065,11 +1100,11 @@ function slideOf(scrub, longUtil = 0) {
 }
 
 /** A stand-in vehicle, for exercising the mix at states a skidpad won't reach. */
-function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, longUtil }) {
+function fakeVehicle({ frontUtil, rearUtil, slipSpeed, frontSlip, rearSlip, longUtil, gripMult }) {
   return {
     speed: 30,
     airborne: false,
-    gripMult: [1, 1, 1, 1],
+    gripMult: gripMult ?? [1, 1, 1, 1],
     telemetry: {
       frontUtil,
       rearUtil,

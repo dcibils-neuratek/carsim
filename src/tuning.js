@@ -235,6 +235,12 @@ export const DEFAULTS = {
       speedFloor: 0.45,
       speedFull: 32,      // m/s at which speed stops adding
 
+      // Where the squeal fades out as the tyre leaves the asphalt, as a
+      // FRACTION of this track's own road grip. Below surfaceCut it is silent;
+      // above surfaceFull it is fully on the road.
+      surfaceCut: 0.7,
+      surfaceFull: 0.92,
+
       // Past the limit, driven by scrub speed rather than utilisation, which
       // is clamped and so says nothing about how far gone you are.
       slideVolume: 1.7,   // sliding is louder than working hard

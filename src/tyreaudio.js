@@ -45,7 +45,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
  * arrive before the limit" has a measurable answer rather than one that can
  * only be argued about by ear.
  */
-export function tyreMix(vehicle) {
+export function tyreMix(vehicle, roadGrip = 1) {
   const t = TUNING.audio.tyre;
   const tel = vehicle.telemetry;
 
@@ -58,7 +58,20 @@ export function tyreMix(vehicle) {
   // the same slide at speed is a howl.
   const speedFrac = ratio(speed, t.minSpeed, t.speedFull);
 
-  const axle = (util, slide, basePitch) => {
+  // Rubber squeals on rubber-gripping surfaces. Grass, gravel and deep snow
+  // scrub and rumble, and a tyre howling over a verge is one of the fastest
+  // ways to make a car sound fake.
+  //
+  // Measured against THIS track's road grip, not an absolute: Snow's asphalt
+  // is 0.55, so any fixed threshold would decide the entire circuit was grass.
+  // Same test the skidmarks use, so what you hear and what you see agree here
+  // too -- run wide and both stop together.
+  const onRoad = (a, b) => {
+    const worst = Math.min(vehicle.gripMult[a], vehicle.gripMult[b]);
+    return ratio(worst, roadGrip * t.surfaceCut, roadGrip * t.surfaceFull);
+  };
+
+  const axle = (util, slide, basePitch, surface) => {
     // The warning. Starts before the limit, which is the entire point: by the
     // time a tyre is audibly past it, the useful moment has gone.
     const load = ratio(util, t.squealStart, t.squealFull);
@@ -84,7 +97,7 @@ export function tyreMix(vehicle) {
       // gets harsh, so the filter lets more of the recording's top end
       // through the further past the limit it is.
       brightness: lerp(t.toneLoaded, t.toneSliding, slide),
-      gain: alive * t.volume * voice * lerp(1, t.slideVolume, slide)
+      gain: alive * surface * t.volume * voice * lerp(1, t.slideVolume, slide)
             * lerp(t.speedFloor, 1, speedFrac),
     };
   };
@@ -97,8 +110,8 @@ export function tyreMix(vehicle) {
 
   // "Has it let go" comes from telemetry, which is the single definition the
   // skidmarks use too -- so what you hear and what you see are one event.
-  const front = axle(tel.frontUtil, tel.frontSlide, t.pitchFront);
-  const rear = axle(tel.rearUtil, tel.rearSlide, t.pitchRear);
+  const front = axle(tel.frontUtil, tel.frontSlide, t.pitchFront, onRoad(0, 1));
+  const rear = axle(tel.rearUtil, tel.rearSlide, t.pitchRear, onRoad(2, 3));
 
   return {
     front,
@@ -128,8 +141,11 @@ function makeNoiseBuffer(ctx, seconds = 2) {
 }
 
 export class TyreAudio {
-  constructor(ctx, buses) {
+  constructor(ctx, buses, roadGrip = 1) {
     this.ctx = ctx;
+    // This track's asphalt grip, so "on the road" is judged relative to the
+    // surface the circuit is actually made of.
+    this.roadGrip = roadGrip;
     // Separate buses so the squeal can be balanced against the engine, and the
     // road rumble against both, from the tuning panel.
     this.tyreBus = buses?.tyre ?? null;
@@ -216,7 +232,7 @@ export class TyreAudio {
 
   update(vehicle) {
     if (!this.road && !this.ready) return;
-    const mix = tyreMix(vehicle);
+    const mix = tyreMix(vehicle, this.roadGrip);
     const now = this.ctx.currentTime;
     const smoothing = TUNING.audio.tyre.smoothing;
 
