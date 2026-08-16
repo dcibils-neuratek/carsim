@@ -290,15 +290,21 @@ export class Hud {
     this.el.lapBest.textContent = formatTime(lapTimer.best);
   }
 
-  // Dot position is lateral vs longitudinal g, the way a real g-g plot reads:
-  // right on the dial = pushed right, up = accelerating, down = braking.
+  // A g-g plot of the force the driver feels: down under acceleration, up
+  // under braking, and out toward the outside of the corner.
   _updateGMeter(dt, vehicle) {
     const k = Math.min(dt * 14, 1);
     this._gx += (vehicle.gLat - this._gx) * k;
     this._gy += (vehicle.gLong - this._gy) * k;
 
-    const x = 50 + THREE_clamp(this._gx / G_SCALE, -1, 1) * 46;
-    const y = 50 - THREE_clamp(this._gy / G_SCALE, -1, 1) * 46;
+    // The dot shows the force FELT, not the acceleration vector -- which is
+    // the reaction, so it points the opposite way. Accelerate and you are
+    // pressed back into the seat, so the dot goes south; brake and it goes
+    // north; turn right and it swings left. That is what every real g-meter
+    // and every telemetry trace does, and plotting the acceleration instead
+    // reads backwards to anyone who has watched one.
+    const x = 50 - THREE_clamp(this._gx / G_SCALE, -1, 1) * 46;
+    const y = 50 + THREE_clamp(this._gy / G_SCALE, -1, 1) * 46;
     this.el.gDot.setAttribute('cx', x.toFixed(1));
     this.el.gDot.setAttribute('cy', y.toFixed(1));
 
