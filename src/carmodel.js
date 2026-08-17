@@ -396,21 +396,31 @@ function splitWheels(geoms, tuning) {
       return fallback;
     }
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    // Recentre on the hub so rotation happens about the axle, not the origin.
-    g.computeBoundingBox();
-    const c = g.boundingBox.getCenter(new THREE.Vector3());
-    g.translate(-c.x, -c.y, -c.z);
+
+    // Find the axle from the TYRE, not from the bounding box.
+    //
+    // The box centre is the axle centre only when the group is a clean disc.
+    // Real wheel groups carry a brake caliper on one side, and a caliper sits
+    // off-centre and at small radius -- so it drags the box centre away from
+    // the axle. Spinning about that point makes the wheel ORBIT rather than
+    // turn, which reads as a wheel that is slightly tilted or wobbling. The
+    // same box also made the radius too large, which is why the wheels came
+    // out oversized.
+    //
+    // The fix is to look only at the outer ring. Everything at large radius
+    // in the Y-Z plane is tyre, and a tyre is a circle centred on the axle, so
+    // its extremes give the centre exactly however much clutter sits inboard.
+    const { hub, radius } = fitWheel(verts);
+    g.translate(-hub.x, -hub.y, -hub.z);
 
     // Match the simulated wheel radius. The artist's wheels are whatever size
     // they are; the physics raycasts against tuning.wheels.radius, so a
     // mismatch shows up as wheels hovering above the road or sunk into it.
-    g.computeBoundingBox();
-    const s = g.boundingBox.getSize(new THREE.Vector3());
-    const modelRadius = Math.max(s.y, s.z) / 2;      // spin axis is x
-    if (modelRadius > 1e-4) {
-      const k = tuning.wheels.radius / modelRadius;
+    if (radius > 1e-4) {
+      const k = tuning.wheels.radius / radius;
       g.scale(1, k, k);
     }
+    const c = hub;
 
     g.computeVertexNormals();
     g.userData.hub = c;
@@ -454,4 +464,59 @@ function mergeGeometries(geoms) {
 function unit(axis, out) {
   out.set(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0);
   return out;
+}
+
+/**
+ * The axle centre and tyre radius of one wheel, from its vertices.
+ *
+ * Two passes. The first uses the crude Y-Z box centre only as a seed, good
+ * enough to tell the outer ring from the hub clutter. The second takes the
+ * points in that ring -- the tyre -- and centres on THEIR extremes, which is
+ * the axle, because a tyre is a circle about it. Anything asymmetric and
+ * inboard (a caliper, a disc, a brake duct) sits at small radius and is
+ * excluded, so it can no longer pull the centre off the axle.
+ *
+ * The spin axis is x, so x is left where it is: it decides how far the wheel
+ * sits inboard, not whether it runs true.
+ */
+function fitWheel(verts) {
+  let minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < verts.length; i += 3) {
+    const x = verts[i], y = verts[i + 1], z = verts[i + 2];
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  let cy = (minY + maxY) / 2;
+  let cz = (minZ + maxZ) / 2;
+  const seedR = Math.max(maxY - minY, maxZ - minZ) / 2;
+
+  // Second pass over the outer ring only.
+  const RING = 0.82;                       // fraction of the seed radius
+  const cut = (seedR * RING) ** 2;
+  let rMinY = Infinity, rMaxY = -Infinity, rMinZ = Infinity, rMaxZ = -Infinity;
+  let found = 0;
+  for (let i = 0; i < verts.length; i += 3) {
+    const dy = verts[i + 1] - cy, dz = verts[i + 2] - cz;
+    if (dy * dy + dz * dz < cut) continue;
+    found++;
+    if (verts[i + 1] < rMinY) rMinY = verts[i + 1];
+    if (verts[i + 1] > rMaxY) rMaxY = verts[i + 1];
+    if (verts[i + 2] < rMinZ) rMinZ = verts[i + 2];
+    if (verts[i + 2] > rMaxZ) rMaxZ = verts[i + 2];
+  }
+  // A group with no clear ring is not a tyre shape; keep the seed rather than
+  // inventing a centre from a handful of stray points.
+  if (found >= 12) {
+    cy = (rMinY + rMaxY) / 2;
+    cz = (rMinZ + rMaxZ) / 2;
+  }
+
+  // Radius from the refined centre, as the true half-extent of the ring.
+  const radius = found >= 12
+    ? Math.max(rMaxY - rMinY, rMaxZ - rMinZ) / 2
+    : seedR;
+
+  return { hub: new THREE.Vector3((minX + maxX) / 2, cy, cz), radius };
 }

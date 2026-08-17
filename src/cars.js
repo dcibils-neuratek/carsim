@@ -31,47 +31,6 @@ export const CARS = [
   },
 
   {
-    id: 'porsche',
-    name: 'Porsche 930 Turbo',
-    file: './assets/cars/1975_porsche_911_930_turbo-optimized.glb',
-    tagline: 'Engine behind the back axle and a turbo that arrives late. Respect it.',
-    badge: 'WIDOWMAKER',
-    stats: { power: '260 hp', weight: '1195 kg', drive: 'Rear RWD' },
-    tuning: {
-      // The 930's whole character is one number: the engine hangs BEHIND the
-      // rear axle. comZ is strongly rearward, which loads the rear tyres under
-      // power -- enormous traction out of a corner -- and takes weight off the
-      // nose, so it runs wide on entry and snaps if you lift mid-corner. That
-      // pendulum is the car, and it is why this one is the interesting choice
-      // rather than just a second Alpine.
-      chassis: { mass: 1195, comY: -0.26, comZ: -0.30, inertiaScale: 1.10 },
-      suspension: { stiffness: 74, compression: 4.6, relaxation: 7.0 },
-      // Turbo lag, expressed as a torque curve that does almost nothing until
-      // it does everything. peakTorque is high but arrives late; below the
-      // threshold the car is ordinary, and above it the rear steps out.
-      engine: { peakTorque: 430, redlineRpm: 6800, maxRpm: 7000 },
-      // Front grip below rear, unlike every other car here: the nose is light,
-      // and understeer on entry is the honest consequence of that.
-      // A 930 is a SMALL car -- 2.27 m of wheelbase against the Alpine's 2.40
-      // and noticeably narrower. Stating it here is what puts the rendered
-      // wheels inside the arches instead of proud of them, and it is honest
-      // physics too: a shorter wheelbase is part of why the car is nervous.
-      //
-      // These are the real car's proportions rather than the raw measurement
-      // off the mesh. The automatic probe read this model at 0.58 half-track
-      // and a 1.75 m wheelbase, which is far too small for any 911 -- its
-      // wheel groups survive the roundness filter as rims rather than whole
-      // tyres, so the cluster centres sit inboard. Trusting that number would
-      // have tucked the wheels under the car instead of fixing them.
-      wheels: {
-        frictionFront: 1.36, frictionRear: 1.52,
-        trackHalf: 0.72, frontZ: 1.13, rearZ: 1.14, radius: 0.33,
-      },
-      transmission: { final: 3.32, autoUpshiftRpm: 6400, autoDownshiftRpm: 2800 },
-      aero: { dragCoeff: 0.55, downforce: 1.8 },
-    },
-  },
-  {
     id: 'gt3rs',
     name: 'Porsche GT3 RS',
     file: './assets/cars/2019_porsche_911_991.2_gt3_rs-optimized.glb',
