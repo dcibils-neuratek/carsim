@@ -56,9 +56,17 @@ export const CARS = [
       audio: { blendLowRpm: 2400, blendHighRpm: 5200 },
       // Measured off the model, so the simulated wheels sit in the arches the
       // artist drew.
+      // From the model's own hubs, like the GT3 RS. Its wheelbase measures
+      // 2.421 m against the real A110's 2.42, so the mesh is trustworthy and
+      // the hand-typed 0.84 half-track was simply 6 cm too wide -- enough to
+      // stand the wheels outside their arches.
+      //
+      // trackHalf is one number for a car whose front and rear tracks differ
+      // (0.789 and 0.757 here, as on the real thing), so it is the mean. The
+      // 3 cm either way is invisible; a whole-car error was not.
       wheels: {
         frictionFront: 1.55, frictionRear: 1.35,
-        trackHalf: 0.84, frontZ: 1.19, rearZ: 1.26, radius: 0.311,
+        trackHalf: 0.773, frontZ: 1.18, rearZ: 1.241, radius: 0.311,
       },
     },
   },
@@ -108,12 +116,18 @@ export const CARS = [
       // The most grip here, front and rear, and the only car with the front
       // ABOVE the rear -- a nose that actually bites, which is the thing the
       // 930 cannot do.
-      // Measured off the model and trusted: this one's wheel groups come out
-      // clean, all four within 10 mm, and the figures match a real 991 GT3 RS.
-      // Wider track and bigger wheels than the 930 -- forty years of tyre.
+      // Taken from the model's OWN hub positions, which are the only thing
+      // that can put a simulated wheel inside the arch that was drawn for it.
+      //
+      // These replace hand-typed figures that pulled the wheelbase in to
+      // 2.26 m and the track to 1.50 -- about 10 cm short at each end, which
+      // is exactly the "wheels look off" you can see from the side: too much
+      // overhang in front, too much behind, wheels sitting inboard of their
+      // arches. The model's hubs give 2.454 m, and a real 991 GT3 RS is
+      // 2.45 -- so the mesh was accurate and the numbers over it were not.
       wheels: {
         frictionFront: 1.78, frictionRear: 1.70,
-        trackHalf: 0.75, frontZ: 1.12, rearZ: 1.14, radius: 0.336,
+        trackHalf: 0.78, frontZ: 1.217, rearZ: 1.237, radius: 0.336,
       },
       transmission: {
         // 991 GT3 RS PDK. Shorter than the Alpine's throughout, which is part

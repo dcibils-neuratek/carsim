@@ -90,6 +90,32 @@ Four to eight wheel geometries with sane bounds is healthy. Dozens of tiny
 ones means the wheels are fragmented, and that model will need its wheel
 dimensions stated by hand in `cars.js` — as the 930's are.
 
+## Get the wheel positions from the model, not from a spec sheet
+
+`wheels.trackHalf`, `frontZ`, `rearZ` and `radius` must be stated per car, and
+the only figures that work are the model's OWN hub positions. Anything else
+stands the wheels outside their arches, which from the side reads as too much
+overhang at both ends.
+
+Both cars here were first given hand-typed numbers and both were wrong — the
+GT3 RS by 10 cm of wheelbase, the Alpine by 6 cm of track. Read them instead:
+
+```js
+// with the car loaded, in the console
+const hubs = __carsim.car().wheelMeshes.map(m => m.geometry.userData.hub);
+// hubs[0] is front-left: |x| is trackHalf, z is frontZ, |hubs[2].z| is rearZ
+```
+
+The result is worth sanity-checking against the real car, and it will match:
+the GT3 RS's mesh measures a 2.454 m wheelbase against the real 2.45, and the
+Alpine's 2.421 against 2.42. When a model disagrees with its real counterpart
+by more than a few centimetres, suspect the wheel detection rather than the
+model — that is what happened on the 930, whose wheel groups survive as rims
+and read 20 cm narrow.
+
+`trackHalf` is a single number for cars whose front and rear tracks genuinely
+differ, so use the mean; a few centimetres either way is invisible.
+
 ## Wiring it in
 
 Add an entry to `src/cars.js`: the file, the card text, and a `tuning` block.
