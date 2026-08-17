@@ -207,11 +207,21 @@ export const CARS = [
       },
       transmission: {
         // 7-speed ISR, tall to suit 8500 rpm and 350 km/h.
-        gears: [3.09, 2.19, 1.63, 1.29, 1.03, 0.84, 0.69],
-        final: 3.42, autoUpshiftRpm: 8100, autoDownshiftRpm: 3400,
+        gears: [3.14, 2.21, 1.65, 1.30, 1.04, 0.85, 0.69],
+        final: 3.42, autoUpshiftRpm: 8200, autoDownshiftRpm: 3400,
       },
       brakes: { maxBrakeForce: 20000, frontBias: 0.60 },
-      aero: { dragCoeff: 0.66, downforce: 6.8 },
+      // Drag set from the real top speed rather than typed by feel. At 0.66
+      // the car ran out of breath at 276 km/h, and it did so at 4600 rpm in
+      // seventh -- drag was the wall, not gearing. 0.44 puts terminal velocity
+      // at the electronically capped 340 km/h (211 mph), reached up near peak
+      // power where a car this geared should reach it.
+      //
+      // Downforce is raised at the same time, which is the trade the real car
+      // makes: that carbon wing buys cornering speed and costs straight-line
+      // speed, so this has the most downforce here AND is not the fastest
+      // thing in a straight line.
+      aero: { dragCoeff: 0.44, downforce: 8.6 },
       // A V12 revving to 8500 -- the procar recordings suit it far better than
       // the four-cylinder default, same as the GT3 RS.
       audio: { blendLowRpm: 3400, blendHighRpm: 7200 },
