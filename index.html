@@ -223,6 +223,23 @@
   }
   #debug.on { display: block; }
 
+  /* ---- back to the menu, top left ---- */
+  /* Top left is the one corner with nothing in it during a lap, and it is
+     where a back control belongs on any screen. */
+  #menuBtn {
+    position: absolute; left: 22px; top: 16px;
+    font: inherit; font-size: 10px; letter-spacing: 2px; color: var(--dim);
+    background: var(--panel); border: 1px solid rgba(255,255,255,.10);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer;
+    pointer-events: auto;   /* the HUD above it is click-through */
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  #menuBtn b { color: var(--fg); font-weight: 600; letter-spacing: 1px; }
+  #menuBtn:hover {
+    color: var(--fg); border-color: var(--accent);
+    background: rgba(255,210,63,.10);
+  }
+
   /* ---- help, bottom left ---- */
   /* Keeps to its own lane on the left so it never runs under the dials, which
      sit centred and are the one thing on the overlay you read at a glance. */
@@ -492,6 +509,11 @@
        cannot leave the on-screen help telling you the wrong button. -->
   <!-- Deliberately terse. At this width every extra word wraps to another
        line, and the block was tall enough to collide with the grip panel. -->
+  <!-- Getting back out. A key alone is not discoverable -- nobody guesses
+       Escape at something that never showed them a menu -- so it is a real
+       button, and the key is written on it. -->
+  <button id="menuBtn" type="button">&#8592; CIRCUITS <b>ESC</b></button>
+
   <div id="help">
     <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
     <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>

@@ -1,6 +1,6 @@
 // DOM overlay: the twin-dial cluster, lap times, toast, and the debug readout.
 
-import { TUNING } from './tuning.js';
+import { TUNING, torqueAt } from './tuning.js';
 import { formatTime } from './laptimer.js';
 
 const WHEEL_NAMES = ['FL', 'FR', 'RL', 'RR'];
@@ -52,6 +52,27 @@ function dialPoint(angleDeg, radius, cx = 100, cy = 100) {
  * Generated rather than authored so the face can never disagree with the car:
  * change the redline or the top speed in tuning and the dial redraws to match.
  */
+/**
+ * The car's terminal speed in km/h, where drive force meets drag.
+ *
+ * Solved rather than driven, because no circuit here has a straight long
+ * enough to reach 350 km/h, and the dial has to be built before the car has
+ * turned a wheel.
+ */
+function terminalSpeedKmh() {
+  const t = TUNING;
+  const top = t.transmission.gears[t.transmission.gears.length - 1];
+  const eff = t.transmission.efficiency ?? 0.9;
+  let best = 0;
+  for (let rpm = 1500; rpm <= t.engine.maxRpm; rpm += 25) {
+    const v = (rpm * 2 * Math.PI * t.wheels.radius) / (60 * top * t.transmission.final);
+    const drive = torqueAt(rpm) * top * t.transmission.final * eff / t.wheels.radius;
+    const resist = t.aero.dragCoeff * v * v + t.aero.rollingResistance;
+    if (drive > resist && v > best) best = v;
+  }
+  return best * 3.6;
+}
+
 function buildDial(ticksEl, numsEl, { max, step, minorPer, labelEvery, small }) {
   const ticks = [];
   const nums = [];
@@ -150,8 +171,16 @@ export class Hud {
     const large = (a1 - a0) > 180 ? 1 : 0;
     this.el.tachRed.setAttribute('d', `M ${x0.toFixed(1)} ${y0.toFixed(1)} A 81 81 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`);
 
-    // Speedo, rounded up to a round 30 so the last numeral is not orphaned.
-    this._speedMax = Math.max(180, Math.ceil((TUNING.aero ? 300 : 300) / 30) * 30);
+    // Speedo scaled to what THIS car can actually do.
+    //
+    // It was pinned at 300 km/h, which suited the Alpine and left the SC18
+    // pegged against the stop for the top 50 km/h of its range -- a dial that
+    // stops before the car does is worse than no dial. The figure comes from
+    // the same place the top speed does: solve drive force against drag across
+    // the rev range in top gear. Rounded UP to a round 30 with a little room
+    // over, so the needle never quite reaches the last numeral and the last
+    // numeral is never orphaned.
+    this._speedMax = Math.max(180, Math.ceil((terminalSpeedKmh() * 1.06) / 30) * 30);
     buildDial(this.el.spdTicks, this.el.spdNums, {
       max: this._speedMax, step: 30, minorPer: 3, labelEvery: 30, small: true,
     });

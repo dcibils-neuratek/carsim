@@ -215,13 +215,15 @@ export const CARS = [
       // the car ran out of breath at 276 km/h, and it did so at 4600 rpm in
       // seventh -- drag was the wall, not gearing. 0.44 puts terminal velocity
       // at the electronically capped 340 km/h (211 mph), reached up near peak
-      // power where a car this geared should reach it.
+      // power where a car this geared should reach it. Set to the TOP of the
+      // quoted band -- 217 mph is 349 km/h -- since that is the figure the
+      // car is actually capped at.
       //
       // Downforce is raised at the same time, which is the trade the real car
       // makes: that carbon wing buys cornering speed and costs straight-line
       // speed, so this has the most downforce here AND is not the fastest
       // thing in a straight line.
-      aero: { dragCoeff: 0.44, downforce: 8.6 },
+      aero: { dragCoeff: 0.425, downforce: 8.6 },
       // A V12 revving to 8500 -- the procar recordings suit it far better than
       // the four-cylinder default, same as the GT3 RS.
       audio: { blendLowRpm: 3400, blendHighRpm: 7200 },

@@ -506,6 +506,10 @@ export async function boot() {
     carCamera.snap();
   }
 
+  // One definition, shared by the key and the button, so they cannot drift.
+  const toMenu = () => { location.search = ''; };
+  document.getElementById('menuBtn')?.addEventListener('click', toMenu);
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -531,7 +535,10 @@ export async function boot() {
       else hud.toast('no music loaded');
     }
     // Back to the circuit menu. A reload guarantees a clean world.
-    if (e.code === 'KeyT') { location.search = ''; }
+    // Back to the menu. Escape is what everyone reaches for, and T stays
+    // because it always worked. location.search='' drops ?track= and ?car=,
+    // so the deep link you arrived on cannot bounce you straight back in.
+    if (e.code === 'KeyT' || e.code === 'Escape') toMenu();
   });
 
   // Expose for poking around from the console while tuning.
