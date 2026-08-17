@@ -22,7 +22,12 @@ export const CARS = [
     // Shown on the card. Free text, so a car can say what it is rather than
     // being forced into a column that does not suit it.
     stats: { power: '300 hp', weight: '1140 kg', drive: 'Mid RWD' },
-    tuning: {},          // the baseline: TUNING's own defaults
+    tuning: {
+      // Measured off the model, so the simulated wheels sit in the arches the
+      // artist drew. TUNING's shared defaults are close here because they were
+      // written for this car in the first place.
+      wheels: { trackHalf: 0.84, frontZ: 1.19, rearZ: 1.26, radius: 0.311 },
+    },
   },
 
   {
@@ -47,7 +52,21 @@ export const CARS = [
       engine: { peakTorque: 430, redlineRpm: 6800, maxRpm: 7000 },
       // Front grip below rear, unlike every other car here: the nose is light,
       // and understeer on entry is the honest consequence of that.
-      wheels: { frictionFront: 1.36, frictionRear: 1.52 },
+      // A 930 is a SMALL car -- 2.27 m of wheelbase against the Alpine's 2.40
+      // and noticeably narrower. Stating it here is what puts the rendered
+      // wheels inside the arches instead of proud of them, and it is honest
+      // physics too: a shorter wheelbase is part of why the car is nervous.
+      //
+      // These are the real car's proportions rather than the raw measurement
+      // off the mesh. The automatic probe read this model at 0.58 half-track
+      // and a 1.75 m wheelbase, which is far too small for any 911 -- its
+      // wheel groups survive the roundness filter as rims rather than whole
+      // tyres, so the cluster centres sit inboard. Trusting that number would
+      // have tucked the wheels under the car instead of fixing them.
+      wheels: {
+        frictionFront: 1.36, frictionRear: 1.52,
+        trackHalf: 0.72, frontZ: 1.13, rearZ: 1.14, radius: 0.33,
+      },
       transmission: { final: 3.32, autoUpshiftRpm: 6400, autoDownshiftRpm: 2800 },
       aero: { dragCoeff: 0.55, downforce: 1.8 },
     },
@@ -75,7 +94,13 @@ export const CARS = [
       // The most grip here, front and rear, and the only car with the front
       // ABOVE the rear -- a nose that actually bites, which is the thing the
       // 930 cannot do.
-      wheels: { frictionFront: 1.78, frictionRear: 1.70 },
+      // Measured off the model and trusted: this one's wheel groups come out
+      // clean, all four within 10 mm, and the figures match a real 991 GT3 RS.
+      // Wider track and bigger wheels than the 930 -- forty years of tyre.
+      wheels: {
+        frictionFront: 1.78, frictionRear: 1.70,
+        trackHalf: 0.75, frontZ: 1.12, rearZ: 1.14, radius: 0.336,
+      },
       transmission: { final: 3.97, autoUpshiftRpm: 8600, autoDownshiftRpm: 3600 },
       brakes: { maxBrakeForce: 19000 },
       // That wing is not decoration.
