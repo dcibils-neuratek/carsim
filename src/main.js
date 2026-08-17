@@ -27,6 +27,7 @@ import { EngineAudio } from './audio.js';
 import { TyreAudio } from './tyreaudio.js';
 import { PadPanel } from './padui.js';
 import { Music } from './music.js';
+import { SpeedBlur } from './postfx.js';
 import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
@@ -386,6 +387,7 @@ export async function boot() {
 
   const track = new Track(world, RAPIER, scene, trackDef);
   const debug = new PhysicsDebug(scene);
+  const blur = new SpeedBlur(renderer, scene, camera);
   const skidmarks = new Skidmarks(scene, 2400, trackDef);
   const smoke = new TyreSmoke(scene, 700, trackDef);
   smoke.setViewportHeight(window.innerHeight);
@@ -520,6 +522,7 @@ export async function boot() {
     // Point size is in pixels, so smoke has to be told or it changes size
     // with the window.
     smoke.setViewportHeight(window.innerHeight);
+    blur.setSize(window.innerWidth, window.innerHeight);
   });
 
   window.addEventListener('keydown', (e) => {
@@ -675,7 +678,7 @@ export async function boot() {
     hud.update(dt, vehicle, lapTimer);
     hud.updateDebug({ vehicle, stepper, input, projection, camera: carCamera, lapTimer, tyreAudio });
 
-    renderer.render(scene, camera);
+    blur.render(scene, camera, vehicle.speedKmh);
   }
 
   const _grip = new THREE.Vector3();
@@ -690,7 +693,7 @@ export async function boot() {
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
     vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
-    skidmarks, smoke,
+    skidmarks, smoke, blur,
     get tyreAudio() { return tyreAudio; },
   };
 

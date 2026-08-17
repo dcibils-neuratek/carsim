@@ -375,6 +375,13 @@ export const DEFAULTS = {
     lookReturn: 3.5,      // how fast it recentres once you let go
     lookDeadzone: 0.15,   // a resting thumb must not drift the view
 
+    // Speed blur, at the screen EDGES only -- see src/postfx.js. A car at
+    // 200 km/h on a clean road feels like 60, and the periphery smearing while
+    // the road ahead stays sharp is what your own vision does at pace.
+    blurStart: 150,       // km/h below which there is none, and no cost either
+    blurFull: 260,        // km/h at which it reaches blurAmount
+    blurAmount: 1.0,      // overall strength; 0 turns it off
+
     // How far the camera may lead a slide, in radians. velocityBlend decides
     // how much of the drift angle it follows; this caps the result. Without a
     // cap a big slide swings the view right off the road just as you need to

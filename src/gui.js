@@ -203,6 +203,11 @@ export function createGui({ onRebuild, onToast, car = null }) {
   cam.add(TUNING.camera, 'accelPull', 0, 0.3, 0.005).name('push under g').onChange(save);
   cam.add(TUNING.camera, 'fovBase', 40, 100, 1).onChange(save);
   cam.add(TUNING.camera, 'fovGain', 0, 45, 1).onChange(save);
+  const blur = cam.addFolder('speed blur');
+  blur.add(TUNING.camera, 'blurAmount', 0, 2, 0.05).name('amount (0 = off)').onChange(save);
+  blur.add(TUNING.camera, 'blurStart', 0, 300, 5).name('starts at km/h').onChange(save);
+  blur.add(TUNING.camera, 'blurFull', 50, 400, 5).name('full at km/h').onChange(save);
+  blur.close();
   const shake = cam.addFolder('impact shake');
   shake.add(TUNING.camera, 'shake', 0, 2, 0.02).name('amount').onChange(save);
   shake.add(TUNING.camera, 'shakeFloor', 0, 400, 5).name('ignore jerk below').onChange(save);
