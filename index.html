@@ -138,12 +138,16 @@
           text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 
   /* ---- grip: g-meter + balance, one panel bottom left ---- */
-  #grip {
-    /* Clear of the controls list below: at 116px the two panels sat 2px apart
-       and read as one box with a seam through it. */
-    position: absolute; left: 22px; bottom: 128px; width: var(--rail);
-    background: var(--panel); border-radius: 10px; overflow: hidden;
+  /* The two bottom-left panels are STACKED, not placed individually.
+     Each used to carry its own `bottom` in pixels, so any change to the type
+     in the controls list changed its height while the grip panel above stayed
+     put -- 2px apart and reading as one box the first time, 5px overlapping
+     the second. A column with a gap cannot do that. */
+  #rail {
+    position: absolute; left: 22px; bottom: 20px; width: var(--rail);
+    display: flex; flex-direction: column; gap: 12px;
   }
+  #grip { background: var(--panel); border-radius: 10px; overflow: hidden; }
   #grip .head {
     padding: 7px 12px 6px; text-align: center;
     font-size: 12px; letter-spacing: 3px; color: var(--dim);
@@ -201,9 +205,13 @@
 
   #laps {
     padding: 9px 12px 8px; text-align: right;
-    font-size: 11.5px; line-height: 1.7; letter-spacing: .5px;
+    font-size: 14px; line-height: 1.7; letter-spacing: .5px;
   }
-  #laps .k { color: var(--dim); float: left; letter-spacing: 1px; font-size: 12.5px; }
+  /* Label left, time right. This used to float the label, which works only
+     while the label fits inside its line box -- at 12.5px it became TALLER
+     than the row, spilled into the next line and shunted BEST across. */
+  #laps .row { display: flex; justify-content: space-between; align-items: baseline; }
+  #laps .k { color: var(--dim); letter-spacing: 1px; font-size: 12.5px; }
   #laps .cur { font-size: 19px; font-weight: 700; letter-spacing: 0; margin-bottom: 2px; }
   #laps .best { color: var(--accent); }
 
@@ -254,7 +262,6 @@
   /* Keeps to its own lane on the left so it never runs under the dials, which
      sit centred and are the one thing on the overlay you read at a glance. */
   #help {
-    position: absolute; left: 22px; bottom: 20px; width: var(--rail);
     font-size: 12.5px; color: var(--dim); line-height: 1.55;
     background: var(--panel); padding: 8px 11px; border-radius: 10px;
     /* Each line pairs keys with what they do, so wrapping would strand a key
@@ -334,11 +341,18 @@
   #boot.hidden { display: none; }
 
   /* ---- track selection ---- */
-  #trackMenu { display: none; gap: 18px; margin-top: 8px; flex-wrap: wrap;
-               justify-content: center; max-width: 1560px; padding: 0 24px; }
-  #trackMenu.on { display: flex; }
+  /* Always three across.
+     This was flex-wrap over fixed-width cards, so the number per row was
+     whatever the window happened to allow -- four and two on a wide screen,
+     which reads as an accident rather than a layout. Six circuits are a 3x2
+     grid and three cars are a single row of three, at any width. */
+  #trackMenu { display: none; gap: 18px; margin-top: 8px;
+               grid-template-columns: repeat(3, minmax(0, 1fr));
+               width: min(1120px, calc(100vw - 48px)); padding: 0 24px; }
+  #trackMenu.on { display: grid; }
   .trackCard {
-    width: 352px; padding: 0 0 15px; border-radius: 14px; cursor: pointer;
+    /* Width comes from the grid column now, not from the card. */
+    width: 100%; padding: 0 0 15px; border-radius: 14px; cursor: pointer;
     background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10);
     transition: transform .12s ease, border-color .12s ease, background .12s ease;
     text-align: center; overflow: hidden;
@@ -444,6 +458,7 @@
        the controls list directly below it: those two are stacked and so get
        compared edge to edge, which matters more than matching the lap panel
        diagonally opposite. -->
+  <div id="rail">
   <div id="grip">
     <div class="head">GRIP</div>
 
@@ -464,6 +479,14 @@
       <div id="balanceBar"><div id="balanceFill"></div></div>
       <div class="ends"><span>UNDER</span><span id="balanceText">NEUTRAL</span><span>OVER</span></div>
     </div>
+  </div>
+  <div id="help">
+    <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
+    <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>
+    <div><b data-bind="camera"></b>/<b>C</b> cam &nbsp; <b>G</b> tune &nbsp; <b>B</b> pad &nbsp; <b>M</b> manual</div>
+    <div><b>`</b> debug &nbsp; <b>P</b> colliders &nbsp; <b>O</b> wireframe</div>
+    <div><b>V</b> sound &nbsp; <b>N</b> music &nbsp; <b>K</b> clear marks</div>
+  </div>
   </div>
 
   <!-- Twin-dial cluster, after the real A110's: tacho left, speedo right, a
@@ -519,8 +542,8 @@
 
     <div id="laps">
       <div class="cur" id="lapCur">--:--.---</div>
-      <div><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
-      <div><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
+      <div class="row"><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
+      <div class="row"><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
     </div>
 
     <div id="minimap">
@@ -546,13 +569,6 @@
        button, and the key is written on it. -->
   <button id="menuBtn" type="button">&#8592; CIRCUITS <b>ESC</b></button>
 
-  <div id="help">
-    <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
-    <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>
-    <div><b data-bind="camera"></b>/<b>C</b> cam &nbsp; <b>G</b> tune &nbsp; <b>B</b> pad &nbsp; <b>M</b> manual</div>
-    <div><b>`</b> debug &nbsp; <b>P</b> colliders &nbsp; <b>O</b> wireframe</div>
-    <div><b>V</b> sound &nbsp; <b>N</b> music &nbsp; <b>K</b> clear marks</div>
-  </div>
 
   <div id="toast"></div>
 </div>
