@@ -181,8 +181,18 @@ export class Hud {
     // over, so the needle never quite reaches the last numeral and the last
     // numeral is never orphaned.
     this._speedMax = Math.max(180, Math.ceil((terminalSpeedKmh() * 1.06) / 30) * 30);
+    // Label only as many as fit.
+    //
+    // The dial sweeps 250 degrees whatever it reads to, so a fast car crowds
+    // it: the SC18's 390 km/h meant fourteen numerals and they overlapped
+    // outright at the top of the arc, where the sweep is tightest. Ten is
+    // about the limit at this radius, so above that the labels go on every
+    // OTHER major tick. The ticks themselves stay every 30 either way, so the
+    // dial loses none of its resolution -- only the printing thins out, which
+    // is what a real instrument does at the same problem.
+    const labelEvery = this._speedMax / 30 > 10 ? 60 : 30;
     buildDial(this.el.spdTicks, this.el.spdNums, {
-      max: this._speedMax, step: 30, minorPer: 3, labelEvery: 30, small: true,
+      max: this._speedMax, step: 30, minorPer: 3, labelEvery, small: true,
     });
     this._tachMax = maxK * 1000;
   }
