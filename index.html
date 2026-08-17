@@ -387,7 +387,18 @@
   /* Car cards: same shell as the circuits, with a spec strip. The numbers are
      the reason you would pick one, so they get their own row rather than being
      buried in the tagline. Monospace and tabular, because they are readings. */
-  .carCard .carSwatch { height: 132px; background: #11161d; }
+  .carCard .carSwatch {
+    height: 132px; background: #11161d;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* `cover`, because the three photos do not share a background: two are shot
+     light and one dark, so `contain` letterboxed each of them against a swatch
+     colour that matched none of them and the cards stopped looking like a set.
+     Filling the frame crops a little of each car and costs nothing that
+     matters -- these say WHICH car, they are not the car. */
+  .carCard .carPic {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
   .carCard .spec {
     display: flex; justify-content: center; gap: 14px; margin-top: 10px;
     font-size: 11px; color: var(--fg); font-variant-numeric: tabular-nums;

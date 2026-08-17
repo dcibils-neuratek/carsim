@@ -223,22 +223,24 @@ function chooseCar(input, trackDef) {
 }
 
 /**
- * A side-on silhouette per car, drawn rather than rendered.
+ * The card's picture: the car's own photo, with the drawn silhouette as a
+ * fallback.
  *
- * A real 3D preview would mean loading all four models to draw the menu, which
- * is 43 MB to choose one 10 MB car -- the exact opposite of what a car select
- * screen is for. These are four shapes that read at a glance: a wedge, a
- * fastback, a long bonnet, a low mid-engined nose.
+ * A photo says which car this is instantly, in a way four coloured wedges
+ * never did. The fallback stays because it costs nothing and a missing image
+ * should leave a car pickable rather than blank.
  */
 function carSilhouette(car) {
+  if (car.image) {
+    // decoding=async so a slow image cannot hold up the menu drawing, and the
+    // alt text is the name because that is exactly what the picture conveys.
+    return `<img class="carPic" src="${car.image}" alt="${car.name}" decoding="async">`;
+  }
+
   const BODY = {
     // Mid-engined wedge: low nose, cabin forward, long flat deck behind.
     alpine:  'M18,74 L34,52 L62,40 L108,36 L152,44 L186,58 L206,74 Z',
-    // Same 911 shape, plus the swan-neck wing standing proud of the deck --
-    // the one silhouette cue that separates the two Porsches at a glance.
     gt3rs:   'M14,74 L26,56 L52,46 L86,34 L122,34 L148,46 L166,44 L166,30 L200,30 L200,36 L172,36 L172,50 L202,58 L212,74 Z',
-    // Wedge: flat nose, cab-forward glass, and a swan-neck wing standing
-    // clear above a long flat deck.
     sc18:    'M10,74 L18,60 L48,52 L78,38 L120,36 L150,48 L168,50 L168,28 L206,28 L206,34 L176,34 L176,54 L206,60 L214,74 Z',
   };
   const TINT = { alpine: '#9fb6c9', gt3rs: '#c8a02c', sc18: '#2e2f33' };
@@ -248,9 +250,7 @@ function carSilhouette(car) {
     <rect width="224" height="96" fill="#11161d"/>
     <path d="${body}" fill="${tint}"/>
     <circle cx="62" cy="74" r="15" fill="#15181c"/>
-    <circle cx="62" cy="74" r="6.5" fill="#3d444d"/>
     <circle cx="166" cy="74" r="15" fill="#15181c"/>
-    <circle cx="166" cy="74" r="6.5" fill="#3d444d"/>
     <rect x="0" y="86" width="224" height="10" fill="#0b0e12"/>
   </svg>`;
 }

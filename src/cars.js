@@ -17,6 +17,7 @@ import { peakPowerHp } from './tuning.js';
 export const CARS = [
   {
     id: 'alpine',
+    image: './assets/cars/alpine.png',
     name: 'Alpine A110',
     file: './assets/car.glb',
     tagline: 'Light, mid-engined and honest. Turns in exactly where you point it.',
@@ -73,6 +74,7 @@ export const CARS = [
 
   {
     id: 'gt3rs',
+    image: './assets/cars/porsche.png',
     name: 'Porsche GT3 RS',
     file: './assets/cars/2019_porsche_911_991.2_gt3_rs-optimized.glb',
     tagline: 'The same engine placement, forty years of learning to live with it. Revs to nine.',
@@ -170,6 +172,7 @@ export const CARS = [
   },
   {
     id: 'sc18',
+    image: './assets/cars/lamborghini.png',
     name: 'Lamborghini SC18',
     file: './assets/cars/2019_lamborghini_sc18_alston-optimized.glb',
     tagline: 'A one-off 6.5 V12 with a wing off a race car. Nothing here is subtle.',
