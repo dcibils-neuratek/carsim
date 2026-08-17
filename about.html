@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap">
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Permanent+Marker&display=swap">
 <style>
   :root {
     --fg: #e8eef5;
@@ -15,12 +15,16 @@
     --accent: #ffd23f;
     --panel: rgba(8, 13, 20, 0.82);
     --title: "Permanent Marker", "Comic Sans MS", cursive;
+    /* Everything that is not a title. Condensed buys width back on a screen
+       whose edges are all readouts, and it reads at a glance, which is the
+       only thing that matters on something you look at while driving. */
+    --body: "Barlow Condensed", "Roboto Condensed", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; min-height: 100%;
     background: #10141a; color: var(--fg);
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--body);
     -webkit-font-smoothing: antialiased;
   }
   body::before {
@@ -45,7 +49,7 @@
 
   .kicker {
     text-align: center; color: var(--dim);
-    font-size: 12px; letter-spacing: 3px; margin-bottom: 40px;
+    font-size: 14px; letter-spacing: 4px; margin-bottom: 40px;
   }
 
   h1 {
@@ -54,20 +58,20 @@
   }
   h1:first-of-type { margin-top: 8px; }
 
-  p { font-size: 14px; line-height: 1.85; color: rgba(232,238,245,.86); margin: 0 0 18px; }
-  p.lead { font-size: 16px; color: var(--fg); }
+  p { font-size: 17px; line-height: 1.7; color: rgba(232,238,245,.86); margin: 0 0 18px; }
+  p.lead { font-size: 20px; color: var(--fg); }
   strong { color: var(--fg); font-weight: 600; }
   em { color: var(--accent); font-style: normal; }
 
   ul { margin: 0 0 18px; padding-left: 20px; }
-  li { font-size: 14px; line-height: 1.85; color: rgba(232,238,245,.86); margin-bottom: 4px; }
+  li { font-size: 17px; line-height: 1.7; color: rgba(232,238,245,.86); margin-bottom: 4px; }
 
   table {
     width: 100%; border-collapse: collapse; margin: 0 0 22px;
-    font-size: 12.5px; font-variant-numeric: tabular-nums;
+    font-size: 15px; font-variant-numeric: tabular-nums;
   }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
-  th { color: var(--dim); font-weight: 400; letter-spacing: 1px; font-size: 11px; }
+  th { color: var(--dim); font-weight: 500; letter-spacing: 1px; font-size: 13px; text-transform: uppercase; }
   td:first-child { color: var(--fg); }
 
   .card {
@@ -86,7 +90,7 @@
 
   footer {
     margin-top: 52px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.08);
-    color: rgba(232,238,245,.38); font-size: 11px; line-height: 1.9;
+    color: rgba(232,238,245,.38); font-size: 14px; line-height: 1.8;
   }
   footer a { color: rgba(232,238,245,.6); }
 </style>
@@ -118,16 +122,14 @@
 
   <p class="lead">
     I built VROOM because I wanted to drive, and everything I opened wanted
-    something from me first. An account. A season pass. A battle pass, which
-    is a season pass that fights back. Nine menus and a tutorial before a
-    single corner.
+    something from me first. An account. A season pass. Nine menus and a
+    tutorial before a single corner.
   </p>
 
   <p>
     So: open a page, pick a circuit, pick a car, drive. That is the whole
     product. Nothing to buy, nothing to unlock, nothing to subscribe to, no
-    account, no cookie banner asking whether we can be friends. I am not
-    adding any of it later either. The moment you add a store, the game stops
+    account. I am not adding any of it later either. The moment you add a store, the game stops
     being about driving and starts being about the store.
   </p>
 
@@ -142,16 +144,14 @@
     Top Gear. Daytona. Cruis'n USA. What those got right was not the graphics.
     It was the distance between wanting to drive and driving. Coin in, four
     seconds, you are at speed. Nobody sat you down to explain the handling
-    model. You learned it by hitting a wall, and then you hit it again,
-    because it was funny the first time.
+    model. You learned it by hitting a wall.
   </p>
 
   <p>
     That is the target, and it decided real things. Flat shading and low poly,
     because a road you can read beats a photoreal one you cannot place your car
     on. Big dials you read without looking. Picking a circuit starts the race:
-    there is no <em>press any button to continue</em>, because you already
-    pressed a button, that is why we are here.
+    there is no <em>press any button to continue</em> in between.
   </p>
 
   <h1>The physics are real, though</h1>
@@ -182,8 +182,7 @@
   <p>
     Every car is built from the real one and then checked against the real one.
     The numbers on the car cards are read out of the running game, not typed in
-    by me and hoped for. A card cannot promise you something the car will not
-    do, which is more than I can say for most things with a spec sheet.
+    by me and hoped for. A card cannot promise you something the car will not do.
   </p>
 
   <table>
@@ -213,8 +212,7 @@
     <li>The tyres start complaining before the limit, not after. Front and rear
         squeal at different pitches, so you can hear which end left.</li>
     <li>Skid marks, smoke and squeal all come from one number. Same event, three
-        senses. They cannot contradict each other, which is more than the three
-        of us manage most days.</li>
+        senses. They start and stop together, so they can never disagree.</li>
     <li>The body leans further than it strictly should, because the outside
         front tyre is the one about to quit and you need to watch the weight
         arrive on it.</li>
@@ -222,14 +220,12 @@
         see where you are going. Sideways is not the problem. Sideways and
         blind is the problem.</li>
     <li>The engines are real recordings. A V12 fires twice as often as a flat
-        six, so the Lamborghini sits most of a fifth above the Porsche. Yes,
-        I checked. In cents.</li>
+        six, so the Lamborghini sits most of a fifth above the Porsche.</li>
   </ul>
 
   <p>
     No ABS. No traction control. No stability control. These cars are as fast
-    as they are unassisted. The car will spin. That is not a bug report, that
-    is Tuesday.
+    as they are unassisted, and the car will spin if you ask too much of it.
   </p>
 
   <h1>Six circuits</h1>
@@ -243,7 +239,7 @@
   <table>
     <tr><th>Circuit</th><th>Grip</th><th>What it wants from you</th></tr>
     <tr><td>Forest</td><td>1.00</td><td>Fast sweepers, a chicane, a long hairpin</td></tr>
-    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, you will meet a tree</td></tr>
+    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, short sightlines</td></tr>
     <tr><td>Mediterranean</td><td>1.02</td><td>Open and quick. Where top gear finally matters</td></tr>
     <tr><td>Snow</td><td>0.55</td><td>Wide and flowing. Going is easy. Stopping is the event</td></tr>
     <tr><td>Dirt</td><td>0.62</td><td>Gravel. Steer it on the throttle or do not steer at all</td></tr>
@@ -253,23 +249,20 @@
   <p>
     Dirt is my favourite and it works the rest of the game hardest. Three
     quarters of a lap is spent sliding. On tarmac a slide is a mistake. On
-    gravel it is the technique, and briefly you will feel like a rally driver,
-    right up until the tree.
+    gravel it is the technique.
   </p>
 
   <h1>What there is to do</h1>
 
   <p>
     Beat yourself. Every circuit remembers your best lap, and the gap between
-    that lap and the one you are on is the entire game. Take all six. Nobody
-    is watching, which is either the best or the worst part.
+    that lap and the one you are on is the entire game. Take all six.
   </p>
 
   <p>
     Coming: more cars, more circuits, and multiplayer. Racing someone is the
     obvious next thing and the one I want most. It arrives when it is good.
-    Free, like the rest of it, because there is nothing to charge for and I
-    would not know where to put the button.
+    Free, like the rest of it.
   </p>
 
   <p><a class="drive" href="./index.html">Drive</a></p>
