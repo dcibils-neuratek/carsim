@@ -25,13 +25,41 @@ export const CARS = [
     // being forced into a column that does not suit it.
     drive: 'Mid RWD',
     tuning: {
-      // 4.18 x 1.80 x 1.25 m. Stated rather than inherited even though the
-      // shared defaults were written for this car, so that every car declares
-      // its own size and none of them is special.
-      chassis: { halfLength: 2.09, halfWidth: 0.90, halfHeight: 0.42 },
+      // Every figure stated, none inherited.
+      //
+      // This car used to declare only its dimensions and take mass, torque and
+      // redline from the shared defaults -- which meant its card read 1430 kg
+      // and 9.0k rpm, the GT3 RS's numbers, the moment anything else touched
+      // the baseline. A car that leans on the defaults is a car that reports
+      // whatever was last written there. Stating the lot makes each one
+      // independent of the others and of any saved setup in localStorage.
+      chassis: {
+        mass: 1140, comY: -0.28, comZ: -0.12, inertiaScale: 1.0,
+        halfLength: 2.09, halfWidth: 0.90, halfHeight: 0.42,
+      },
+      suspension: { stiffness: 80, compression: 5.0, relaxation: 7.5 },
+      engine: {
+        peakTorque: 340,
+        curve: [
+          [1000, 190], [1500, 265], [2000, 320], [2400, 340], [3000, 340],
+          [4000, 340], [5000, 340], [6000, 340], [6400, 334], [6800, 300],
+          [7000, 250],
+        ],
+        redlineRpm: 6800, maxRpm: 7000,
+      },
+      transmission: {
+        gears: [3.615, 2.368, 1.515, 1.156, 0.926, 0.843, 0.707],
+        final: 4.00, autoUpshiftRpm: 6400, autoDownshiftRpm: 2600,
+      },
+      brakes: { maxBrakeForce: 14000, frontBias: 0.62 },
+      aero: { dragCoeff: 0.49, downforce: 2.9 },
+      audio: { blendLowRpm: 2400, blendHighRpm: 5200 },
       // Measured off the model, so the simulated wheels sit in the arches the
       // artist drew.
-      wheels: { trackHalf: 0.84, frontZ: 1.19, rearZ: 1.26, radius: 0.311 },
+      wheels: {
+        frictionFront: 1.55, frictionRear: 1.35,
+        trackHalf: 0.84, frontZ: 1.19, rearZ: 1.26, radius: 0.311,
+      },
     },
   },
 
@@ -133,9 +161,10 @@ export const DEFAULT_CAR = 'alpine';
  * ever have noticed. Everything here is what the car will actually do.
  */
 export function carStats(TUNING, car) {
-  const saved = JSON.parse(JSON.stringify({
-    chassis: TUNING.chassis, engine: TUNING.engine, transmission: TUNING.transmission,
-  }));
+  // The whole object, because a partial snapshot leaks: restoring only
+  // chassis/engine/transmission left this car's suspension, wheels, brakes,
+  // aero and audio behind on the next card.
+  const saved = JSON.parse(JSON.stringify(TUNING));
   applyCarTuning(TUNING, car);
   const hp = Math.round(peakPowerHp());
   const out = {
@@ -145,9 +174,10 @@ export function carStats(TUNING, car) {
     redline: `${(TUNING.engine.redlineRpm / 1000).toFixed(1)}k rpm`,
     drive: car.drive,
   };
-  Object.assign(TUNING.chassis, saved.chassis);
-  Object.assign(TUNING.engine, saved.engine);
-  Object.assign(TUNING.transmission, saved.transmission);
+  for (const [k, v] of Object.entries(saved)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) Object.assign(TUNING[k], v);
+    else TUNING[k] = v;
+  }
   return out;
 }
 
