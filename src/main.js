@@ -235,8 +235,11 @@ function carSilhouette(car) {
     // 930: sloping nose, roof well forward of centre, and the fat haunch and
     // whaletail over the back axle that tell you where the engine is.
     porsche: 'M16,74 L28,54 L54,44 L88,32 L124,32 L150,44 L172,42 L176,52 L200,58 L210,74 Z',
+    // Same 911 shape, plus the swan-neck wing standing proud of the deck --
+    // the one silhouette cue that separates the two Porsches at a glance.
+    gt3rs:   'M14,74 L26,56 L52,46 L86,34 L122,34 L148,46 L166,44 L166,30 L200,30 L200,36 L172,36 L172,50 L202,58 L212,74 Z',
   };
-  const TINT = { alpine: '#9fb6c9', porsche: '#d8d3c6' };
+  const TINT = { alpine: '#9fb6c9', porsche: '#d8d3c6', gt3rs: '#c8a02c' };
   const body = BODY[car.id] || BODY.alpine;
   const tint = TINT[car.id] || '#9fb6c9';
   return `<svg viewBox="0 0 224 96" preserveAspectRatio="xMidYMid meet">

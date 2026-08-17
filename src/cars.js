@@ -52,6 +52,36 @@ export const CARS = [
       aero: { dragCoeff: 0.55, downforce: 1.8 },
     },
   },
+  {
+    id: 'gt3rs',
+    name: 'Porsche GT3 RS',
+    file: './assets/cars/2019_porsche_911_991.2_gt3_rs-optimized.glb',
+    tagline: 'The same engine placement, forty years of learning to live with it. Revs to nine.',
+    badge: 'TRACK',
+    stats: { power: '520 hp', weight: '1430 kg', drive: 'Rear RWD' },
+    tuning: {
+      // Rear-engined like the 930 and deliberately so -- the pair is the point.
+      // Same basic layout, but comZ is pulled back toward the middle and the
+      // springs are twice as stiff, which is exactly what forty years of
+      // engineering that problem looks like. It still rotates on lift; it just
+      // gives you far more warning first.
+      chassis: { mass: 1430, comY: -0.30, comZ: -0.22, inertiaScale: 0.98 },
+      suspension: { stiffness: 118, compression: 7.0, relaxation: 10.0 },
+      // Naturally aspirated: less torque than the turbo car and all of it
+      // available, spinning to 9000. Where the 930 waits and then hits, this
+      // just builds -- so peakTorque is LOWER than the 930's 430 while the car
+      // is far quicker, which is the honest shape of the difference.
+      engine: { peakTorque: 470, redlineRpm: 9000, maxRpm: 9200 },
+      // The most grip here, front and rear, and the only car with the front
+      // ABOVE the rear -- a nose that actually bites, which is the thing the
+      // 930 cannot do.
+      wheels: { frictionFront: 1.78, frictionRear: 1.70 },
+      transmission: { final: 3.97, autoUpshiftRpm: 8600, autoDownshiftRpm: 3600 },
+      brakes: { maxBrakeForce: 19000 },
+      // That wing is not decoration.
+      aero: { dragCoeff: 0.60, downforce: 7.2 },
+    },
+  },
 ];
 
 export const DEFAULT_CAR = 'alpine';
