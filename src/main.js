@@ -237,8 +237,11 @@ function carSilhouette(car) {
     // Same 911 shape, plus the swan-neck wing standing proud of the deck --
     // the one silhouette cue that separates the two Porsches at a glance.
     gt3rs:   'M14,74 L26,56 L52,46 L86,34 L122,34 L148,46 L166,44 L166,30 L200,30 L200,36 L172,36 L172,50 L202,58 L212,74 Z',
+    // Wedge: flat nose, cab-forward glass, and a swan-neck wing standing
+    // clear above a long flat deck.
+    sc18:    'M10,74 L18,60 L48,52 L78,38 L120,36 L150,48 L168,50 L168,28 L206,28 L206,34 L176,34 L176,54 L206,60 L214,74 Z',
   };
-  const TINT = { alpine: '#9fb6c9', gt3rs: '#c8a02c' };
+  const TINT = { alpine: '#9fb6c9', gt3rs: '#c8a02c', sc18: '#2e2f33' };
   const body = BODY[car.id] || BODY.alpine;
   const tint = TINT[car.id] || '#9fb6c9';
   return `<svg viewBox="0 0 224 96" preserveAspectRatio="xMidYMid meet">
