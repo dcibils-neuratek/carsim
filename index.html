@@ -468,8 +468,10 @@
         <!-- Readout lives INSIDE the svg and before the needle, so the needle
              sweeps over the number the way a real one sweeps over the dial
              face. As an HTML layer on top it always covered the needle. -->
-        <text id="tachRpmVal" class="big" x="100" y="96">0</text>
-        <text class="cap" x="100" y="118">RPM</text>
+        <!-- The digital rpm and its caption are gone: the needle already
+             says this, and a number restating it made the dial busy. The
+             element stays so hud.js has something to write to. -->
+        <text id="tachRpmVal" class="big" x="100" y="96" style="display:none">0</text>
         <text class="cap scale" x="100" y="150">x1000</text>
         <line id="tachNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
         <circle class="hub" cx="100" cy="100" r="7"/>
@@ -488,8 +490,8 @@
         <circle class="face" cx="100" cy="100" r="86"/>
         <g id="spdTicks"></g>
         <g id="spdNums"></g>
-        <text class="cap" x="100" y="80">km/h</text>
-        <text id="speedVal" class="big" x="100" y="112">0</text>
+        <!-- Likewise the digital speed. Analog dials, nothing else. -->
+        <text id="speedVal" class="big" x="100" y="112" style="display:none">0</text>
         <line id="spdNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
         <circle class="hub" cx="100" cy="100" r="7"/>
       </svg>
