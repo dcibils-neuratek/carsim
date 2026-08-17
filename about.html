@@ -118,69 +118,72 @@
 
   <p class="lead">
     I built VROOM because I wanted to drive, and everything I opened wanted
-    something else from me first. An account. A season pass. Nine menus and a
-    tutorial before a single corner.
+    something from me first. An account. A season pass. A battle pass, which
+    is a season pass that fights back. Nine menus and a tutorial before a
+    single corner.
   </p>
 
   <p>
-    So: you open a page, you pick a circuit, you pick a car, you drive. That is
-    the whole product. There is nothing to buy, nothing to unlock, nothing to
-    subscribe to, and no account. I am not going to add any of that later
-    either, because the moment you add it the game stops being about driving
-    and starts being about the thing you added.
+    So: open a page, pick a circuit, pick a car, drive. That is the whole
+    product. Nothing to buy, nothing to unlock, nothing to subscribe to, no
+    account, no cookie banner asking whether we can be friends. I am not
+    adding any of it later either. The moment you add a store, the game stops
+    being about driving and starts being about the store.
   </p>
 
   <p>
-    This is a game built for fun. Mine, first. If it is yours too, better.
+    I am 44. I grew up feeding coins into these machines. That is the entire
+    market research behind this project.
   </p>
 
   <h1>The 90s are the target</h1>
 
   <p>
-    Top Gear. Daytona. Cruis'n USA. What those got right was not the graphics,
-    it was the distance between wanting to drive and driving. You put a coin
-    in and you were at speed in four seconds. Nobody explained the handling
-    model to you. You learned it by hitting a wall.
+    Top Gear. Daytona. Cruis'n USA. What those got right was not the graphics.
+    It was the distance between wanting to drive and driving. Coin in, four
+    seconds, you are at speed. Nobody sat you down to explain the handling
+    model. You learned it by hitting a wall, and then you hit it again,
+    because it was funny the first time.
   </p>
 
   <p>
-    That is the feel I am after, and it drove real decisions. Flat shading and
-    low poly, because a clean readable road beats a photoreal one you cannot
-    place your car on. Chunky dials you read at a glance. No loading screens
-    worth the name. Choosing a circuit starts the race, there is no
-    <em>press any button to continue</em> in between.
+    That is the target, and it decided real things. Flat shading and low poly,
+    because a road you can read beats a photoreal one you cannot place your car
+    on. Big dials you read without looking. Picking a circuit starts the race:
+    there is no <em>press any button to continue</em>, because you already
+    pressed a button, that is why we are here.
   </p>
 
   <h1>The physics are real, though</h1>
 
   <p>
-    Arcade look, honest simulation underneath. This is the part I care most
-    about and the part nobody sees.
+    Arcade on the outside, honest underneath. This is the part I care most
+    about and the part nobody will ever notice, which is exactly why I did it.
   </p>
 
   <div class="card">
     <p>
-      The car is a rigid body on a raycast vehicle controller in Rapier, at a
-      fixed 120 Hz step with the render interpolated between. Four independent
-      suspension struts with real spring and damper rates. Load transfer that
-      actually moves grip between the tyres, so braking into a corner unloads
-      the inside rear and you feel it. Tyre grip that falls off with load, which
-      is why weight transfer produces understeer and oversteer instead of just
-      numbers changing.
+      Four wheels on four springs, each doing its own work. Weight moves when
+      you brake, turn or accelerate, and grip moves with it, so the outside
+      front tyre loads up going into a corner and gives up first when you ask
+      too much. Tyres lose grip as they are pushed harder, which is the whole
+      reason a car understeers or steps out instead of just quietly slowing
+      down.
     </p>
     <p>
-      Engine torque comes from a curve, through a gearbox, through a final
-      drive, to the contact patch. Aero drag and downforce both scale with the
-      square of speed. Surface grip is per wheel, so putting two wheels on the
-      grass costs you exactly what it should.
+      The engine makes torque at some revs and not at others, and you feel the
+      difference between a turbo four waiting for boost and a V12 that just
+      keeps going. Air pushes back harder the faster you go. Grip is measured
+      at each wheel, so putting two of them on the grass costs you exactly what
+      it should, and not a penny less.
     </p>
   </div>
 
   <p>
-    Every car is specified from the real thing and then verified against the
-    real thing. Not typed into a table and hoped for. The numbers on the car
-    select cards are read out of the running simulation, so a card physically
-    cannot promise something the car will not deliver.
+    Every car is built from the real one and then checked against the real one.
+    The numbers on the car cards are read out of the running game, not typed in
+    by me and hoped for. A card cannot promise you something the car will not
+    do, which is more than I can say for most things with a spec sheet.
   </p>
 
   <table>
@@ -191,77 +194,82 @@
   </table>
 
   <p>
-    The Lamborghini quotes 770 hp at 8500 rpm and 720 Nm at 6750. Those two
-    only agree if the torque curve keeps pulling well past its peak, so I
-    solved backwards for what it needs at 8500 and built the curve from that.
-    It makes exactly 770. That is the level this is done at.
+    The Lamborghini is quoted at 770 hp at 8500 rpm and 720 Nm at 6750. Those
+    two numbers only agree if the engine keeps pulling long past its torque
+    peak, so I worked backwards from what it needs up at 8500 and built the
+    engine from there. It makes exactly 770. Nobody asked me to do this.
   </p>
 
   <h1>Feeling the limit</h1>
 
   <p>
-    A driving game lives or dies on whether you know the car is about to let go
-    before it lets go. On a real car that comes through the wheel and the seat.
-    Here there is no wheel, so it has to come through your eyes and ears.
+    A driving game lives or dies on one thing: whether you know the car is
+    about to let go before it lets go. In a real car that arrives through your
+    hands and the seat of your trousers. Here there is no seat, so it has to
+    come through your eyes and your ears.
   </p>
 
   <ul>
-    <li>The tyres start talking before the limit, not after it. Front and rear
-        squeal at different pitches, so you can hear which end went.</li>
-    <li>Skid marks, tyre smoke and the squeal are all driven by one number.
-        They are the same event seen three ways, so they can never disagree.</li>
-    <li>The body leans on its springs further than the physics does, because
-        the outside front tyre is the one about to give up and you need to see
-        the weight arrive on it.</li>
-    <li>The camera leads a slide up to 15 degrees, so when you are sideways you
-        can still see where you are actually going.</li>
-    <li>Engine audio is real recordings, pitched and crossfaded by rpm and
-        load. A V12 fires twice as often as a flat six, so the Lamborghini sits
-        most of a fifth above the Porsche.</li>
+    <li>The tyres start complaining before the limit, not after. Front and rear
+        squeal at different pitches, so you can hear which end left.</li>
+    <li>Skid marks, smoke and squeal all come from one number. Same event, three
+        senses. They cannot contradict each other, which is more than the three
+        of us manage most days.</li>
+    <li>The body leans further than it strictly should, because the outside
+        front tyre is the one about to quit and you need to watch the weight
+        arrive on it.</li>
+    <li>The camera leans into a slide, so when you are sideways you can still
+        see where you are going. Sideways is not the problem. Sideways and
+        blind is the problem.</li>
+    <li>The engines are real recordings. A V12 fires twice as often as a flat
+        six, so the Lamborghini sits most of a fifth above the Porsche. Yes,
+        I checked. In cents.</li>
   </ul>
 
   <p>
     No ABS. No traction control. No stability control. These cars are as fast
-    as they are unassisted, and that is deliberate for now.
+    as they are unassisted. The car will spin. That is not a bug report, that
+    is Tuesday.
   </p>
 
   <h1>Six circuits</h1>
 
   <p>
-    Each one is a JSON file: a hand laid centreline plus its own palette, fog,
-    sun angle, terrain and surface grip. I shape them by hand in an editor
-    built into the game, because a circuit is only fun if someone moved the
-    corners until it was.
+    Every corner on every circuit was moved by hand until it was fun. There is
+    no generator that can do that part. I know, I tried, and the results drove
+    like a spreadsheet.
   </p>
 
   <table>
-    <tr><th>Circuit</th><th>Grip</th><th>What it asks of you</th></tr>
+    <tr><th>Circuit</th><th>Grip</th><th>What it wants from you</th></tr>
     <tr><td>Forest</td><td>1.00</td><td>Fast sweepers, a chicane, a long hairpin</td></tr>
-    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, short sightlines</td></tr>
-    <tr><td>Mediterranean</td><td>1.02</td><td>Open and quick. Where top gear matters</td></tr>
-    <tr><td>Snow</td><td>0.55</td><td>Wide and flowing. Stopping is the hard part</td></tr>
-    <tr><td>Dirt</td><td>0.62</td><td>Gravel. Steer it on the throttle</td></tr>
-    <tr><td>Mountains</td><td>0.98</td><td>Big climbs, descents that arrive too fast</td></tr>
+    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, you will meet a tree</td></tr>
+    <tr><td>Mediterranean</td><td>1.02</td><td>Open and quick. Where top gear finally matters</td></tr>
+    <tr><td>Snow</td><td>0.55</td><td>Wide and flowing. Going is easy. Stopping is the event</td></tr>
+    <tr><td>Dirt</td><td>0.62</td><td>Gravel. Steer it on the throttle or do not steer at all</td></tr>
+    <tr><td>Mountains</td><td>0.98</td><td>Big climbs, and descents that arrive far too soon</td></tr>
   </table>
 
   <p>
-    Dirt is my favourite and it is the one that uses the rest of the game
-    hardest. Three quarters of a lap is spent sliding. On tarmac a slide is a
-    mistake; on gravel it is the technique.
+    Dirt is my favourite and it works the rest of the game hardest. Three
+    quarters of a lap is spent sliding. On tarmac a slide is a mistake. On
+    gravel it is the technique, and briefly you will feel like a rally driver,
+    right up until the tree.
   </p>
 
   <h1>What there is to do</h1>
 
   <p>
-    Beat your own time. That is it, and for now that is enough. Every circuit
-    keeps your best lap, and the gap between your best and your current one is
-    the whole game. Take all six.
+    Beat yourself. Every circuit remembers your best lap, and the gap between
+    that lap and the one you are on is the entire game. Take all six. Nobody
+    is watching, which is either the best or the worst part.
   </p>
 
   <p>
     Coming: more cars, more circuits, and multiplayer. Racing someone is the
-    obvious next thing and it is the one I want most. It will arrive when it is
-    good, and it will arrive free, like everything else here.
+    obvious next thing and the one I want most. It arrives when it is good.
+    Free, like the rest of it, because there is nothing to charge for and I
+    would not know where to put the button.
   </p>
 
   <p><a class="drive" href="./index.html">Drive</a></p>
@@ -269,14 +277,13 @@
   <footer>
     <p>
       VROOM. A game built just for fun. Diego Cibils, 2026.<br>
-      Built with three.js and Rapier3D. No build step, no install, no npm —
-      static files and an import map. It runs because you opened a page.
+      No install, no launcher, no updates to download. It runs because you
+      opened a page.
     </p>
     <p>
-      Car model credits and licences are in the
-      <a href="https://github.com/dcibils-neuratek/carsim">repository</a>.
-      Engine audio samples from
-      <a href="https://github.com/markeasting/engine">markeasting/engine</a>, MIT.
+      Car models and engine recordings are used under their respective
+      licences, with full credits in the
+      <a href="https://github.com/dcibils-neuratek/carsim">project</a>.
     </p>
   </footer>
 
