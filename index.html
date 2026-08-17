@@ -314,6 +314,9 @@
     color: rgba(232,238,245,.38);
   }
   #boot .byline b { color: rgba(232,238,245,.72); font-weight: 600; }
+  #boot .byline a { color: rgba(232,238,245,.55); text-decoration: none;
+                    border-bottom: 1px solid rgba(232,238,245,.22); }
+  #boot .byline a:hover { color: var(--accent); border-color: var(--accent); }
   #boot .prompt { color: var(--accent); font-size: 14px; letter-spacing: 2px; }
   #boot .prompt.blink { animation: blink 1.15s ease-in-out infinite; }
   @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
@@ -579,7 +582,10 @@
   <div class="prompt" id="bootPrompt">LOADING…</div>
   <div id="trackMenu"></div>
   <div class="err" id="bootErr"></div>
-  <div class="byline">A game built just for fun. &nbsp;<b>Diego Cibils, 2026.</b></div>
+  <div class="byline">
+    A game built just for fun. &nbsp;<b>Diego Cibils, 2026.</b>
+    &nbsp;·&nbsp; <a href="./about.html">about</a>
+  </div>
 </div>
 
 <div id="padPanel">

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About VROOM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap">
+<style>
+  :root {
+    --fg: #e8eef5;
+    --dim: #8fa3b8;
+    --accent: #ffd23f;
+    --panel: rgba(8, 13, 20, 0.82);
+    --title: "Permanent Marker", "Comic Sans MS", cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: #10141a; color: var(--fg);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(120% 78% at 50% 118%, rgba(255,210,63,.08), transparent 60%),
+      radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.14), transparent 62%);
+  }
+  main { position: relative; max-width: 720px; margin: 0 auto; padding: 54px 24px 90px; }
+
+  .wordmark { width: min(420px, 78vw); margin: 0 auto 6px; display: block; }
+  .wordmark svg { width: 100%; height: auto; overflow: visible; display: block; }
+  .wordmark .word {
+    font-family: var(--title); font-size: 112px; font-weight: 400; letter-spacing: 2px;
+    fill: url(#chrome);
+    transform: skewX(-6deg); transform-origin: 168px 112px;
+    stroke: #2a1408; stroke-width: 3; paint-order: stroke fill;
+    filter: drop-shadow(0 6px 0 rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255,150,40,.42));
+  }
+  .wordmark .streak { transform: skewX(-6deg); transform-origin: 168px 112px; }
+  .wordmark .streak rect { fill: var(--accent); opacity: .34; }
+
+  .kicker {
+    text-align: center; color: var(--dim);
+    font-size: 12px; letter-spacing: 3px; margin-bottom: 40px;
+  }
+
+  h1 {
+    font-family: var(--title); font-weight: 400; font-size: 30px;
+    letter-spacing: 1px; margin: 44px 0 14px; color: var(--fg);
+  }
+  h1:first-of-type { margin-top: 8px; }
+
+  p { font-size: 14px; line-height: 1.85; color: rgba(232,238,245,.86); margin: 0 0 18px; }
+  p.lead { font-size: 16px; color: var(--fg); }
+  strong { color: var(--fg); font-weight: 600; }
+  em { color: var(--accent); font-style: normal; }
+
+  ul { margin: 0 0 18px; padding-left: 20px; }
+  li { font-size: 14px; line-height: 1.85; color: rgba(232,238,245,.86); margin-bottom: 4px; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 0 0 22px;
+    font-size: 12.5px; font-variant-numeric: tabular-nums;
+  }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  th { color: var(--dim); font-weight: 400; letter-spacing: 1px; font-size: 11px; }
+  td:first-child { color: var(--fg); }
+
+  .card {
+    background: var(--panel); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: 20px 22px; margin: 0 0 22px;
+  }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+  .drive {
+    display: inline-block; margin-top: 14px;
+    font-family: var(--title); font-size: 22px; letter-spacing: 1px;
+    color: #10141a; background: var(--accent);
+    padding: 10px 26px; border-radius: 10px; text-decoration: none;
+  }
+  .drive:hover { background: #ffdf72; }
+
+  footer {
+    margin-top: 52px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.08);
+    color: rgba(232,238,245,.38); font-size: 11px; line-height: 1.9;
+  }
+  footer a { color: rgba(232,238,245,.6); }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="wordmark">
+    <svg viewBox="0 0 620 150" role="img" aria-label="VROOM">
+      <defs>
+        <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#fff4cf"/>
+          <stop offset="42%"  stop-color="#ffd23f"/>
+          <stop offset="52%"  stop-color="#f07f2a"/>
+          <stop offset="100%" stop-color="#c8322c"/>
+        </linearGradient>
+      </defs>
+      <g class="streak">
+        <rect x="0"  y="46"  width="150" height="7" rx="3.5"/>
+        <rect x="26" y="70"  width="112" height="7" rx="3.5"/>
+        <rect x="4"  y="94"  width="140" height="7" rx="3.5"/>
+      </g>
+      <text class="word" x="168" y="112">VROOM</text>
+    </svg>
+  </div>
+  <div class="kicker">PURE DRIVING</div>
+
+  <h1>About VROOM</h1>
+
+  <p class="lead">
+    I built VROOM because I wanted to drive, and everything I opened wanted
+    something else from me first. An account. A season pass. Nine menus and a
+    tutorial before a single corner.
+  </p>
+
+  <p>
+    So: you open a page, you pick a circuit, you pick a car, you drive. That is
+    the whole product. There is nothing to buy, nothing to unlock, nothing to
+    subscribe to, and no account. I am not going to add any of that later
+    either, because the moment you add it the game stops being about driving
+    and starts being about the thing you added.
+  </p>
+
+  <p>
+    This is a game built for fun. Mine, first. If it is yours too, better.
+  </p>
+
+  <h1>The 90s are the target</h1>
+
+  <p>
+    Top Gear. Daytona. Cruis'n USA. What those got right was not the graphics,
+    it was the distance between wanting to drive and driving. You put a coin
+    in and you were at speed in four seconds. Nobody explained the handling
+    model to you. You learned it by hitting a wall.
+  </p>
+
+  <p>
+    That is the feel I am after, and it drove real decisions. Flat shading and
+    low poly, because a clean readable road beats a photoreal one you cannot
+    place your car on. Chunky dials you read at a glance. No loading screens
+    worth the name. Choosing a circuit starts the race, there is no
+    <em>press any button to continue</em> in between.
+  </p>
+
+  <h1>The physics are real, though</h1>
+
+  <p>
+    Arcade look, honest simulation underneath. This is the part I care most
+    about and the part nobody sees.
+  </p>
+
+  <div class="card">
+    <p>
+      The car is a rigid body on a raycast vehicle controller in Rapier, at a
+      fixed 120 Hz step with the render interpolated between. Four independent
+      suspension struts with real spring and damper rates. Load transfer that
+      actually moves grip between the tyres, so braking into a corner unloads
+      the inside rear and you feel it. Tyre grip that falls off with load, which
+      is why weight transfer produces understeer and oversteer instead of just
+      numbers changing.
+    </p>
+    <p>
+      Engine torque comes from a curve, through a gearbox, through a final
+      drive, to the contact patch. Aero drag and downforce both scale with the
+      square of speed. Surface grip is per wheel, so putting two wheels on the
+      grass costs you exactly what it should.
+    </p>
+  </div>
+
+  <p>
+    Every car is specified from the real thing and then verified against the
+    real thing. Not typed into a table and hoped for. The numbers on the car
+    select cards are read out of the running simulation, so a card physically
+    cannot promise something the car will not deliver.
+  </p>
+
+  <table>
+    <tr><th>Car</th><th>Power</th><th>0–100</th><th>Top speed</th></tr>
+    <tr><td>Alpine A110</td><td>300 hp</td><td>4.05 s</td><td>267 km/h</td></tr>
+    <tr><td>Porsche GT3 RS</td><td>510 hp</td><td>2.87 s</td><td>267 km/h</td></tr>
+    <tr><td>Lamborghini SC18</td><td>770 hp</td><td>2.86 s</td><td>350 km/h</td></tr>
+  </table>
+
+  <p>
+    The Lamborghini quotes 770 hp at 8500 rpm and 720 Nm at 6750. Those two
+    only agree if the torque curve keeps pulling well past its peak, so I
+    solved backwards for what it needs at 8500 and built the curve from that.
+    It makes exactly 770. That is the level this is done at.
+  </p>
+
+  <h1>Feeling the limit</h1>
+
+  <p>
+    A driving game lives or dies on whether you know the car is about to let go
+    before it lets go. On a real car that comes through the wheel and the seat.
+    Here there is no wheel, so it has to come through your eyes and ears.
+  </p>
+
+  <ul>
+    <li>The tyres start talking before the limit, not after it. Front and rear
+        squeal at different pitches, so you can hear which end went.</li>
+    <li>Skid marks, tyre smoke and the squeal are all driven by one number.
+        They are the same event seen three ways, so they can never disagree.</li>
+    <li>The body leans on its springs further than the physics does, because
+        the outside front tyre is the one about to give up and you need to see
+        the weight arrive on it.</li>
+    <li>The camera leads a slide up to 15 degrees, so when you are sideways you
+        can still see where you are actually going.</li>
+    <li>Engine audio is real recordings, pitched and crossfaded by rpm and
+        load. A V12 fires twice as often as a flat six, so the Lamborghini sits
+        most of a fifth above the Porsche.</li>
+  </ul>
+
+  <p>
+    No ABS. No traction control. No stability control. These cars are as fast
+    as they are unassisted, and that is deliberate for now.
+  </p>
+
+  <h1>Six circuits</h1>
+
+  <p>
+    Each one is a JSON file: a hand laid centreline plus its own palette, fog,
+    sun angle, terrain and surface grip. I shape them by hand in an editor
+    built into the game, because a circuit is only fun if someone moved the
+    corners until it was.
+  </p>
+
+  <table>
+    <tr><th>Circuit</th><th>Grip</th><th>What it asks of you</th></tr>
+    <tr><td>Forest</td><td>1.00</td><td>Fast sweepers, a chicane, a long hairpin</td></tr>
+    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, short sightlines</td></tr>
+    <tr><td>Mediterranean</td><td>1.02</td><td>Open and quick. Where top gear matters</td></tr>
+    <tr><td>Snow</td><td>0.55</td><td>Wide and flowing. Stopping is the hard part</td></tr>
+    <tr><td>Dirt</td><td>0.62</td><td>Gravel. Steer it on the throttle</td></tr>
+    <tr><td>Mountains</td><td>0.98</td><td>Big climbs, descents that arrive too fast</td></tr>
+  </table>
+
+  <p>
+    Dirt is my favourite and it is the one that uses the rest of the game
+    hardest. Three quarters of a lap is spent sliding. On tarmac a slide is a
+    mistake; on gravel it is the technique.
+  </p>
+
+  <h1>What there is to do</h1>
+
+  <p>
+    Beat your own time. That is it, and for now that is enough. Every circuit
+    keeps your best lap, and the gap between your best and your current one is
+    the whole game. Take all six.
+  </p>
+
+  <p>
+    Coming: more cars, more circuits, and multiplayer. Racing someone is the
+    obvious next thing and it is the one I want most. It will arrive when it is
+    good, and it will arrive free, like everything else here.
+  </p>
+
+  <p><a class="drive" href="./index.html">Drive</a></p>
+
+  <footer>
+    <p>
+      VROOM. A game built just for fun. Diego Cibils, 2026.<br>
+      Built with three.js and Rapier3D. No build step, no install, no npm —
+      static files and an import map. It runs because you opened a page.
+    </p>
+    <p>
+      Car model credits and licences are in the
+      <a href="https://github.com/dcibils-neuratek/carsim">repository</a>.
+      Engine audio samples from
+      <a href="https://github.com/markeasting/engine">markeasting/engine</a>, MIT.
+    </p>
+  </footer>
+
+</main>
+</body>
+</html>
