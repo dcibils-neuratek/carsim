@@ -6,8 +6,9 @@
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { TUNING, saveTuning, resetTuning, dumpTuning, peakPowerHp, setPeakPowerHp } from './tuning.js';
+import { applyCarTuning } from './cars.js';
 
-export function createGui({ onRebuild, onToast }) {
+export function createGui({ onRebuild, onToast, car = null }) {
   const gui = new GUI({ title: 'carsim tuning', width: 310 });
   gui.close();
 
@@ -216,10 +217,18 @@ export function createGui({ onRebuild, onToast }) {
       onToast('setup copied to clipboard');
     },
     resetDefaults() {
+      // The shared baseline first, then this car back on top of it.
+      //
+      // resetTuning() alone restores DEFAULTS, which is the Alpine -- so
+      // resetting while driving the GT3 RS handed it the Alpine's 340 Nm,
+      // 6800 redline and 1140 kg and left the card claiming otherwise. A
+      // reset should return the car you are in to how it started, not turn it
+      // into a different car.
       resetTuning();
+      if (car) applyCarTuning(TUNING, car);
       gui.controllersRecursive().forEach((c) => c.updateDisplay());
       onRebuild();
-      onToast('tuning reset to defaults');
+      onToast(car ? `${car.name} reset to defaults` : 'tuning reset to defaults');
     },
   };
   gui.add(actions, 'copySetup').name('copy setup JSON');

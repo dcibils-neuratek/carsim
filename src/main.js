@@ -419,6 +419,9 @@ export async function boot() {
   const gui = createGui({
     onRebuild: () => rebuildVehicle(),
     onToast: (msg) => hud.toast(msg),
+    // Which car is being driven, so "reset to defaults" lands on THIS car's
+    // defaults rather than on the shared baseline.
+    car: carDef,
   });
 
   function mountCar(targetScene, previous) {
