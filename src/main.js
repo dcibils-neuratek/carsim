@@ -27,7 +27,7 @@ import { EngineAudio } from './audio.js';
 import { TyreAudio } from './tyreaudio.js';
 import { PadPanel } from './padui.js';
 import { Music } from './music.js';
-import { CARS, getCar, applyCarTuning } from './cars.js';
+import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -170,7 +170,9 @@ function chooseCar(input, trackDef) {
         `<div class="nm">${car.name}</div>` +
         `<div class="tag">${car.tagline}</div>` +
         `<div class="spec">` +
-        Object.values(car.stats).map((v) => `<span>${v}</span>`).join('') +
+        // Read out of the car's own tuning, so the card cannot claim a figure
+        // the simulation will not deliver.
+        Object.values(carStats(TUNING, car)).map((v) => `<span>${v}</span>`).join('') +
         `</div>` +
         `<div class="diff">${car.badge}</div>`;
 
