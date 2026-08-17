@@ -230,14 +230,13 @@ function chooseCar(input, trackDef) {
  */
 function carSilhouette(car) {
   const BODY = {
+    // Mid-engined wedge: low nose, cabin forward, long flat deck behind.
     alpine:  'M18,74 L34,52 L62,40 L108,36 L152,44 L186,58 L206,74 Z',
-    alfa:    'M16,74 L30,50 L58,36 L104,33 L146,38 L150,52 L192,58 L208,74 Z',
-    charger: 'M12,74 L22,52 L54,44 L92,30 L138,30 L168,46 L210,54 L214,74 Z',
-    ferrari: 'M14,74 L26,56 L58,46 L96,32 L140,34 L176,50 L204,58 L212,74 Z',
+    // 930: sloping nose, roof well forward of centre, and the fat haunch and
+    // whaletail over the back axle that tell you where the engine is.
+    porsche: 'M16,74 L28,54 L54,44 L88,32 L124,32 L150,44 L172,42 L176,52 L200,58 L210,74 Z',
   };
-  const TINT = {
-    alpine: '#9fb6c9', alfa: '#b3452f', charger: '#3b4a63', ferrari: '#c8262c',
-  };
+  const TINT = { alpine: '#9fb6c9', porsche: '#d8d3c6' };
   const body = BODY[car.id] || BODY.alpine;
   const tint = TINT[car.id] || '#9fb6c9';
   return `<svg viewBox="0 0 224 96" preserveAspectRatio="xMidYMid meet">
