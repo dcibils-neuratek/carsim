@@ -122,6 +122,23 @@ Two constraints when editing a layout, both learned the hard way:
 The autopilot lap test drives **every** track and fails on anything undriveable,
 so run the tests after touching a layout. It caught both of the above.
 
+## Cars
+
+Three, chosen after the circuit — which car you want depends on where you are
+going. A car is a model plus a set of `TUNING` overrides in `src/cars.js`, and
+the overrides *are* the car: mass, torque, grip, gearing, springs and wheel
+geometry are what you feel.
+
+| | Power | Weight | Character |
+| --- | --- | --- | --- |
+| **Alpine A110** | 300 hp | 1140 kg | Neutral, mid-engined. The baseline everything is tuned against |
+| **Porsche 930 Turbo** | 260 hp | 1195 kg | Engine behind the rear axle, turbo arrives late. Rotates on lift |
+| **Porsche GT3 RS** | 520 hp | 1430 kg | Same layout, forty years of fixing it. Revs to nine, real downforce |
+
+Adding one is a data change plus an asset that meets four requirements — see
+[docs/car-models.md](docs/car-models.md), which is written from what actually
+separated the two cars that work from the one that fights the loader.
+
 ## The track editor
 
 ```bash
