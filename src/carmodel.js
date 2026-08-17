@@ -413,6 +413,29 @@ function splitWheels(geoms, tuning) {
     const { hub, radius } = fitWheel(verts);
     g.translate(-hub.x, -hub.y, -hub.z);
 
+    // Take the camber out of the GEOMETRY.
+    //
+    // Models are authored with the suspension's camber baked in -- the GT3 RS
+    // carries 0.82 deg at the front and 1.53 at the rear, mirrored left to
+    // right, which is how the real car is set up. The wheel is then a disc
+    // whose plane is NOT square to the axle we spin it about, and spinning a
+    // tilted disc about a straight axis makes it wobble like a dropped coin.
+    // That is the tilt you see, and it survives perfect centring: the hub was
+    // already dead on the axis at 0.0 mm when the wobble was still there.
+    //
+    // Removing about a degree of static lean costs nothing anyone can see.
+    // The wobble it causes is obvious at every wheel revolution.
+    // Iterated, because one pass does not fully converge: the fit selects the
+    // rim by radius from the CURRENT orientation, so straightening the wheel
+    // slightly changes which vertices count as rim. Three passes took the GT3
+    // RS from 0.82/1.53 deg to under 0.02, where one pass left 0.12/0.33.
+    for (let pass = 0; pass < 3; pass++) {
+      const camber = wheelCamber(g, radius);
+      if (Math.abs(camber.z) < 2e-4 && Math.abs(camber.y) < 2e-4) break;
+      g.rotateZ(camber.z);
+      g.rotateY(camber.y);
+    }
+
     // Match the simulated wheel radius. The artist's wheels are whatever size
     // they are; the physics raycasts against tuning.wheels.radius, so a
     // mismatch shows up as wheels hovering above the road or sunk into it.
@@ -519,4 +542,38 @@ function fitWheel(verts) {
     : seedR;
 
   return { hub: new THREE.Vector3((minX + maxX) / 2, cy, cz), radius };
+}
+
+/**
+ * How far a wheel's own plane leans away from the axle it will spin about.
+ *
+ * A disc centred on the origin and square to x has all its rim at x = 0. Tilt
+ * it, and the rim's x traces a sine wave once around: x ~= a*cos(t) + b*sin(t),
+ * where t is the angle about the axle. Fitting that wave gives both lean angles
+ * directly, and it is robust to spokes, calipers and facet count because it
+ * uses only the rim and only its average.
+ *
+ * Measured this way the GT3 RS reads -0.82 deg front left, +0.82 front right,
+ * -1.53 rear left, +1.53 rear right -- mirror-symmetric and front-to-rear
+ * different, which is what makes it recognisable as authored camber rather
+ * than a broken export.
+ */
+function wheelCamber(geo, radius) {
+  const p = geo.getAttribute('position');
+  const inner = (0.85 * radius) ** 2;
+  let sa = 0, sb = 0, n = 0;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i), z = p.getZ(i);
+    if (y * y + z * z < inner) continue;      // rim only
+    const t = Math.atan2(z, y);
+    sa += p.getX(i) * Math.cos(t);
+    sb += p.getX(i) * Math.sin(t);
+    n++;
+  }
+  if (n < 12 || radius < 1e-4) return { y: 0, z: 0 };
+  // The 2/n is the standard Fourier coefficient for a sampled sine.
+  return {
+    z: Math.atan2(2 * sa / n, radius),
+    y: -Math.atan2(2 * sb / n, radius),
+  };
 }
