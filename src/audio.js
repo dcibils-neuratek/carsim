@@ -220,7 +220,10 @@ export class EngineAudio {
       if (!node.noPitch) {
         // detune is in cents; scale how far the engine is from the sample's
         // reference rpm.
-        node.source.detune.value = finite((rpm - node.refRpm) * a.pitchPerRpm, 0);
+        // Where the note sits, plus how fast it climbs.
+        node.source.detune.value = finite(
+          (a.pitchOffset ?? 0) + (rpm - node.refRpm) * a.pitchPerRpm, 0,
+        );
       }
       // setTargetAtTime avoids the clicks that assigning .value directly
       // produces when a gain jumps between frames.

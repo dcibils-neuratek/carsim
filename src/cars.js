@@ -142,7 +142,13 @@ export const CARS = [
       // The blend points move with the engine. Crossing from the low to the
       // high recording at 2400-5200 rpm is right for a 6800 rpm four and far
       // too early for one that pulls to 9000.
-      audio: { blendLowRpm: 3600, blendHighRpm: 7600 },
+      // Flat-six: three firings a revolution, so it sits a fifth BELOW where
+      // the same recording would put a V12, and climbs more gently. The result
+      // is the flatter, harder-edged note a 911 makes.
+      audio: {
+        blendLowRpm: 3600, blendHighRpm: 7600,
+        pitchOffset: -260, pitchPerRpm: 0.17,
+      },
     },
 
     // Its own engine, and the reason the car sounds like a flat-six rather
@@ -226,7 +232,15 @@ export const CARS = [
       aero: { dragCoeff: 0.425, downforce: 8.6 },
       // A V12 revving to 8500 -- the procar recordings suit it far better than
       // the four-cylinder default, same as the GT3 RS.
-      audio: { blendLowRpm: 3400, blendHighRpm: 7200 },
+      // V12: six firings a revolution against the flat-six's three, so its
+      // note sits far higher on the same recording -- and climbs harder, which
+      // is the shriek a big naturally aspirated twelve makes as it goes for
+      // the limiter. 640 cents above the Porsche is a little over a fifth;
+      // the full octave the physics implies is too much on one sample.
+      audio: {
+        blendLowRpm: 3400, blendHighRpm: 7200,
+        pitchOffset: 380, pitchPerRpm: 0.24,
+      },
     },
     sounds: {
       on_low:   { url: './assets/audio/procar/on_low.wav',   refRpm: 3200, volume: 0.55 },

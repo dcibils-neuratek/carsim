@@ -137,6 +137,9 @@ export function createGui({ onRebuild, onToast }) {
 
   const snd = gui.addFolder('engine audio');
   snd.add(TUNING.audio, 'pitchPerRpm', 0.05, 0.5, 0.01).name('pitch / rpm').onChange(save);
+  // Where the note sits, against how fast it climbs. This is the one that
+  // separates a V12 from a flat-six when both share a recording.
+  snd.add(TUNING.audio, 'pitchOffset', -1200, 1200, 10).name('pitch offset (cents)').onChange(save);
   snd.add(TUNING.audio, 'blendLowRpm', 500, 6000, 100).name('blend low rpm').onChange(save);
   snd.add(TUNING.audio, 'blendHighRpm', 2000, 9000, 100).name('blend high rpm').onChange(save);
 

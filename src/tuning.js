@@ -183,6 +183,15 @@ export const DEFAULTS = {
     // Cents of pitch shift per rpm. The samples are recorded around their
     // reference rpm; 1200 cents is an octave.
     pitchPerRpm: 0.19,
+    // A constant shift in cents, on top of the per-rpm slope.
+    //
+    // The slope alone cannot voice one engine against another, because it only
+    // says how fast the note CLIMBS. What separates a V12 from a flat-six is
+    // where the note sits: a V12 fires six times a revolution against a
+    // flat-six's three, so at the same rpm its note is an octave -- 1200 cents
+    // -- higher. With both cars sharing one recording, this is the only lever
+    // that can put them in different registers at all.
+    pitchOffset: 0,
     blendLowRpm: 2400,    // below this, only the "low" samples are heard
     blendHighRpm: 5200,   // above this, only the "high" ones
     responsiveness: 14,   // how fast rpm/throttle tracking follows the physics
