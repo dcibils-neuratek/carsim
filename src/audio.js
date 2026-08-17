@@ -17,6 +17,12 @@
 
 import { TUNING } from './tuning.js';
 
+// The default engine: the BAC Mono set, a turbo-ish four that suits the
+// Alpine. A car can bring its own via `sounds` in cars.js.
+//
+// refRpm is the rpm the sample was RECORDED at, and it matters more than it
+// looks: pitch is `(rpm - refRpm) * pitchPerRpm` in cents, so a set labelled
+// with the wrong reference is pitched wrong everywhere except at one point.
 const SAMPLES = {
   on_low:   { url: './assets/audio/on_low.wav',   refRpm: 1000, volume: 0.55 },
   on_high:  { url: './assets/audio/on_high.wav',  refRpm: 1000, volume: 0.55 },
@@ -39,7 +45,14 @@ function ratio(v, start, end) { return clamp((v - start) / (end - start), 0, 1);
 function finite(v, fallback) { return Number.isFinite(v) ? v : fallback; }
 
 export class EngineAudio {
-  constructor() {
+  constructor(sounds = null) {
+    // A car's own engine, or the shared one. Merged per layer rather than
+    // wholesale, so a car can replace the four it has recordings for and still
+    // inherit the limiter, which almost no sample set ships.
+    this.samples = {};
+    for (const [key, def] of Object.entries(SAMPLES)) {
+      this.samples[key] = sounds?.[key] ? { ...def, ...sounds[key] } : def;
+    }
     this.ctx = null;
     this.nodes = {};
     this.ready = false;
@@ -75,7 +88,7 @@ export class EngineAudio {
         this.buses[name] = bus;
       }
 
-      await Promise.all(Object.entries(SAMPLES).map(async ([key, def]) => {
+      await Promise.all(Object.entries(this.samples).map(async ([key, def]) => {
         const buffer = await this.ctx.decodeAudioData(
           await (await fetch(def.url)).arrayBuffer(),
         );

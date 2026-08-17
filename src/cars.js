@@ -96,6 +96,28 @@ export const CARS = [
       brakes: { maxBrakeForce: 19000 },
       // That wing is not decoration.
       aero: { dragCoeff: 0.60, downforce: 7.2 },
+
+      // The blend points move with the engine. Crossing from the low to the
+      // high recording at 2400-5200 rpm is right for a 6800 rpm four and far
+      // too early for one that pulls to 9000.
+      audio: { blendLowRpm: 3600, blendHighRpm: 7600 },
+    },
+
+    // Its own engine, and the reason the car sounds like a flat-six rather
+    // than a pitched-up four. The reference rpms come from the recordings'
+    // own configuration, not from guessing: pitch is
+    // (rpm - refRpm) * pitchPerRpm, so a set labelled wrongly is out of tune
+    // everywhere except at one point. These were captured at 3200 and 8000 on
+    // an engine limited at 9000 -- the same redline this car runs, which is
+    // why they fit it and would not fit the Alpine.
+    //
+    // Only four layers are stated. The limiter is inherited, because almost no
+    // sample set ships one.
+    sounds: {
+      on_low:   { url: './assets/audio/procar/on_low.wav',   refRpm: 3200, volume: 0.55 },
+      on_high:  { url: './assets/audio/procar/on_high.wav',  refRpm: 8000, volume: 0.55 },
+      off_low:  { url: './assets/audio/procar/off_low.wav',  refRpm: 3400, volume: 0.50 },
+      off_high: { url: './assets/audio/procar/off_high.wav', refRpm: 8430, volume: 0.50 },
     },
   },
 ];

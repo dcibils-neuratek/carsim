@@ -386,7 +386,7 @@ export async function boot() {
   const skidmarks = new Skidmarks(scene, 2400, trackDef);
   const smoke = new TyreSmoke(scene, 700, trackDef);
   smoke.setViewportHeight(window.innerHeight);
-  const audio = new EngineAudio();
+  const audio = new EngineAudio(carDef.sounds);
   // Built once the engine's AudioContext exists, so both share one context
   // and one master gain -- mute and volume stay in a single place.
   let tyreAudio = null;

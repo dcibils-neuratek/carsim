@@ -180,7 +180,8 @@ autopilot lap that the editor is too fast to do.
 
 **Engine audio** — the five looping samples in `assets/audio/` are BAC Mono
 recordings from [markeasting/engine](https://github.com/markeasting/engine),
-MIT licensed. `src/audio.js` is our own implementation, but it follows that
+MIT licensed, and the four in `assets/audio/procar/` are that project's
+"procar" set, used for the GT3 RS. `src/audio.js` is our own implementation, but it follows that
 project's approach: four loops (on/off throttle x low/high rpm) pitched by rpm
 via `detune` and blended with two equal-power crossfades, plus a limiter layer.
 
