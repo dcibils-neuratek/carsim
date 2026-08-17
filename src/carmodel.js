@@ -108,6 +108,15 @@ function geometricWheelTest(parts) {
     if ((c.y - min.y) > size.y * 0.5) return false;
     // Small: a wheel is a fraction of the car, a floorpan is not.
     if (s[lengthAxis] > length * 0.30 || s[widthAxis] > width * 0.42) return false;
+
+    // ROUND, seen from the side. This is the test that actually separates a
+    // wheel from the bodywork around it, and without it the 930's wide rear
+    // arches and low tail came out as part of the rear wheels -- which then
+    // spun with them. Measured: rear "wheels" 0.93 m across against 0.74 at
+    // the front, on a car whose wheels are all the same size. A tyre is as
+    // tall as it is long; an arch, a sill or a bumper is much longer than tall.
+    const round = Math.min(s[lengthAxis], s.y) / Math.max(s[lengthAxis], s.y, 1e-6);
+    if (round < 0.62) return false;
     // Outboard, both along and across: a wheel is at a corner, an exhaust is
     // low and central and a sill is long and lateral.
     const along = Math.abs((c[lengthAxis] - min[lengthAxis]) / length - 0.5);
@@ -237,12 +246,26 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
       // author chose, which is the whole reason it is drawn as authored.
       if (m.envMapIntensity !== undefined) m.envMapIntensity = 1.9;
 
-      // A mirror finish reflects the sky in a spot you will almost never be
-      // looking at. Spreading it a little is the difference between glossy
-      // paint and a black hole, and at this scale nobody can tell that the
-      // roughness is not what the author typed.
-      if (m.metalness > 0.6 && m.roughness < 0.30) m.roughness = 0.30;
-      else if (m.roughness === 0) m.roughness = 0.12;
+      // Bring the model's materials into the same language as the world.
+      //
+      // Everything else here is flat-shaded MeshStandardMaterial at roughness
+      // ~0.45 and metalness ~0.25 -- matte, readable, lit by its own colour.
+      // Downloaded car models are authored for a photographic renderer and
+      // arrive at metalness 1 across the board: the 930 has its CHROME, its
+      // PLASTICS, its GLASS and its PAINT all fully metallic. A full metal has
+      // no diffuse term at all, so its colour never appears -- it can only
+      // reflect, and against this game's small bright sky that renders as a
+      // dark grey car whatever colour the author actually chose.
+      //
+      // Capping metalness is what puts the colour back. It is not physically
+      // faithful to the source material, and it is not meant to be: the car
+      // has to sit in the same world as flat green hills and cone trees, and
+      // a photoreal paint shader in that world reads as a bug rather than as
+      // realism. The COLOUR is still entirely the model's own.
+      if (m.metalness !== undefined && m.metalness > 0.45) m.metalness = 0.45;
+      if (m.roughness !== undefined) {
+        m.roughness = Math.min(Math.max(m.roughness, 0.35), 0.85);
+      }
 
       // Trade refraction for plain transparency on the glass.
       //
