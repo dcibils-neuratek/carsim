@@ -5,35 +5,33 @@
   "name": "Forest",
   "tagline": "Fast sweepers, a chicane and a long hairpin",
   "difficulty": "Medium",
-
   "notes": [
     "A closed B-spline's tangent at the start point is set by the point BEFORE it, so the last control point steers the direction the road arrives on the straight. Keep it roughly in line with the straight -- put it off to one side and the spline whips into a tiny-radius loop right at the join, which is the one corner every circuit here kept failing on.",
     "The hairpin at the south end must sweep around without reversing against its own previous leg. A point that sits back the way the path just came from makes the spline double back and the ribbon folds through itself."
   ],
-
   "road": {
     "controlPoints": [
-      [0, 0.0, -215],
-      [0, 0.0, -120],
-      [2, 2.0, -20],
-      [12, 4.5, 75],
-      [38, 3.5, 150],
-      [95, 1.5, 190],
-      [160, 0.5, 180],
-      [200, 0.0, 128],
-      [198, 0.0, 62],
-      [156, 0.5, 16],
-      [128, 1.5, -32],
-      [172, 2.5, -74],
-      [202, 2.0, -132],
-      [168, 0.5, -192],
-      [108, -1.5, -228],
-      [56, -2.0, -276],
-      [-4, -1.8, -308],
-      [-66, -1.2, -296],
-      [-88, -0.6, -262],
-      [-46, -0.3, -252],
-      [0, -0.2, -270]
+      [0, 0, -829.9],
+      [0, 0, -463.2],
+      [7.72, 2, -77.2],
+      [-858.7, 4.5, -377.4],
+      [146.68, 3.5, 579],
+      [366.7, 1.5, 733.4],
+      [333.1, 0.5, 316.7],
+      [565.8, 0, 526.4],
+      [764.28, 0, 239.32],
+      [88, 0.5, 200.7],
+      [279.1, 1.5, -309],
+      [663.92, 2.5, -285.64],
+      [779.72, 2, -509.52],
+      [648.48, 0.5, -741.12],
+      [349.1, -1.5, -556.7],
+      [447.5, -2, -1051.1],
+      [-15.44, -1.8, -1188.88],
+      [-254.76, -1.2, -1142.56],
+      [-225.3, -0.6, -898.5],
+      [-177.56, -0.3, -972.72],
+      [-32.9, -0.2, -864.7]
     ]
   }
 }

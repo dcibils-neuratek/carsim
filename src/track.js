@@ -9,16 +9,108 @@
 import * as THREE from 'three';
 import { flatMat } from './scene.js';
 import { TUNING } from './tuning.js';
+import { applyRoadTexture, hasRoadTexture, tileMetres } from './roadtexture.js';
 
-const SAMPLES = 720;          // centerline samples around the loop
-const ELEVATION_SMOOTH = 55;  // metres of moving average applied to height
+// Centreline samples, as a DENSITY rather than a count.
+//
+// 720 was a count, and it was a fine one for a 1.3 km lap: a road
+// cross-section every 1.8 m, comfortably finer than the terrain's 5.6 m grid.
+// Scaled to 5 km the same 720 gives a section every 6.9 m -- coarser than the
+// terrain that has to stay underneath it. The heightfield then rises above the
+// road's own chord between two sections and pokes through the asphalt, which
+// is a wedge you hit at speed and get launched off. Measured at -29 mm of
+// clearance where the rule is that terrain must never reach the surface.
+//
+// So: metres per sample, and the count follows the circuit. Bounded because
+// the road mesh, its collider and the terrain envelope all scale with it.
+const SAMPLE_SPACING = 1.8;   // metres between centreline samples
+const MIN_SAMPLES = 720;
+const MAX_SAMPLES = 3600;
+// Elevation smoothing, as a FRACTION of the lap rather than a distance.
+//
+// It was 55 metres, which was right for the 1.3 km circuits it was tuned on
+// and quietly wrong the moment they were scaled to 5 km: the same window then
+// covers a quarter as much of the layout, so every crest comes out four times
+// sharper. Measured after the scale-up and before this change, the autopilot
+// grounded the chassis on 1837 steps of a clean lap -- the car was bottoming
+// out on crests that used to be smoothed away.
+//
+// 1/24 of the lap is what 55 m was of 1.3 km, so every circuit now gets the
+// profile the originals were tuned to have, whatever length it is.
+const ELEVATION_SMOOTH_FRACTION = 1 / 24;
 const ROUNDING_PASSES = 70;   // curvature-diffusion passes; rounds tight corners
 const CURB_HEIGHT = 0.035;    // a rumble strip, not a step you can trip over
 const CURB_CURVATURE = 0.010; // rad/m of centerline turn before curbs appear
-const CURB_STRIPE = 5;        // samples per colour block
+// Kerb stripe, in METRES.
+//
+// It was 5 samples, and that was the same trap the dashes fell into: anything
+// counted in samples silently changes size whenever the sampling does. With
+// the circuits scaled to 5 km on a fixed 720 samples, one sample went from
+// 1.8 m to 6.9 m and every kerb stripe, every post gap and every centre-line
+// dash grew with it -- which cost exactly the sense of speed all of this was
+// for. Sampling is a density again now, but expressing these in metres means
+// it cannot happen a fourth time.
+const CURB_STRIPE_METRES = 9;
 
-const TERRAIN_CELLS = 160;
-const TERRAIN_SIZE = 900;
+// --- road surface detail ---------------------------------------------------
+//
+// The asphalt used to be one quad across, carrying six shades that differ by
+// 0.02 in lightness. Measured, those six sit between 0.037 and 0.058 in linear
+// light: indistinguishable. So the road showed nothing at all, and a surface
+// that shows nothing cannot show that it is moving -- which is most of why
+// 150 km/h did not feel like 150 km/h. Optical flow measured across the frame
+// found the outer third of the screen completely featureless.
+//
+// What replaces it is what a real road has and what every arcade rally game
+// leans on: two darker lines where the tyres run, and patches that come and go
+// along its length. The ruts matter most, because they run ALONG the direction
+// of travel -- a longitudinal feature sweeps toward you and past the camera,
+// which is the strongest self-motion cue there is.
+const ROAD_LANES = 10;        // lateral strips of the asphalt; colours are per
+                              // vertex, so these read as gradients, not stripes
+const RUT_POSITION = 0.42;    // where the tyre lines sit, as a fraction of half width
+const RUT_WIDTH = 0.20;
+const RUT_DEPTH = 0.075;      // how much darker the lines are, in HSL lightness
+const PATCH_DEPTH = 0.055;    // and how much the surface wanders along its length
+const EDGE_LINE = 0.85;       // fraction of half width where the edge line starts
+const EDGE_LINE_LIGHT = 0.30; // how much lighter that strip is
+// With a photograph on top, the vertex colours stop being a colour and become
+// a multiplier around 1. This turns the figures above into that multiplier.
+const TEXTURE_GAIN = 2.0;
+
+// Verge hoardings. Height and offset matter more than they look: a board at
+// the road edge is the fastest-moving thing in the periphery, and the eye
+// reads peripheral motion as speed.
+//
+// 1.15 m was the first guess and it drove badly. Measured against the car it
+// was actually LOWER -- 0.85 of the Alpine's 1.36 m -- but height next to the
+// car is the wrong comparison: these are a continuous wall seen from an eye at
+// 1.95 m, so they read as taller than anything they are next to and they hide
+// the corner behind the corner. Half the car is enough to sweep past and low
+// enough to see over.
+const BOARD_LENGTH = 3.6;
+const BOARD_HEIGHT = 0.7;
+const BOARD_OFFSET = 0.7;     // metres beyond the curb
+// Bright, and deliberately independent of the ground: their whole job is to
+// be seen going past. Overridable per circuit via palette.boardA / boardB.
+const BOARD_A = 0xd94141;
+const BOARD_B = 0xf2f2f2;
+
+// The ground the circuits sit on.
+//
+// Both grew a long way when the six layouts were scaled to real circuit
+// lengths. At 5 km a lap the widest of them reaches 1005 m from its own
+// centre; the original 900 m square covered 450 m, so the road would have run
+// off the edge of the world several times over.
+//
+// The CELL SIZE is deliberately unchanged at about 5.6 m, which is why the
+// count went up with the span rather than staying put. The heightfield has to
+// stay below the asphalt everywhere, and it does that by a measured 24 mm; a
+// coarser grid chords further between samples and would eat that margin, and
+// terrain poking through the road is invisible from every angle except the
+// one where you hit it.
+const TERRAIN_CELLS = 429;
+const TERRAIN_SIZE = 2400;
 const TERRAIN_MARGIN = 26;    // metres of flat verge before the hills start
 const TERRAIN_BLEND = 45;
 
@@ -264,8 +356,20 @@ export class Track {
   // --- centerline ----------------------------------------------------------
 
   _sampleCenterline() {
-    const n = SAMPLES;
-    this.points = sampleCircuit(this.def.controlPoints, n, ELEVATION_SMOOTH, ROUNDING_PASSES);
+    // The control polygon's perimeter is a good enough stand-in for the lap
+    // length, and it is available before the circuit has been sampled.
+    let perimeter = 0;
+    {
+      const cps = this.def.controlPoints;
+      for (let i = 0; i < cps.length; i++) {
+        const a = cps[i], b = cps[(i + 1) % cps.length];
+        perimeter += Math.hypot(b[0] - a[0], b[2] - a[2]);
+      }
+    }
+    const n = Math.max(MIN_SAMPLES,
+      Math.min(MAX_SAMPLES, Math.round(perimeter / SAMPLE_SPACING)));
+    this.points = sampleCircuit(
+      this.def.controlPoints, n, perimeter * ELEVATION_SMOOTH_FRACTION, ROUNDING_PASSES);
     this.tangents = new Array(n);
     this.rights = new Array(n);
     this.distances = new Float32Array(n + 1);
@@ -538,39 +642,105 @@ export class Track {
       if (nv.y < 0) nv.negate();
       normals.push(nv);
     }
-    const asphalt = new THREE.Color(this.palette.asphalt);
-    // A small palette of tarmac shades rather than a single alternation.
-    // Strict light/dark every segment lined up exactly with the facets and
-    // turned every gradient change into visible banding; varying over longer,
-    // irregular runs reads as patched asphalt instead.
-    const shades = [-0.020, 0.014, -0.008, 0.022, 0.004, -0.016].map(
-      (d) => new THREE.Color(this.palette.asphalt).offsetHSL(0, 0, d),
-    );
     const edge = new THREE.Color(this.palette.asphaltEdge);
     const curbA = new THREE.Color(this.palette.curbA);
     const curbB = new THREE.Color(this.palette.curbB);
 
-    const pushTri = (a, b, c, color, na, nb, nc) => {
+    // Colours go per VERTEX, not per quad. A colour per quad would draw the
+    // ruts as ten hard stripes; per vertex, the smooth-shaded road interpolates
+    // them into the soft gradients a worn surface actually has.
+    const pushTri = (a, b, c, ca, cb, cc, na, nb, nc) => {
       pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-      for (let k = 0; k < 3; k++) col.push(color.r, color.g, color.b);
+      col.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cc.r, cc.g, cc.b);
       nrm.push(na.x, na.y, na.z, nb.x, nb.y, nb.z, nc.x, nc.y, nc.z);
     };
 
-    for (let i = 0; i < n; i++) {
-      const raised = this.curvature[i % n] > CURB_CURVATURE;
-      const stripe = Math.floor(i / CURB_STRIPE) % 2 === 0 ? curbA : curbB;
-      const curbColor = raised ? stripe : edge;
+    // --- the asphalt, subdivided across its width ---------------------------
+    //
+    // Its own set of rails at ROAD_LANES + 1 lateral offsets, carrying the
+    // same superelevation as the curbs so the two still meet exactly.
+    const laneRails = [];
+    for (let j = 0; j <= ROAD_LANES; j++) {
+      const s = (j / ROAD_LANES) * 2 - 1;            // -1..1 across the road
+      const off = s * this.halfWidth;
+      const rail = [];
+      for (let i = 0; i <= n; i++) {
+        const idx = i % n;
+        const p = this.points[idx];
+        const r = this.rights[idx];
+        rail.push(new THREE.Vector3(
+          p.x + r.x * off, p.y + off * this.bank[idx], p.z + r.z * off,
+        ));
+      }
+      laneRails.push(rail);
+    }
 
+    // Whether a photograph of tarmac is going on top of all this.
+    //
+    // It changes what the vertex colours have to MEAN, which is the trap. With
+    // a map in place three multiplies map x vertexColor x material.color, so
+    // vertex colours carrying the palette's dark asphalt against a photograph
+    // of dark asphalt would land the road at about a thousandth of the light
+    // it should have -- black. Textured, the photograph is the colour and the
+    // vertex colours become a multiplier around white carrying nothing but the
+    // ruts, the patches and the edge line. Untextured, they carry the colour
+    // as they always did.
+    const textured = hasRoadTexture(this.def.surface?.texture);
+
+    const surface = [];
+    for (let j = 0; j <= ROAD_LANES; j++) {
+      const s = (j / ROAD_LANES) * 2 - 1;
+      const a = Math.abs(s);
+      // Two wheel tracks, as a smooth well rather than a painted line.
+      const rut = Math.exp(-((a - RUT_POSITION) ** 2) / (2 * RUT_WIDTH ** 2));
+      // A lighter strip where the asphalt meets the curb, which is both what a
+      // road has and a second longitudinal line for the eye to run along.
+      const line = a > EDGE_LINE ? (a - EDGE_LINE) / (1 - EDGE_LINE) : 0;
+      const lateral = -rut * RUT_DEPTH + line * EDGE_LINE_LIGHT;
+      const row = [];
+      for (let i = 0; i <= n; i++) {
+        // Three periods that share no common multiple, so the surface never
+        // settles into a repeat you can see coming. This also breaks up the
+        // texture's own two-metre tile, which is the other thing that would
+        // otherwise read as a pattern down a long straight.
+        const along = Math.sin(i * 0.037) * 0.55
+                    + Math.sin(i * 0.113 + 1.7) * 0.30
+                    + Math.sin(i * 0.283 + 0.4) * 0.15;
+        const v = lateral + along * PATCH_DEPTH;
+        row.push(textured
+          ? new THREE.Color().setScalar(Math.min(1.9, Math.max(0.45, 1 + v * TEXTURE_GAIN)))
+          : new THREE.Color(this.palette.asphalt).offsetHSL(0, 0, v));
+      }
+      surface.push(row);
+    }
+
+    // UVs, in metres. u runs across the road and v along it, both divided by
+    // the tile size, so the grain is the size the photograph says it is and
+    // does not stretch through a corner.
+    const spacing = this.length / n;
+    const roadWidth = this.halfWidth * 2;
+    // Metres of ground per repeat, as published by whoever scanned the
+    // surface. Asked per circuit, because gravel and tarmac were not shot at
+    // the same scale and a shared constant would make one of them wrong.
+    const tile = tileMetres(this.def.surface?.texture);
+    const uvs = [];
+    const pushUV = (...vs) => { for (const v of vs) uvs.push(v[0], v[1]); };
+
+    for (let i = 0; i < n; i++) {
       const n0 = normals[i], n1 = normals[i + 1];
-      for (let k = 0; k < 3; k++) {
-        const a = rails[k][i], b = rails[k][i + 1];
-        const c = rails[k + 1][i + 1], d = rails[k + 1][i];
-        // Blocks of ~4 sections (about 7 m), stepped by a prime so the
-        // pattern never settles into a repeating stripe.
-        const block = Math.floor(i / 4);
-        const color = k === 1 ? shades[(block * 7) % shades.length] : curbColor;
-        pushTri(a, b, c, color, n0, n1, n1);
-        pushTri(a, c, d, color, n0, n1, n0);
+      const v0 = (i * spacing) / tile;
+      const v1 = ((i + 1) * spacing) / tile;
+      for (let j = 0; j < ROAD_LANES; j++) {
+        const a = laneRails[j][i], b = laneRails[j][i + 1];
+        const c = laneRails[j + 1][i + 1], d = laneRails[j + 1][i];
+        const ca = surface[j][i], cb = surface[j][i + 1];
+        const cc = surface[j + 1][i + 1], cd = surface[j + 1][i];
+        const u0 = ((j / ROAD_LANES) * roadWidth) / tile;
+        const u1 = (((j + 1) / ROAD_LANES) * roadWidth) / tile;
+        pushTri(a, b, c, ca, cb, cc, n0, n1, n1);
+        pushUV([u0, v0], [u0, v1], [u1, v1]);
+        pushTri(a, c, d, ca, cc, cd, n0, n1, n0);
+        pushUV([u0, v0], [u1, v1], [u1, v0]);
       }
     }
 
@@ -578,6 +748,7 @@ export class Track {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
 
     // Smooth shading, unlike the rest of the world. Faceting is the look
     // everywhere else, but on the road it turns every gradient change into a
@@ -588,6 +759,41 @@ export class Track {
     mesh.receiveShadow = true;
     this.group.add(mesh);
     this.roadMesh = mesh;
+    // Fire and forget: the road is already on screen and correct without it.
+    applyRoadTexture(mesh.material, this.def.surface?.texture);
+
+    // --- curbs, as their own mesh -------------------------------------------
+    //
+    // Separate because they need a material WITHOUT the road's map. Sharing one
+    // would multiply a red-and-white kerb by a photograph of dark tarmac and
+    // leave it muddy. One extra draw call, and the kerbs keep their colour.
+    const cpos = [], ccol = [], cnrm = [];
+    const pushCurb = (a, b, c, color, na, nb, nc) => {
+      cpos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+      for (let k = 0; k < 3; k++) ccol.push(color.r, color.g, color.b);
+      cnrm.push(na.x, na.y, na.z, nb.x, nb.y, nb.z, nc.x, nc.y, nc.z);
+    };
+    for (let i = 0; i < n; i++) {
+      const raised = this.curvature[i % n] > CURB_CURVATURE;
+      const stripe = Math.floor(this.distances[i] / CURB_STRIPE_METRES) % 2 === 0 ? curbA : curbB;
+      const curbColor = raised ? stripe : edge;
+      const n0 = normals[i], n1 = normals[i + 1];
+      for (const k of [0, 2]) {
+        const a = rails[k][i], b = rails[k][i + 1];
+        const c = rails[k + 1][i + 1], d = rails[k + 1][i];
+        pushCurb(a, b, c, curbColor, n0, n1, n1);
+        pushCurb(a, c, d, curbColor, n0, n1, n0);
+      }
+    }
+    const curbGeo = new THREE.BufferGeometry();
+    curbGeo.setAttribute('position', new THREE.Float32BufferAttribute(cpos, 3));
+    curbGeo.setAttribute('color', new THREE.Float32BufferAttribute(ccol, 3));
+    curbGeo.setAttribute('normal', new THREE.Float32BufferAttribute(cnrm, 3));
+    const curbMesh = new THREE.Mesh(curbGeo, new THREE.MeshStandardMaterial({
+      vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0.0,
+    }));
+    curbMesh.receiveShadow = true;
+    this.group.add(curbMesh);
 
     // Indexed twin of the same surface for the collider: 4 verts per section.
     const verts = new Float32Array((n + 1) * 4 * 3);
@@ -626,6 +832,65 @@ export class Track {
    * slams into. The minimum can never exceed any nearby road, so that whole
    * failure mode is gone by construction.
    */
+  /**
+   * Nearest road sample to a point far from the road, from a precomputed field.
+   *
+   * Multi-source breadth-first over the same 40 m grid the road is bucketed
+   * into: every occupied bucket starts knowing its own nearest sample, and the
+   * answer spreads outward one ring at a time. That is a few thousand steps
+   * ONCE, against a few hundred lookups per terrain cell for a hundred and
+   * fifty thousand cells.
+   *
+   * The distance it returns is measured to the real sample, not to the bucket,
+   * so it is exact. Only which sample is nearest can be off, and only by one
+   * bucket -- which matters not at all out here, where the slope term has long
+   * since saturated and every nearby sample contributes the same constant.
+   */
+  _coarseNearest(x, z) {
+    if (!this._coarse) this._buildCoarseField();
+    const cx = Math.floor(x / this.cell);
+    const cz = Math.floor(z / this.cell);
+    const index = this._coarse.get(this._gridKey(cx, cz));
+    if (index === undefined) return this._nearestByGrid(x, z);
+    const p = this.points[index];
+    return { index, distance: Math.hypot(p.x - x, p.z - z) };
+  }
+
+  _buildCoarseField() {
+    const field = new Map();
+    let frontier = [];
+    // Seed: every bucket that holds road, pointing at its own first sample.
+    for (const [key, bucket] of this.grid) {
+      field.set(key, bucket[0]);
+      frontier.push(key);
+    }
+    // Spread outward. Bounded by the terrain, which is why this terminates
+    // quickly even on a circuit that only occupies part of the square.
+    const span = Math.ceil(TERRAIN_SIZE / this.cell) + 4;
+    const limit = span * span * 4;
+    let guard = 0;
+    while (frontier.length && guard++ < limit) {
+      const next = [];
+      for (const key of frontier) {
+        const [kx, kz] = key.split(',').map(Number);
+        const from = field.get(key);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            if (!dx && !dz) continue;
+            const nx = kx + dx, nz = kz + dz;
+            if (Math.abs(nx) > span || Math.abs(nz) > span) continue;
+            const nkey = this._gridKey(nx, nz);
+            if (field.has(nkey)) continue;
+            field.set(nkey, from);
+            next.push(nkey);
+          }
+        }
+      }
+      frontier = next;
+    }
+    this._coarse = field;
+  }
+
   _envelope(x, z) {
     const reach = Math.ceil(ENV_RADIUS / this.cell);
     const cx = Math.floor(x / this.cell);
@@ -649,8 +914,16 @@ export class Track {
     }
 
     if (roadY === Infinity) {
-      // Far corners of the terrain, beyond every bucket we looked at.
-      const g = this._nearestByGrid(x, z);
+      // Beyond every bucket we looked at, so more than about 60 m from any
+      // asphalt. Answered from a field computed once rather than by expanding
+      // rings from here.
+      //
+      // This is where the terrain build was spending its life. _nearestByGrid
+      // widens a ring until it finds road, and from the far corner of a 2400 m
+      // square that is eight rings, a couple of hundred bucket lookups -- per
+      // terrain cell, and five sixths of the 184,000 cells are out here. It did
+      // not show while the world was 900 m across and the far field was small.
+      const g = this._coarseNearest(x, z);
       nearest = g.distance;
       roadY = this.points[g.index].y + this.curbLift[g.index] - this.bankDrop[g.index]
         + this.envSlope * THREE.MathUtils.clamp(g.distance - ENV_FLAT, 0, ENV_CAP);
@@ -954,7 +1227,10 @@ export class Track {
 
     // --- marker posts along both verges ---
     const postSpots = [];
-    for (let i = 0; i < n; i += this.scenery.postSpacing) {
+    // Posts every so many METRES, not every so many samples.
+    const postStep = Math.max(1, Math.round(
+      (this.scenery.postSpacing * 1.8) / (this.length / n)));
+    for (let i = 0; i < n; i += postStep) {
       const p = this.points[i];
       const r = this.rights[i];
       for (const side of [-1, 1]) {
@@ -982,6 +1258,70 @@ export class Track {
     posts.castShadow = true;
     this.group.add(posts, stripes);
 
+    // --- hoardings along the verge ------------------------------------------
+    //
+    // The single biggest thing missing from the sense of speed, and the reason
+    // is geometric rather than aesthetic. Optical flow measured across the
+    // frame on Forest: the outer third of the screen carried a sixth of the
+    // flow of the middle, and held no detail at all -- flat sky above, flat
+    // grass beside, untextured road below. Widening the field of view made it
+    // WORSE (0.33 down to 0.27 from 62 to 95 degrees), because all it does is
+    // put more empty grass on screen. There was nothing at the edges to see.
+    //
+    // A continuous run of boards at the road edge is what every arcade rally
+    // game puts there, and it is not decoration: a vertical surface a metre
+    // from the tarmac sweeps through the periphery faster than anything else
+    // in the scene, which is exactly the signal the eye reads as self-motion.
+    //
+    // In runs with gaps rather than an unbroken wall -- partly so it reads as a
+    // circuit rather than a corridor, and partly so you can still see the
+    // corner behind the corner.
+    const boardSpots = [];
+    const spacing = this.length / n;   // metres between centreline samples
+    const perBoard = Math.max(1, Math.round(BOARD_LENGTH / spacing));
+    for (let i = 0; i < n; i += perBoard) {
+      // Runs of about twelve, then a gap of about five.
+      if (Math.floor(i / (perBoard * 12)) % 3 === 2) continue;
+      const p = this.points[i];
+      const r = this.rights[i];
+      const t = this.tangents[i];
+      const yaw = Math.atan2(t.x, t.z);
+      for (const side of [-1, 1]) {
+        const off = side * (this.halfWidth + this.curbWidth + BOARD_OFFSET);
+        boardSpots.push({
+          x: p.x + r.x * off, y: p.y, z: p.z + r.z * off, yaw,
+          alt: Math.floor(i / perBoard) % 2 === 0,
+        });
+      }
+    }
+
+    const boardGeo = new THREE.BoxGeometry(BOARD_LENGTH * 0.92, BOARD_HEIGHT, 0.12);
+    for (const alt of [false, true]) {
+      const spots = boardSpots.filter((s) => s.alt === alt);
+      if (!spots.length) continue;
+      // Their own colours, NOT the curbs'.
+      //
+      // Falling back to the curbs was the first idea and it was wrong on the
+      // one circuit it mattered: Dirt's curbs are earth tones by design --
+      // there are no red-and-white kerbs on a gravel stage -- so the hoardings
+      // came out sand-coloured and vanished into the verge they were put there
+      // to stand against. A sponsor board is a manufactured object and looks
+      // the same on gravel as on tarmac.
+      const colour = alt
+        ? (this.palette.boardB ?? BOARD_B)
+        : (this.palette.boardA ?? BOARD_A);
+      const mesh = new THREE.InstancedMesh(boardGeo, flatMat(colour), spots.length);
+      spots.forEach((s, i) => {
+        dummy.position.set(s.x, s.y + BOARD_HEIGHT / 2, s.z);
+        dummy.rotation.set(0, s.yaw, 0);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.castShadow = true;
+      this.group.add(mesh);
+    }
+
     // --- deterministic tree scatter, kept clear of the track and its verges ---
     let seed = 9091;
     const rand = () => {
@@ -990,10 +1330,15 @@ export class Track {
     };
 
     const trees = [];
-    const wanted = this.scenery.treeCount;
+    // Scattered over the terrain, and counted by AREA rather than by a fixed
+    // number. The span was hardcoded at 780 m, so growing the ground to 1500
+    // would have left the same 620 trees spread over nearly three times the
+    // land -- a forest that thinned out the moment the circuits got bigger.
+    const scatterSpan = TERRAIN_SIZE - 120;
+    const wanted = Math.round(this.scenery.treeCount * (scatterSpan / 780) ** 2);
     for (let attempt = 0; attempt < wanted * 2.2 && trees.length < wanted; attempt++) {
-      const x = this.terrainCenter.x + (rand() - 0.5) * 780;
-      const z = this.terrainCenter.z + (rand() - 0.5) * 780;
+      const x = this.terrainCenter.x + (rand() - 0.5) * scatterSpan;
+      const z = this.terrainCenter.z + (rand() - 0.5) * scatterSpan;
       const spread = rand();
       const height = rand();
       if (this._nearestByGrid(x, z).distance < this.halfWidth + this.scenery.treeClearance) continue;

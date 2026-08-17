@@ -17,6 +17,7 @@
 // grow without bound.
 
 import * as THREE from 'three';
+import { OUTPUT_GLSL, withOutputUniform } from './post/colorspace.js';
 import { TUNING } from './tuning.js';
 
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
@@ -59,12 +60,12 @@ export class TyreSmoke {
     this.material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,          // puffs must not carve holes in each other
-      uniforms: {
+      uniforms: withOutputUniform({
         uColor: { value: this.color },
         // Point size is in pixels, so it has to be scaled by the drawing
         // buffer height or the smoke changes size with the window.
         uScale: { value: 300 },
-      },
+      }),
       vertexShader: `
         attribute float aSize;
         attribute float aAlpha;
@@ -78,6 +79,7 @@ export class TyreSmoke {
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
+        ${OUTPUT_GLSL}
         uniform vec3 uColor;
         varying float vAlpha;
         void main() {
@@ -87,7 +89,7 @@ export class TyreSmoke {
           float r = length(d);
           if (r > 0.5) discard;
           float soft = 1.0 - smoothstep(0.16, 0.5, r);
-          gl_FragColor = vec4(uColor, vAlpha * soft);
+          gl_FragColor = vec4(vroomOutput(uColor), vAlpha * soft);
         }`,
     });
 

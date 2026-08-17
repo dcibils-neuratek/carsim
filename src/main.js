@@ -9,6 +9,7 @@ import * as THREE from 'three';
 
 import { TUNING, loadTuning } from './tuning.js';
 import { createRenderer, createScene, createCarMesh, updateSunTarget } from './scene.js';
+import { setMaxAnisotropy } from './roadtexture.js';
 import { initPhysics, RAPIER, FixedStepper, PhysicsDebug } from './physics.js';
 import { Track, sampleCircuit } from './track.js';
 import { Vehicle } from './vehicle.js';
@@ -28,6 +29,8 @@ import { TyreAudio } from './tyreaudio.js';
 import { PadPanel } from './padui.js';
 import { Music } from './music.js';
 import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
+import { Autopilot } from './autopilot.js';
+import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -373,6 +376,9 @@ export async function boot() {
   prompt.textContent = 'LOADING PHYSICS…';
 
   const renderer = createRenderer();
+  // The one line that stops a tiled road turning into crawling noise at
+  // distance. Told once; the track asks for its surface long after this.
+  setMaxAnisotropy(renderer.capabilities.getMaxAnisotropy());
   const { scene, sun } = createScene(trackDef);
   const camera = new THREE.PerspectiveCamera(
     TUNING.camera.fovBase, window.innerWidth / window.innerHeight, 0.2, 3000,
@@ -415,6 +421,13 @@ export async function boot() {
   let car = mountCar(scene, null);
 
   const carCamera = new CarCamera(camera, renderer.domElement, (x, z) => track.terrainHeight(x, z));
+
+  // A computer driver you can sit and watch. Not the timid one in the test
+  // harness -- this one is trying, and that makes it the fastest way to see
+  // what a layout does. See autopilot.js.
+  const autopilot = new Autopilot(track);
+
+  loadEffects();
 
   const gui = createGui({
     onRebuild: () => rebuildVehicle(),
@@ -507,6 +520,10 @@ export async function boot() {
     vehicle.reset(track.spawnAt(progress));
     lapTimer.invalidate();
     carCamera.snap();
+    // The camera just teleported. Motion blur reprojects from where it was
+    // last frame, so without this the first frame back smears the whole
+    // screen across the distance the car was moved.
+    resetPostHistory();
   }
 
   // One definition, shared by the key and the button, so they cannot drift.
@@ -517,6 +534,9 @@ export async function boot() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // No style resize call: a style that keeps its own render targets notices
+    // the new size on the next frame and rebuilds itself once, rather than
+    // once per resize event while the window edge is being dragged.
     // Point size is in pixels, so smoke has to be told or it changes size
     // with the window.
     smoke.setViewportHeight(window.innerHeight);
@@ -531,6 +551,23 @@ export async function boot() {
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
     if (e.code === 'KeyO') hud.toast(toggleWireframe());
+    // Watch the computer drive it. Puts the car back on the line first, so it
+    // always starts from somewhere it can actually get going from.
+    if (e.code === 'KeyJ') {
+      autopilot.enabled = !autopilot.enabled;
+      if (autopilot.enabled) { respawn(); lapTimer.invalidate(); }
+      hud.toast(autopilot.enabled ? 'autopilot — watch it drive' : 'autopilot off', 2200);
+    }
+    // 1-7 switch post effects on and off while driving, whatever style is on.
+    //
+    // Judging a look is not something you can do from a settings screen: what
+    // matters is whether the bloom helps at 200 km/h into a corner, and the
+    // only way to know is to take it away without stopping. The digits are
+    // positional and match the pipeline order, and the toast names what moved.
+    if (/^Digit[1-9]$/.test(e.code)) {
+      const changed = toggleEffect(Number(e.code.slice(5)) - 1);
+      if (changed) hud.toast(`${changed.label} ${changed.on ? 'on' : 'off'}`);
+    }
     if (e.code === 'KeyK') { skidmarks.clear(); smoke.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
     if (e.code === 'KeyN') {
@@ -614,6 +651,11 @@ export async function boot() {
     if (state.camera) hud.toast(`camera: ${carCamera.cycle()}`);
 
     // --- physics ---
+    // The autopilot substitutes for the pad at the input layer and nowhere
+    // else: same car, same physics, same limits. If it cannot make a corner,
+    // neither can you.
+    if (autopilot.enabled) Object.assign(state, autopilot.update(vehicle));
+
     let firstStep = true;
     stepper.advance(dt, (h) => {
       Object.assign(stepInput, state);
@@ -673,9 +715,15 @@ export async function boot() {
     debug.update(world);
 
     hud.update(dt, vehicle, lapTimer);
-    hud.updateDebug({ vehicle, stepper, input, projection, camera: carCamera, lapTimer, tyreAudio });
+    hud.updateDebug({
+      vehicle, stepper, input, projection, camera: carCamera, lapTimer, tyreAudio,
+      fx: listEffects().filter((e) => e.on).map((e) => e.id).join('+') || 'none',
+      autopilot: autopilot.enabled,
+    });
 
-    renderer.render(scene, camera);
+    // One exit point. With no effects switched on this is renderer.render()
+    // straight to the canvas -- see post/post.js.
+    renderFrame(dt, { renderer, scene, camera }, { vehicle });
   }
 
   const _grip = new THREE.Vector3();

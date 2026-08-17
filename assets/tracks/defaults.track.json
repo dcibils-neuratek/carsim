@@ -1,22 +1,43 @@
 {
   "format": "carsim.track.defaults",
   "version": 1,
-
   "road": {
     "halfWidth": 6.0,
     "curbWidth": 1.4,
-    "banking": { "gain": 190, "maxDegrees": 3.5 },
-    "surface": { "roadGrip": 1.0, "grassGrip": 0.45 }
+    "banking": {
+      "gain": 190,
+      "maxDegrees": 3.5
+    },
+    "surface": {
+      "roadGrip": 1.0,
+      "grassGrip": 0.45,
+      "texture": "asphalt"
+    }
   },
-
   "terrain": {
-    "hills": { "amplitude": 1.0, "scale": 1.0 },
-    "envelope": { "slope": 0.06, "roadClearance": 0.15 }
+    "hills": {
+      "amplitude": 1.0,
+      "scale": 1.0
+    },
+    "envelope": {
+      "slope": 0.06,
+      "roadClearance": 0.15
+    }
   },
-
   "environment": {
-    "fog": { "near": 260, "far": 1150 },
-    "sun": { "color": "#fff3dd", "intensity": 2.4, "position": [70, 110, 45] },
+    "fog": {
+      "near": 600,
+      "far": 2600
+    },
+    "sun": {
+      "color": "#fff3dd",
+      "intensity": 2.4,
+      "position": [
+        70,
+        110,
+        45
+      ]
+    },
     "palette": {
       "sky": "#74b6e8",
       "skyHigh": "#2f6ea8",
@@ -32,24 +53,36 @@
       "leaf": "#3f7a35",
       "post": "#dfe4ea",
       "postStripe": "#d94141",
-      "skidmark": "#101216"
+      "skidmark": "#101216",
+      "boardA": "#d94141",
+      "boardB": "#f2f2f2"
     }
   },
-
   "scenery": {
     "trees": {
       "count": 620,
-      "height": [3.2, 6.6],
-      "radius": [1.5, 2.4],
+      "height": [
+        3.2,
+        6.6
+      ],
+      "radius": [
+        1.5,
+        2.4
+      ],
       "segments": 6,
       "clearance": 16
     },
     "ridges": {
       "count": 64,
-      "height": [55, 200],
-      "radius": 1150,
-      "jitter": 190
+      "height": [
+        124,
+        452
+      ],
+      "radius": 2600,
+      "jitter": 430
     },
-    "posts": { "spacing": 12 }
+    "posts": {
+      "spacing": 12
+    }
   }
 }

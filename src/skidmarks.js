@@ -7,6 +7,7 @@
 // garbage, no unbounded growth, no frame-rate cliff after a long drift.
 
 import * as THREE from 'three';
+import { OUTPUT_GLSL, withOutputUniform } from './post/colorspace.js';
 import { TUNING } from './tuning.js';
 
 const VERTS_PER_SEGMENT = 6;          // two triangles
@@ -43,7 +44,7 @@ export class Skidmarks {
       polygonOffset: true,
       polygonOffsetFactor: -4,
       polygonOffsetUnits: -4,
-      uniforms: { uColor: { value: new THREE.Color(this.markColor) } },
+      uniforms: withOutputUniform({ uColor: { value: new THREE.Color(this.markColor) } }),
       vertexShader: `
         attribute float aOpacity;
         varying float vOpacity;
@@ -52,11 +53,12 @@ export class Skidmarks {
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }`,
       fragmentShader: `
+        ${OUTPUT_GLSL}
         uniform vec3 uColor;
         varying float vOpacity;
         void main() {
           if (vOpacity <= 0.001) discard;
-          gl_FragColor = vec4(uColor, vOpacity);
+          gl_FragColor = vec4(vroomOutput(uColor), vOpacity);
         }`,
     });
 

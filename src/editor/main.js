@@ -15,7 +15,17 @@ import { ElevationView } from './elevation.js';
 import { Inspector, PointInspector } from './inspector.js';
 import { Preview3D } from './preview3d.js';
 
-const PREVIEW_DEBOUNCE = 450;   // ms of quiet before the 3D view is rebuilt
+// Quiet before the 3D view is rebuilt.
+//
+// 450 ms was chosen when a world took a few hundred milliseconds to build, so
+// a pause between two nudges cost you almost nothing. At 5 km a circuit takes
+// about three seconds, and 450 ms of stillness while lining up the next drag
+// is easy to produce -- so the editor kept starting a three-second build you
+// were about to invalidate, and every point felt like it took three seconds to
+// move. The plan and elevation views are unaffected and still redraw
+// instantly; this only delays the 3D preview, which is the expensive one and
+// the one you look at between edits rather than during them.
+const PREVIEW_DEBOUNCE = 1400;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -39,7 +49,12 @@ class Editor {
 
     doc.onChange(() => this.recompute());
     this.recompute();
-    this.plan.fit();
+    // On the next frame, not this one. fit() divides the canvas size by the
+    // circuit's extent, and during the constructor the canvas has not been
+    // laid out yet -- clientWidth is 0, so the scale it computes is garbage
+    // and the default 1.4 px/m stands. That framed a 260 m circuit by luck
+    // and opened a 2 km one entirely off screen.
+    requestAnimationFrame(() => this.plan.fit());
 
     this.preview.init().then(() => {
       this.preview.start();
@@ -119,6 +134,11 @@ class Editor {
       ['min gap', `${m.minSeparation.toFixed(0)} m`, m.minSeparation < m.neededSeparation],
       ['climb', `${m.elevationRange.span.toFixed(1)} m`],
       ['max slope', `${(m.steepestGradient * 100).toFixed(1)}%`],
+      // How it drives, not whether it is legal. See cornerSpeeds in
+      // trackcheck.js: a lap can pass every validity check and still be a
+      // single long constant-radius bore.
+      ['slow', `${(m.slowShare120 * 100).toFixed(0)}%`, m.slowShare120 > 0.35],
+      ['variety', m.speedVariety.toFixed(2), m.speedVariety < 0.18],
     ].map(([k, v, bad]) =>
       `<span class="metric${bad ? ' bad' : ''}"><b>${v}</b>${k}</span>`).join('');
   }

@@ -307,7 +307,23 @@ export class Hud {
   }
 
   update(dt, vehicle, lapTimer) {
-    this._fps += (1 / Math.max(dt, 1e-4) - this._fps) * 0.08;
+    const instant = 1 / Math.max(dt, 1e-4);
+    this._fps += (instant - this._fps) * 0.08;
+
+    // Worst frame in the last two seconds, alongside the smoothed average.
+    //
+    // An average alone is not enough to compare two render styles: a chain
+    // that holds 90 and one that holds 90 while dropping to 40 twice a second
+    // report the same number and feel nothing alike, and the second is the one
+    // that ruins a corner. Reset by window rather than decayed, so a bad frame
+    // ages out cleanly instead of haunting the readout.
+    this._fpsWindow = (this._fpsWindow ?? 0) + dt;
+    this._fpsWorst = Math.min(this._fpsWorst ?? instant, instant);
+    if (this._fpsWindow > 2) {
+      this._fpsMin = this._fpsWorst;
+      this._fpsWorst = instant;
+      this._fpsWindow = 0;
+    }
 
     // Smooth the needle a touch; raw per-step speed flickers the last digit.
     this._displaySpeed += (vehicle.speedKmh - this._displaySpeed) * Math.min(dt * 12, 1);
@@ -385,11 +401,15 @@ export class Hud {
 
   updateDebug(ctx) {
     if (!this.debugVisible) return;
-    const { vehicle, stepper, input, projection, camera, lapTimer, tyreAudio } = ctx;
+    const { vehicle, stepper, input, projection, camera, lapTimer, tyreAudio, fx, autopilot } = ctx;
     const deg = (r) => (r * 180 / Math.PI).toFixed(1);
 
     const lines = [];
-    lines.push(`fps ${this._fps.toFixed(0)}   steps/frame ${stepper.stepsLastFrame}   alpha ${stepper.alpha.toFixed(2)}`);
+    lines.push(
+      `fps ${this._fps.toFixed(0)} (worst ${(this._fpsMin ?? this._fps).toFixed(0)})` +
+      `   fx ${fx || 'none'}${autopilot ? '   AUTOPILOT' : ''}` +
+      `   steps/frame ${stepper.stepsLastFrame}   alpha ${stepper.alpha.toFixed(2)}`,
+    );
     lines.push('');
     lines.push(`speed    ${vehicle.speed.toFixed(2)} m/s  (${vehicle.speedKmh.toFixed(1)} km/h)`);
     lines.push(`g        lon ${vehicle.gLong.toFixed(2)}  lat ${vehicle.gLat.toFixed(2)}  total ${Math.hypot(vehicle.gLong, vehicle.gLat).toFixed(2)}`);

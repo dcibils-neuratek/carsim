@@ -4,6 +4,7 @@
 // comes from hard facets and a small, deliberate palette, not from assets.
 
 import * as THREE from 'three';
+import { OUTPUT_GLSL, withOutputUniform } from './post/colorspace.js';
 
 export const PALETTE = {
   sky: 0x74b6e8,
@@ -136,11 +137,11 @@ function createSky(pal) {
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
-    uniforms: {
+    uniforms: withOutputUniform({
       top: { value: new THREE.Color(pal.skyHigh) },
       mid: { value: new THREE.Color(pal.sky) },
       bot: { value: new THREE.Color(pal.horizon) },
-    },
+    }),
     vertexShader: `
       varying float vH;
       void main() {
@@ -149,6 +150,7 @@ function createSky(pal) {
         gl_Position = projectionMatrix * viewMatrix * world;
       }`,
     fragmentShader: `
+      ${OUTPUT_GLSL}
       uniform vec3 top, mid, bot;
       varying float vH;
       void main() {
@@ -156,7 +158,13 @@ function createSky(pal) {
         vec3 c = h < 0.08
           ? mix(bot, mid, smoothstep(-0.15, 0.08, h))
           : mix(mid, top, smoothstep(0.08, 0.65, h));
-        gl_FragColor = vec4(c, 1.0);
+        // Wrapped so the sky looks the same whether it is drawn to the canvas
+        // or into a post chain's linear target. This shader writes its own
+        // gl_FragColor, so it never received three's colour-space conversion
+        // and has always been displayed darker than the palette says -- which
+        // is the look, and which a composer would silently "fix". See
+        // post/colorspace.js.
+        gl_FragColor = vec4(vroomOutput(c), 1.0);
       }`,
   });
   const sky = new THREE.Mesh(geo, mat);

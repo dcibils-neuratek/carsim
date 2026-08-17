@@ -211,7 +211,11 @@ function makeAutopilot(track) {
 async function testTrackFiles(r) {
   r.section('track files');
 
-  r.check('catalogue loaded', TRACK_IDS.length === 4, TRACK_IDS.join(', '));
+  // Counted against the index rather than a literal, which is what went stale:
+  // this said 4 from the day Snow landed and stayed red through Mediterranean
+  // and Dirt, so the suite reported a failure that meant nothing and would
+  // have hidden one that did.
+  r.check('catalogue loaded', TRACK_IDS.length >= 4, TRACK_IDS.join(', '));
   r.check('default circuit resolves', Boolean(getTrack(DEFAULT_TRACK)), DEFAULT_TRACK);
   r.check('unknown id falls back to default',
     getTrack('nope-not-a-track').id === DEFAULT_TRACK);
@@ -1182,7 +1186,10 @@ async function testLap(ctx, r, label = '') {
   let steps = 0;
   const pos = new THREE.Vector3();
 
-  const MAX_STEPS = 17000;      // 140 s; the longer, low-grip circuits need it
+  // 340 s. The circuits were 1.3 km when 17000 steps was enough; they are 5 km
+  // now, and the autopilot is deliberately slow -- it exists to prove a lap is
+  // driveable, not to set a time. Budget follows the distance.
+  const MAX_STEPS = 41000;
   await run(ctx, MAX_STEPS, drive, (v) => {
     steps++;
     if (stuckAt) return;

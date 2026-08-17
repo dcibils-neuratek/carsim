@@ -20,6 +20,7 @@
 
 import * as THREE from 'three';
 import { sampleCircuit } from './track.js';
+import { TUNING } from './tuning.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -227,6 +228,51 @@ export function controlTurnAngles(controlPoints) {
  * Pass an existing `geometry` to reuse it -- the editor samples once per edit
  * and uses the same result for drawing and for checking.
  */
+/**
+ * What speed each part of the lap demands, and how varied that is.
+ *
+ * Everything else this file measures asks whether a circuit is VALID -- does
+ * it fold through itself, is a corner too tight to sweep, is a crest too
+ * sharp. None of it asks whether the lap is any good to drive, which is the
+ * question you are actually holding in your head while dragging points.
+ *
+ * v = sqrt(mu * g * r) at every sample, from the circuit's own grip. Two
+ * things fall out of it that a layout can be designed against:
+ *
+ *   slowShare  how much of the lap has to be taken slowly. A circuit built
+ *              for a 300 hp car and driven in a 770 hp one reads here before
+ *              it reads anywhere else -- Woods once needed under 120 km/h for
+ *              69% of its length.
+ *   variety    how much the demanded speed moves around, as its spread over
+ *              its mean. A lap that is all one speed is dull whether that
+ *              speed is 60 or 260; the interesting ones keep changing their
+ *              mind.
+ */
+function cornerSpeeds(geo, def) {
+  const n = geo.samples;
+  const mu = (def.surface?.roadGrip ?? 1) * (TUNING.wheels?.frictionFront ?? 1.35);
+  const speeds = new Float32Array(n);
+  let sum = 0, slow90 = 0, slow120 = 0;
+  for (let i = 0; i < n; i++) {
+    const r = geo.curvature[i] > 1e-6 ? 1 / geo.curvature[i] : 1e6;
+    const v = Math.min(400, Math.sqrt(mu * 9.81 * r) * 3.6);
+    speeds[i] = v;
+    sum += v;
+    if (v < 90) slow90++;
+    if (v < 120) slow120++;
+  }
+  const mean = sum / n;
+  let varsum = 0;
+  for (let i = 0; i < n; i++) varsum += (speeds[i] - mean) ** 2;
+  return {
+    cornerSpeeds: speeds,
+    meanCornerSpeed: mean,
+    slowShare90: slow90 / n,
+    slowShare120: slow120 / n,
+    speedVariety: Math.sqrt(varsum / n) / Math.max(mean, 1),
+  };
+}
+
 export function validateTrack(def, geometry = null) {
   const geo = geometry || trackGeometry(def);
   const { samples: n, curvature, gradient, gradientChange, ribbonWidth } = geo;
@@ -382,6 +428,7 @@ export function validateTrack(def, geometry = null) {
     warnings,
     geometry: geo,
     metrics: {
+      ...cornerSpeeds(geo, def),
       length: geo.length,
       tightestRadius: tightest,
       minRadius,

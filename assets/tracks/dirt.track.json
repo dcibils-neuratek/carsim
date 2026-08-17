@@ -3,7 +3,7 @@
   "version": 1,
   "id": "dirt",
   "name": "Dirt",
-  "tagline": "Loose gravel — steer it on the throttle",
+  "tagline": "Loose gravel \u2014 steer it on the throttle",
   "difficulty": "Loose",
   "notes": [
     "A CLOSED circuit, not a point-to-point stage. Lap timing, the minimap and the closed B-spline all assume the road returns to where it started, so a real rally special stage would need changes well beyond a track file. This is rallycross: a loop with a rally surface.",
@@ -14,47 +14,121 @@
     "surface.squeal 0.25 because rubber does not squeal on gravel -- the surface gives way before the tyre does. It scrabbles instead, so most of the squeal is taken out even though this circuit slides more than any other.",
     "The road is WIDER than the tarmac circuits (7.6 vs 6.0) because the car spends most of the lap pointing somewhere other than where it is going. At tarmac width the same slide angle puts you in the scenery, which reads as the track being unfair rather than the surface being loose."
   ],
-
   "road": {
     "halfWidth": 7.6,
     "curbWidth": 1.2,
     "centerLine": false,
-    "banking": { "gain": 150, "maxDegrees": 2.5 },
+    "banking": {
+      "gain": 150,
+      "maxDegrees": 2.5
+    },
     "surface": {
       "roadGrip": 0.62,
       "grassGrip": 0.34,
-      "squeal": 0.25
+      "squeal": 0.25,
+      "texture": "dirt"
     },
     "controlPoints": [
-      [255, 0.0, -55],
-      [237, 2.5, 27],
-      [173, 4.0, 79],
-      [91, 2.0, 61],
-      [31, -1.0, 108],
-      [-52, -3.0, 105],
-      [-70, -1.5, 20],
-      [-60, 1.5, -45],
-      [-100, 4.0, -113],
-      [-81, 5.0, -196],
-      [7, 3.0, -201],
-      [71, 0.0, -180],
-      [150, -2.5, -211],
-      [224, -3.0, -170],
-      [252, -1.5, -84]
+      [
+        1178.1,
+        0.0,
+        -254.1
+      ],
+      [
+        1094.94,
+        2.5,
+        124.74
+      ],
+      [
+        799.26,
+        4.0,
+        364.98
+      ],
+      [
+        420.42,
+        2.0,
+        281.82
+      ],
+      [
+        143.22,
+        -1.0,
+        498.96
+      ],
+      [
+        -240.24,
+        -3.0,
+        485.1
+      ],
+      [
+        -323.4,
+        -1.5,
+        92.4
+      ],
+      [
+        -277.2,
+        1.5,
+        -207.9
+      ],
+      [
+        -462.0,
+        4.0,
+        -522.06
+      ],
+      [
+        -374.22,
+        5.0,
+        -905.52
+      ],
+      [
+        32.34,
+        3.0,
+        -928.62
+      ],
+      [
+        328.02,
+        0.0,
+        -831.6
+      ],
+      [
+        693.0,
+        -2.5,
+        -974.82
+      ],
+      [
+        1034.88,
+        -3.0,
+        -785.4
+      ],
+      [
+        1164.24,
+        -1.5,
+        -388.08
+      ]
     ]
   },
-
   "terrain": {
-    "hills": { "amplitude": 1.7, "scale": 0.85 },
-    "envelope": { "slope": 0.07, "roadClearance": 0.18 }
+    "hills": {
+      "amplitude": 1.7,
+      "scale": 0.85
+    },
+    "envelope": {
+      "slope": 0.07,
+      "roadClearance": 0.18
+    }
   },
-
   "environment": {
-    "fog": { "near": 190, "far": 900 },
+    "fog": {
+      "near": 190,
+      "far": 900
+    },
     "sun": {
       "color": "#ffe9c2",
       "intensity": 2.5,
-      "position": [90, 95, 30]
+      "position": [
+        90,
+        95,
+        30
+      ]
     },
     "palette": {
       "sky": "#9fc4dd",
@@ -75,16 +149,31 @@
       "dust": "#c2a87e"
     }
   },
-
   "scenery": {
     "trees": {
       "count": 780,
-      "height": [3.0, 7.5],
-      "radius": [1.3, 2.2],
+      "height": [
+        3.0,
+        7.5
+      ],
+      "radius": [
+        1.3,
+        2.2
+      ],
       "segments": 5,
       "clearance": 18
     },
-    "ridges": { "count": 58, "height": [60, 210], "radius": 980, "jitter": 200 },
-    "posts": { "spacing": 14 }
+    "ridges": {
+      "count": 58,
+      "height": [
+        60,
+        210
+      ],
+      "radius": 980,
+      "jitter": 200
+    },
+    "posts": {
+      "spacing": 14
+    }
   }
 }

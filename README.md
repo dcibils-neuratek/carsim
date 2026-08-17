@@ -190,6 +190,25 @@ The car model is **"free low poly car" by Vladyslav Holhanov**, used under
 condition of the licence, so keep this credit if you share the game.
 [Source on Sketchfab](https://sketchfab.com/3d-models/free-low-poly-car-38d83155e7724a14b300e156b134a1bb).
 
+**Road surfaces** in `assets/textures/` — *City Street Asphalt Generic Clean
+001* and *Ground Dirt Weeds Patchy 004*, both from
+[Poliigon](https://www.poliigon.com/)'s free library and used under their
+licence. Each circuit names its own surface in
+`road.surface.texture`; a circuit that names none keeps the flat-shaded road,
+which is still what Snow and the rest use.
+
+Both are scans authored to tile. `src/roadtexture.js` also carries the
+machinery to condition a surface that is NOT — square crop, low-frequency
+removal, mirrored wrapping — because the first gravel attempt was a stock
+photograph whose lighting gradient tiled into visible bands down the whole
+lap. Nothing uses that path today; it is a flag on the surface, not on the
+loader.
+
+Note that Poliigon ships **gloss** where most PBR pipelines expect
+**roughness**, and they are opposites. `roadtexture.js` inverts it on the way in — bound straight
+into `roughnessMap` a gravel road comes out shiniest exactly where it should
+be most matte.
+
 Drop any GLB at `assets/car.glb` to swap it. `src/carmodel.js` works out the
 model's own axes from its proportions (longest = length, shortest = height), so
 it doesn't matter which way the exporter pointed it; it then scales the car to

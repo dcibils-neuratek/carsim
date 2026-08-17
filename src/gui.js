@@ -7,6 +7,7 @@
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { TUNING, saveTuning, resetTuning, dumpTuning, peakPowerHp, setPeakPowerHp } from './tuning.js';
 import { applyCarTuning } from './cars.js';
+import { POST, FX, EFFECTS } from './post/post.js';
 
 export function createGui({ onRebuild, onToast, car = null }) {
   const gui = new GUI({ title: 'carsim tuning', width: 310 });
@@ -14,6 +15,64 @@ export function createGui({ onRebuild, onToast, car = null }) {
 
   const save = () => saveTuning();
   const rebuild = () => { saveTuning(); onRebuild(); };
+
+  // Post-processing. Nothing in here touches physics -- it is the only part of
+  // the panel you cannot make the car handle differently from.
+  //
+  // Every value is read by the pass each frame rather than on change, so these
+  // move the picture while you drag them. The checkboxes are the same object
+  // the number keys write to: a checkbox and a key that disagreed would be
+  // worse than either on its own.
+  const post = gui.addFolder('post effects (1-7)');
+  const fxFolder = post.addFolder('on / off');
+  EFFECTS.forEach((e, i) => fxFolder.add(FX, e.id).name(`${i + 1} \u00b7 ${e.label}`));
+  fxFolder.open();
+
+  const aa = post.addFolder('supersample');
+  // Discrete rather than a slider: each value reallocates the render targets,
+  // and a continuous drag would do that dozens of times on the way past.
+  aa.add(POST, 'renderScale', { '1.25x': 1.25, '1.5x': 1.5, '2x': 2 })
+    .name('resolution');
+
+  const inkF = post.addFolder('ink outline');
+  inkF.add(POST, 'inkStrength', 0, 1, 0.02).name('line strength');
+  inkF.add(POST, 'inkWidth', 0.5, 4, 0.1).name('line width (px)');
+  inkF.add(POST, 'inkDepth', 0, 1.5, 0.05).name('silhouettes');
+  inkF.add(POST, 'inkColorEdge', 0, 1.5, 0.05).name('material edges');
+  // The two cutoffs are the difference between a drawing and a mess: too low
+  // and every shading boundary and every facet of terrain gets a line.
+  inkF.add(POST, 'inkDepthThreshold', 0.005, 0.3, 0.005).name('silhouette cutoff');
+  inkF.add(POST, 'inkColorThreshold', 0.02, 0.6, 0.01).name('material cutoff');
+  inkF.addColor(POST, 'inkColor').name('ink colour');
+
+  const blurF = post.addFolder('motion blur');
+  blurF.add(POST, 'blurStrength', 0, 4, 0.05).name('strength');
+  blurF.add(POST, 'blurFromKmh', 0, 250, 5).name('starts at (km/h)');
+  blurF.add(POST, 'blurFullKmh', 20, 400, 5).name('full at (km/h)');
+  blurF.add(POST, 'blurSamples', 2, 16, 1).name('samples');
+  // A cap, because the reprojection is honest and a fast corner would smear
+  // the whole screen if nothing stopped it.
+  blurF.add(POST, 'blurMax', 0.005, 0.2, 0.005).name('max smear');
+  // Where the blur starts taking effect, in metres. Below this everything
+  // stays sharp, which is how the car is kept out of it.
+  blurF.add(POST, 'blurNear', 0, 25, 0.5).name('sharp nearer than (m)');
+  blurF.add(POST, 'blurFar', 1, 40, 0.5).name('full blur past (m)');
+
+  const bloomF = post.addFolder('bloom');
+  bloomF.add(POST, 'bloom', 0, 3, 0.05).name('strength');
+  // Below the brightest surfaces and above the rest -- too low and the whole
+  // image glows, which is fog, not bloom.
+  bloomF.add(POST, 'bloomThreshold', 0.1, 2, 0.05).name('threshold');
+  bloomF.add(POST, 'bloomKnee', 0.05, 1.5, 0.05).name('knee');
+
+  const lens = post.addFolder('grade & lens');
+  lens.add(POST, 'exposure', 0.4, 2, 0.02);
+  lens.add(POST, 'vignette', 0, 1, 0.02);
+  lens.add(POST, 'vignetteSoftness', 0.1, 1, 0.02).name('vignette softness');
+  lens.add(POST, 'aberration', 0, 6, 0.1).name('colour fringe (px)');
+
+  aa.close(); inkF.close(); blurF.close(); bloomF.close(); lens.close();
+  post.close();
 
   const chassis = gui.addFolder('chassis (rebuilds car)');
   chassis.add(TUNING.chassis, 'mass', 700, 2200, 10).onFinishChange(rebuild);

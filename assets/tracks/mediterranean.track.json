@@ -3,7 +3,7 @@
   "version": 1,
   "id": "mediterranean",
   "name": "Mediterranean",
-  "tagline": "Hot, dry and open — cypress and fast sweepers",
+  "tagline": "Hot, dry and open \u2014 cypress and fast sweepers",
   "difficulty": "Fast",
   "notes": [
     "The fast circuit. roadGrip 1.02 and the widest, most open corners here -- this is the one where the car's aero and top gear finally matter, and the counterweight to Dirt at the other end of the grip range.",
@@ -13,46 +13,123 @@
     "Banking is stronger than the other circuits (210 / 4 degrees). Long fast sweepers with no banking feel like they are fighting you at speed, and this is the only track quick enough for that to show.",
     "The first control point is pulled IN off the polar radius (272 rather than 300). On a pure polar loop the start line lands wherever the sweep happens to be, and here that was mid-corner -- a 50 degree kink across the start straight. Pulling that one point back onto the chord between its neighbours flattens the join to 14 degrees and moves the corner to where it belongs, one point earlier."
   ],
-
   "road": {
     "halfWidth": 6.5,
     "curbWidth": 1.5,
-    "banking": { "gain": 210, "maxDegrees": 4.0 },
+    "banking": {
+      "gain": 210,
+      "maxDegrees": 4.0
+    },
     "surface": {
       "roadGrip": 1.02,
       "grassGrip": 0.42
     },
     "controlPoints": [
-      [272, 0.0, -42],
-      [255, -2.0, 39],
-      [226, -3.5, 126],
-      [122, -1.0, 113],
-      [60, 2.0, 105],
-      [-11, 4.5, 136],
-      [-99, 5.0, 119],
-      [-121, 3.0, 33],
-      [-90, 0.0, -40],
-      [-107, -2.5, -107],
-      [-103, -4.0, -203],
-      [-30, -3.0, -263],
-      [60, 0.0, -225],
-      [116, 3.0, -179],
-      [198, 4.0, -178],
-      [269, 2.0, -124]
+      [
+        1066.24,
+        0.0,
+        -164.64
+      ],
+      [
+        999.6,
+        -2.0,
+        152.88
+      ],
+      [
+        885.92,
+        -3.5,
+        493.92
+      ],
+      [
+        478.24,
+        -1.0,
+        442.96
+      ],
+      [
+        235.2,
+        2.0,
+        411.6
+      ],
+      [
+        -43.12,
+        4.5,
+        533.12
+      ],
+      [
+        -388.08,
+        5.0,
+        466.48
+      ],
+      [
+        -474.32,
+        3.0,
+        129.36
+      ],
+      [
+        -352.8,
+        0.0,
+        -156.8
+      ],
+      [
+        -419.44,
+        -2.5,
+        -419.44
+      ],
+      [
+        -403.76,
+        -4.0,
+        -795.76
+      ],
+      [
+        -117.6,
+        -3.0,
+        -1030.96
+      ],
+      [
+        235.2,
+        0.0,
+        -882.0
+      ],
+      [
+        454.72,
+        3.0,
+        -701.68
+      ],
+      [
+        776.16,
+        4.0,
+        -697.76
+      ],
+      [
+        1054.48,
+        2.0,
+        -486.08
+      ]
     ]
   },
-
   "terrain": {
-    "hills": { "amplitude": 1.2, "scale": 1.1 },
-    "envelope": { "slope": 0.07, "roadClearance": 0.16 }
+    "hills": {
+      "amplitude": 1.2,
+      "scale": 1.1
+    },
+    "envelope": {
+      "slope": 0.07,
+      "roadClearance": 0.16
+    }
   },
-
   "environment": {
-    "fog": { "near": 320, "far": 1450 },
+    "fog": {
+      "near": 320,
+      "far": 1450
+    },
     "sun": {
       "color": "#fff0d0",
       "intensity": 2.8,
-      "position": [60, 130, 60]
+      "position": [
+        60,
+        130,
+        60
+      ]
     },
     "palette": {
       "sky": "#8fc0dd",
@@ -72,16 +149,31 @@
       "skidmark": "#14161a"
     }
   },
-
   "scenery": {
     "trees": {
       "count": 900,
-      "height": [6.0, 13.0],
-      "radius": [0.8, 1.4],
+      "height": [
+        6.0,
+        13.0
+      ],
+      "radius": [
+        0.8,
+        1.4
+      ],
       "segments": 5,
       "clearance": 15
     },
-    "ridges": { "count": 50, "height": [40, 140], "radius": 1000, "jitter": 180 },
-    "posts": { "spacing": 13 }
+    "ridges": {
+      "count": 50,
+      "height": [
+        40,
+        140
+      ],
+      "radius": 1000,
+      "jitter": 180
+    },
+    "posts": {
+      "spacing": 13
+    }
   }
 }

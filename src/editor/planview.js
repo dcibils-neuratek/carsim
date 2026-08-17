@@ -96,6 +96,10 @@ export class PlanView {
     }
     const w = this.canvas.clientWidth - margin * 2;
     const h = this.canvas.clientHeight - margin * 2;
+    // Refuse rather than compute nonsense: called before layout, both of these
+    // are negative and the scale comes out useless in a way that looks like a
+    // broken circuit rather than a broken call.
+    if (w <= 0 || h <= 0) return;
     this.view.scale = Math.min(w / (maxX - minX || 1), h / (maxZ - minZ || 1));
     this.view.cx = (minX + maxX) / 2;
     this.view.cz = (minZ + maxZ) / 2;
@@ -308,6 +312,53 @@ export class PlanView {
     ctx.lineWidth = this.geo.halfWidth * 2 * this.view.scale;
     this._ribbonPath();
     ctx.stroke();
+
+    this._drawSpeedProfile();
+  }
+
+  /**
+   * Paint the road by the speed it demands.
+   *
+   * The rest of this view answers "is this circuit legal". This one answers
+   * "is it any good", which is the question you are holding while dragging a
+   * point and the one nothing here could show before. A lap of one colour is a
+   * lap of one speed, and a lap of one speed is dull whatever that speed is --
+   * what you are looking for is the mix, and where the slow parts fall.
+   *
+   * Drawn narrow and down the middle so the ribbon's own edges, the tight
+   * sections overlay and the folding check are all still readable through it.
+   */
+  _drawSpeedProfile() {
+    const speeds = this.check?.metrics?.cornerSpeeds;
+    if (!speeds) return;
+    const ctx = this.ctx;
+    const pts = this.geo.points;
+    const n = pts.length;
+
+    ctx.save();
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = Math.max(2, this.geo.halfWidth * 0.7 * this.view.scale);
+    ctx.globalAlpha = 0.9;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      // Deep red at a crawl through to cyan flat out. Banded rather than a
+      // smooth ramp, because the eye reads a change of band and does not read
+      // a gradient.
+      const v = speeds[i];
+      ctx.strokeStyle = v < 70 ? '#c0392b'
+        : v < 100 ? '#e07b39'
+        : v < 140 ? '#e8c547'
+        : v < 190 ? '#7fbf5f'
+        : v < 250 ? '#3fa9c9'
+        : '#5ce1e6';
+      const [ax, ay] = this.toScreen(a.x, a.z);
+      const [bx, by] = this.toScreen(b.x, b.z);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** Overlay the stretches where the corner radius is at or past the limit. */

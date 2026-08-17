@@ -361,14 +361,34 @@ export const DEFAULTS = {
   },
 
   camera: {
-    distance: 6.6,
-    height: 2.35,
-    lookAhead: 9.0,
-    lookHeight: 0.85,
+    // Lower than it was, but not closer -- and the "not closer" is the part
+    // that took a second measurement to learn.
+    //
+    // Bringing the eye down to 0.8 m and in to 4 m measured four times the
+    // optical flow, so that is where this went first. Driven, the car was cut
+    // off by the bottom of the frame; measured again WITH the car in shot, the
+    // close camera was worse than the original, not better: middle-of-screen
+    // flow of 0.90 against 1.57. The first measurement had placed the camera
+    // on the track independently of the car, so the car was not in it.
+    //
+    // The reason is worth keeping: the car is a large object that does not
+    // move relative to the camera, so every pixel it covers contributes
+    // nothing to the sense of speed. Filling the screen with it costs exactly
+    // what filling the screen with anything static costs. There is a limit to
+    // how big you want your own car.
+    //
+    // So: height comes down, which puts the ground closer under you and does
+    // not spend screen on the car; distance stays about where it was, which
+    // keeps the whole car in frame -- checked by projecting its bounding box,
+    // and the longest car has to fit, not the average one.
+    distance: 6.8,
+    height: 1.95,
+    lookAhead: 12.0,
+    lookHeight: 1.0,
     stiffness: 7.5,       // spring rate of the chase cam
     fovBase: 62,
     fovGain: 20,          // extra fov at top speed
-    velocityBlend: 0.35,  // how much the cam follows velocity vs. car heading
+    velocityBlend: 0.55,  // how much the cam follows velocity vs. car heading
     // Right-stick look-around. Held, it orbits the car for a walk-around;
     // released, it eases back behind, so you never have to put it away.
     lookSpeed: 2.6,       // rad/s at full stick
@@ -379,8 +399,16 @@ export const DEFAULTS = {
     // how much of the drift angle it follows; this caps the result. Without a
     // cap a big slide swings the view right off the road just as you need to
     // see it -- which is the difference between a slide being exciting and
-    // being disorienting. ~15 deg is the most that stays readable.
-    slideYawMax: 0.26,
+    // being disorienting.
+    //
+    // Was 0.26, about 15 degrees, written down as "the most that stays
+    // readable". That was decided with the camera 2.35 m up and 6.6 m back,
+    // where the car was small enough in the frame that you could see its
+    // attitude anyway. Lower and closer you cannot: in a big slide the car
+    // stays square-on and you lose sight of where the front wheels are
+    // pointing, which is the one thing you need to catch it. 25 degrees puts
+    // the flank back in view without the road leaving it.
+    slideYawMax: 0.44,
 
     // Fraction of the chassis' roll the camera copies. Enough to feel the car
     // lean on its outside springs; past about a quarter it stops reading as
