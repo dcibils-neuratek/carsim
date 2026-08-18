@@ -414,7 +414,7 @@ export async function boot() {
   const hud = new Hud();
   hud.setTrackName(trackDef.name);
   hud.buildMinimap(track.points);
-  const lapTimer = new LapTimer();
+  const lapTimer = new LapTimer(`${trackDef.id}:${carDef.id}`);
   const stepper = new FixedStepper();
 
   let vehicle = new Vehicle(world, RAPIER, track.spawnAt(SPAWN_PROGRESS));
@@ -555,6 +555,9 @@ export async function boot() {
     // always starts from somewhere it can actually get going from.
     if (e.code === 'KeyJ') {
       autopilot.enabled = !autopilot.enabled;
+      // Its laps are timed and shown, but they are not yours and never take
+      // the record.
+      lapTimer.counting = !autopilot.enabled;
       if (autopilot.enabled) { respawn(); lapTimer.invalidate(); }
       hud.toast(autopilot.enabled ? 'autopilot — watch it drive' : 'autopilot off', 2200);
     }

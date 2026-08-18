@@ -1,14 +1,45 @@
 // Lap and sector timing driven by centerline progress rather than trigger
 // volumes. Sectors must be collected in order before a line crossing counts,
 // so cutting across the infield can't manufacture a lap.
+//
+// Best laps survive the session. The whole stated point of the game is the gap
+// between your best lap and the one you are on, and a best that dies on reload
+// makes that gap meaningless after four minutes -- there is nothing to come
+// back to. They are kept per circuit AND per car, because a time set in the
+// SC18 tells you nothing about how well you are driving the Alpine.
 
 const SECTORS = [0.33, 0.66];
 const WRAP_HIGH = 0.85;   // progress above this counts as "approaching the line"
 const WRAP_LOW = 0.15;
 
+const STORAGE_KEY = 'vroom.bestlaps.v1';
+
+/** Every stored best, as { "circuit:car": seconds }. Empty if unreadable. */
+function loadBests() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};   // private browsing, or someone else's JSON in our key
+  }
+}
+
 export class LapTimer {
-  constructor() {
+  /**
+   * @param {string|null} key  circuit + car this session's times belong to,
+   *   or null for a session whose times are not worth keeping.
+   */
+  constructor(key = null) {
+    // An unsaved editor layout changes shape every time it is stashed, so a
+    // time set on one is not a time on anything -- it would just overwrite
+    // itself with times from a different circuit under the same name.
+    this.key = key && !key.startsWith('__') ? key : null;
     this.reset();
+    if (this.key) {
+      const stored = loadBests()[this.key];
+      if (typeof stored === 'number' && stored > 0) this.best = stored;
+    }
   }
 
   reset() {
@@ -16,6 +47,10 @@ export class LapTimer {
     this.current = 0;
     this.last = null;
     this.best = null;
+    // Cleared while the computer is driving. Its laps are still timed and
+    // shown -- watching what it does is the point of the autopilot -- but they
+    // are not yours, so they never take the record.
+    this.counting = true;
     this.lapCount = 0;
     this.sectorsHit = new Set();
     this._prevProgress = null;
@@ -45,8 +80,11 @@ export class LapTimer {
 
     if (this.running && this.sectorsHit.size === SECTORS.length) {
       this.last = this.current;
-      this.isBest = this.best === null || this.last < this.best;
-      if (this.isBest) this.best = this.last;
+      this.isBest = this.counting && (this.best === null || this.last < this.best);
+      if (this.isBest) {
+        this.best = this.last;
+        this._persist();
+      }
       this.lapCount++;
       this.justCompleted = true;
     }
@@ -55,6 +93,22 @@ export class LapTimer {
     this.running = true;
     this.current = 0;
     this.sectorsHit.clear();
+  }
+
+  /**
+   * Write the new best out.
+   *
+   * Read-modify-write rather than keeping the whole table in memory: the game
+   * only ever holds one circuit and one car, so anything else in there belongs
+   * to a session that is not this one and must survive untouched.
+   */
+  _persist() {
+    if (!this.key) return;
+    try {
+      const all = loadBests();
+      all[this.key] = this.best;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    } catch { /* full, or private browsing -- the lap still stands this session */ }
   }
 
   /** Invalidate the lap in progress -- used when the car is respawned. */
