@@ -119,6 +119,27 @@ export const DEFAULTS = {
     efficiency: 0.90,
     autoUpshiftRpm: 6400,   // shift at the power peak
     autoDownshiftRpm: 2600,
+
+    // Kickdown. autoDownshiftRpm above is an ANTI-BOG rule -- it drops a gear
+    // when the engine is about to fall on its face -- and on its own it leaves
+    // the car a gear or two too tall out of every corner, because 2600 rpm in
+    // fourth is somewhere around 60 km/h and no corner is that slow. Measured
+    // out of a 88 km/h corner at full throttle, the car sat in fourth the whole
+    // way and took 3.8 s to 120 km/h; the third gear it refused to select did
+    // it in 3.1.
+    //
+    // The old rule also carried `drive < 0.9`, so flooring the throttle was the
+    // one condition under which it was FORBIDDEN to drop a gear -- backwards
+    // from every automatic ever built, where the pedal on the floor is the
+    // kickdown signal. Both rules are kept, split by the pedal: lift and it
+    // avoids bogging, floor it and it goes looking for a gear.
+    kickdownThrottle: 0.85, // pedal past this asks for a gear, not just torque
+    // How close to the upshift point a kickdown is allowed to land. Without a
+    // margin the gearbox drops a gear, immediately passes its own upshift point
+    // and shifts straight back -- one hunt per corner, audible and slower than
+    // doing nothing.
+    kickdownHeadroom: 0.92,
+
     shiftTime: 0.14,        // seconds of torque cut -- a DCT is quick
     automatic: true,
   },

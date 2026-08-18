@@ -426,9 +426,41 @@ export class Vehicle {
 
     if (this.rpm > upshiftAt && this.gear < tx.gears.length) {
       this._shift(this.gear + 1);
-    } else if (this.rpm < tx.autoDownshiftRpm && this.gear > 1 && pedals.drive < 0.9) {
+    } else if (pedals.drive >= tx.kickdownThrottle) {
+      const target = this._kickdownGear(upshiftAt);
+      if (target !== null) this._shift(target);
+    } else if (this.rpm < tx.autoDownshiftRpm && this.gear > 1) {
       this._shift(this.gear - 1);
     }
+  }
+
+  /**
+   * The shortest gear the engine can take right now without immediately
+   * needing to shift back up, or null if it is already in it.
+   *
+   * rpm here is kinematic -- it comes from road speed through the ratio -- so
+   * the rpm a lower gear would produce is exactly today's rpm scaled by the
+   * ratio between the two. That makes this a lookup rather than a simulation,
+   * and it means the answer is right on the frame the pedal goes down instead
+   * of a few tenths later.
+   *
+   * It walks DOWN through the gears rather than dropping one, because the case
+   * this exists for is a slow corner taken in a tall gear, where one gear is
+   * not enough. Each step is checked against the same ceiling, so the gear it
+   * lands in is the shortest that still has room to pull.
+   */
+  _kickdownGear(upshiftAt) {
+    const tx = TUNING.transmission;
+    const ceiling = upshiftAt * tx.kickdownHeadroom;
+    const current = tx.gears[this.gear - 1];
+    let best = null;
+    for (let g = this.gear - 1; g >= 1; g--) {
+      // Shorter gear, higher rpm -- once one overshoots, so does every gear
+      // below it, so there is nothing further down worth checking.
+      if (this.rpm * (tx.gears[g - 1] / current) > ceiling) break;
+      best = g;
+    }
+    return best;
   }
 
   _shift(next) {

@@ -508,11 +508,13 @@ async function testStraightLine(ctx, r) {
 
   const track = ctx.track;
   let t = 0, t100 = null, peak = 0, minRide = Infinity, grounded = 0, onTrackSteps = 0;
+  let maxGear = 0;
 
   await run(ctx, 3000,
     (v) => input({ steer: pursuit(track, v).steer, throttle: 1 }),
     (v) => {
       t += DT;
+      if (v.gear > maxGear) maxGear = v.gear;
       if (t100 === null && v.speedKmh >= 100) t100 = t;
       peak = Math.max(peak, v.speedKmh);
       // Only judge ground clearance while we're actually on the circuit.
@@ -529,7 +531,16 @@ async function testStraightLine(ctx, r) {
     t100 !== null && t100 > 3 && t100 < 12, t100 ? `${t100.toFixed(2)} s` : '—');
   r.check('chassis never grounds while accelerating on track', grounded === 0,
     `min ride ${minRide.toFixed(3)} m over ${onTrackSteps} steps`);
-  r.check('upshifts through the gearbox', ctx.vehicle.gear >= 3, `ended in gear ${ctx.vehicle.gearLabel}`);
+  // The HIGHEST gear reached, not the one it finishes in. Full throttle held
+  // for the whole run means the car is off the road long before the end -- it
+  // reaches 5th at 171 km/h and is down to 40 by the time the run stops -- so
+  // the closing gear says more about where it crashed than about the gearbox.
+  //
+  // This assertion used to read the final gear, and passed only because the
+  // gearbox could not downshift at full throttle: it sat in 5th doing 40 km/h.
+  // It was reading the symptom of a bug as a pass.
+  r.check('upshifts through the gearbox', maxGear >= 3,
+    `reached gear ${maxGear}, ended in ${ctx.vehicle.gearLabel}`);
 }
 
 async function testBraking(ctx, r) {
