@@ -22,7 +22,7 @@
     "surface": {
       "roadGrip": 0.55,
       "grassGrip": 0.22,
-      "texture": null
+      "texture": "asphalt"
     },
     "controlPoints": [
       [

@@ -388,7 +388,7 @@ export const DEFAULTS = {
     stiffness: 7.5,       // spring rate of the chase cam
     fovBase: 62,
     fovGain: 20,          // extra fov at top speed
-    velocityBlend: 0.55,  // how much the cam follows velocity vs. car heading
+    velocityBlend: 0.35,  // how much the cam follows velocity vs. car heading
     // Right-stick look-around. Held, it orbits the car for a walk-around;
     // released, it eases back behind, so you never have to put it away.
     lookSpeed: 2.6,       // rad/s at full stick
@@ -399,16 +399,17 @@ export const DEFAULTS = {
     // how much of the drift angle it follows; this caps the result. Without a
     // cap a big slide swings the view right off the road just as you need to
     // see it -- which is the difference between a slide being exciting and
-    // being disorienting.
+    // being disorienting. ~15 deg is the most that stays readable.
     //
-    // Was 0.26, about 15 degrees, written down as "the most that stays
-    // readable". That was decided with the camera 2.35 m up and 6.6 m back,
-    // where the car was small enough in the frame that you could see its
-    // attitude anyway. Lower and closer you cannot: in a big slide the car
-    // stays square-on and you lose sight of where the front wheels are
-    // pointing, which is the one thing you need to catch it. 25 degrees puts
-    // the flank back in view without the road leaving it.
-    slideYawMax: 0.44,
+    // Tried at 0.44, and separately with a yaw-rate term that swung the view
+    // through ordinary corners as well, both to put more of the car's flank in
+    // view once the camera came down. Driven, both were worse: the two effects
+    // COMPOUND, so any corner with a little slip in it collected both and the
+    // view ended up most of the way onto the car's side. Measured at 26 deg
+    // median and 71 peak, which is a replay camera rather than one you drive
+    // from. Halving it was still worse than not having it. Reverted whole --
+    // this number was right the first time.
+    slideYawMax: 0.26,
 
     // Fraction of the chassis' roll the camera copies. Enough to feel the car
     // lean on its outside springs; past about a quarter it stops reading as

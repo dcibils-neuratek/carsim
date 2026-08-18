@@ -760,7 +760,7 @@ export class Track {
     this.group.add(mesh);
     this.roadMesh = mesh;
     // Fire and forget: the road is already on screen and correct without it.
-    applyRoadTexture(mesh.material, this.def.surface?.texture);
+    applyRoadTexture(mesh.material, this.def.surface?.texture, this.palette.asphalt);
 
     // --- curbs, as their own mesh -------------------------------------------
     //

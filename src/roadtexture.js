@@ -66,6 +66,7 @@ export function tileMetres(name) {
   return SETS[name]?.tile ?? TILE_METRES;
 }
 
+
 /**
  * Make a photograph tile.
  *
@@ -220,19 +221,43 @@ function fetchMap(file, srgb, anisotropy, condition, invert) {
 }
 
 /**
+ * The average colour of an image, in the renderer's working space.
+ *
+ * Measured rather than declared. The first version of the tint below carried a
+ * hand-written "this photo looks like #3a3f47", which is a guess about an
+ * image nobody had sampled -- and since the tint is a DIVISION by it, a guess
+ * that is wrong by a little pushes every circuit's road the wrong way by a
+ * lot. Sampling costs one 64x64 draw at load and cannot be wrong.
+ */
+function meanColour(image) {
+  const N = 64;
+  const c = document.createElement('canvas');
+  c.width = N; c.height = N;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(image, 0, 0, N, N);
+  const d = g.getImageData(0, 0, N, N).data;
+  let r = 0, gr = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
+  const n = N * N;
+  // The pixels are display-referred, so the Color has to be told that or the
+  // ratio is taken between values in two different spaces.
+  return new THREE.Color().setRGB(r / n / 255, gr / n / 255, b / n / 255, THREE.SRGBColorSpace);
+}
+
+/**
  * Attach a surface to a road material, if that surface has one.
  *
  * Fire and forget. Returns a promise for tests, but nothing in the game waits
  * on it, and a failure is logged and dropped rather than thrown -- a missing
  * JPEG must not be able to stop you driving.
  */
-export function applyRoadTexture(material, name) {
+export function applyRoadTexture(material, name, paletteColour = null) {
   const set = SETS[name];
   if (!set) return Promise.resolve(false);
 
   const anisotropy = maxAnisotropy;
   const wanted = Object.entries(set)
-    .filter(([slot]) => slot !== 'prepare' && slot !== 'tile');
+    .filter(([slot]) => !['prepare', 'tile'].includes(slot));
 
   return Promise.all(
     wanted.map(([slot, spec]) => {
@@ -244,6 +269,26 @@ export function applyRoadTexture(material, name) {
     }),
   ).then((pairs) => {
     for (const [slot, tex] of pairs) material[slot] = tex;
+
+    // Put each circuit's own road colour back on top of the photograph.
+    //
+    // A textured road takes its colour from the photo, which quietly threw
+    // away the fact that Mediterranean's tarmac is warmer than Forest's, that
+    // Woods' is darker and that Snow's is a cool grey -- all four rendered the
+    // same image. Dividing the circuit's asphalt by what the photo actually
+    // averages gives a multiplier that restores the difference, and leaves a
+    // circuit that already agrees with the photo at exactly 1.
+    const diffuse = pairs.find(([slot]) => slot === 'map')?.[1];
+    if (paletteColour !== null && diffuse?.image) {
+      const mean = meanColour(diffuse.image);
+      const own = new THREE.Color(paletteColour);
+      material.color.setRGB(
+        Math.min(4, own.r / Math.max(mean.r, 1e-4)),
+        Math.min(4, own.g / Math.max(mean.g, 1e-4)),
+        Math.min(4, own.b / Math.max(mean.b, 1e-4)),
+        THREE.LinearSRGBColorSpace,
+      );
+    }
     // Normals from a photograph are strong for a world lit this flatly; half
     // of it reads as grit rather than as a corrugated road.
     if (material.normalScale) material.normalScale.set(0.5, 0.5);
