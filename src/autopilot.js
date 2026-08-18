@@ -21,6 +21,12 @@
 import * as THREE from 'three';
 import { TUNING } from './tuning.js';
 
+// Fraction of the braking it has available below which it simply lifts. A
+// corner 400 m away technically starts demanding a whisker of brake the moment
+// it comes into range; dragging the pedal all the way down a straight for it is
+// slower than coasting and looks nothing like driving.
+const BRAKE_DEADBAND = 0.12;
+
 const _pos = new THREE.Vector3();
 const _target = new THREE.Vector3();
 const _toTarget = new THREE.Vector3();
@@ -43,7 +49,8 @@ export class Autopilot {
   }
 
   /**
-   * The fastest this corner can be taken, and how far ahead to look for it.
+   * What the road ahead demands: the fastest we may be going right now, and
+   * how hard we have to brake to still make the corner that decides it.
    *
    * Braking distance is why the lookahead is not a constant. From 300 km/h it
    * takes over 200 m to get down to a hairpin; from 80 it takes 20. Looking a
@@ -51,6 +58,20 @@ export class Autopilot {
    * the one fast corner still flat out, and this is the single thing that
    * separates a computer that laps from one that runs wide at the end of every
    * straight.
+   *
+   * `demand` is the reason this returns two numbers instead of one. The brake
+   * used to be driven by how far PAST the limit the car already was, which
+   * meant it applied 4% of the brakes when it was 10 km/h too fast and only
+   * reached full pressure 38 km/h too fast. Measured on Forest, it arrived at a
+   * corner it had itself decided needed 101 km/h doing 153, having managed
+   * 0.2 g of the 1.36 g it had. The planner assumed it braked at the limit the
+   * moment it was over; the pedal did nothing of the kind.
+   *
+   * Braking at exactly `demand` is a fixed point: under constant deceleration
+   * a, v^2 = vCorner^2 + 2*a*d holds all the way down, so the demand stays put
+   * and the car arrives at the corner speed rather than converging on it late.
+   * It rises on its own as the corner nears, which is what makes it a schedule
+   * rather than a reaction.
    */
   _speedTarget(index, speed) {
     const track = this.track;
@@ -62,6 +83,7 @@ export class Autopilot {
     const ahead = Math.max(6, Math.min(n * 0.4, Math.round(stopping / spacing)));
 
     let limit = Infinity;
+    let demand = 0;   // m/s^2 of braking the most urgent corner in range needs
     for (let k = 3; k < ahead; k++) {
       const c = track.curvature[(index + k) % n];
       if (c <= 1e-6) continue;
@@ -75,8 +97,14 @@ export class Autopilot {
       const distance = k * spacing;
       const allowed = Math.sqrt(corner * corner + 2 * mu * 9.81 * distance);
       limit = Math.min(limit, allowed);
+      // The average deceleration that gets us from here to that corner speed
+      // over the road that is left. The corner needing the most is the one
+      // being braked for -- not necessarily the tightest one in range.
+      if (speed > corner) {
+        demand = Math.max(demand, (speed * speed - corner * corner) / (2 * distance));
+      }
     }
-    return limit;
+    return { limit, demand };
   }
 
   /**
@@ -132,13 +160,24 @@ export class Autopilot {
     const ahead = Math.max(_toTarget.x * fwd.x + _toTarget.z * fwd.z, 1);
     const steer = THREE.MathUtils.clamp((lateral / ahead) * 2.2, -1, 1);
 
-    const target = this._speedTarget(projection.index, speed);
+    const mu = this._mu();
+    const { limit: target, demand } = this._speedTarget(projection.index, speed);
+
     // A dead band, so it is not alternating throttle and brake down a straight
     // at the exact speed it wants -- which reads as a nervous driver and
     // upsets the car on the way into a corner.
     const error = target - speed;
     let throttle = error > 1.5 ? 1 : error > 0 ? 0.35 : 0;
-    const brake = error < -2.5 ? Math.min(1, (-error - 2.5) / 8) : 0;
+
+    // Brake to the schedule. `capacity` is already commitment-scaled, so a
+    // demand equal to it asks for 100% pedal while leaving the real tyres a
+    // margin. The dead band keeps the brakes off for a corner so distant that
+    // lifting covers it, which is most of a lap.
+    const capacity = mu * 9.81;
+    const brake = demand > capacity * BRAKE_DEADBAND
+      ? Math.min(1, demand / capacity)
+      : 0;
+    if (brake > 0) throttle = 0;
 
     // --- traction ------------------------------------------------------------
     //
@@ -150,7 +189,6 @@ export class Autopilot {
     //
     // The friction circle says what is left: if a fraction u of the grip is
     // going sideways, sqrt(1 - u^2) of it remains for driving. That is the cap.
-    const mu = this._mu();
     const lateralUse = Math.min(1, Math.abs(vehicle.gLat || 0) / (mu / 0.88));
     throttle *= Math.sqrt(Math.max(0, 1 - lateralUse * lateralUse));
 
@@ -173,7 +211,7 @@ export class Autopilot {
       lookY: 0,
       source: 'autopilot',
       // Handy on the debug overlay while tuning a layout.
-      telemetry: { target: target * 3.6, index: projection.index },
+      telemetry: { target: target * 3.6, index: projection.index, demand },
     };
   }
 }
