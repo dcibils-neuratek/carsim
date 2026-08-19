@@ -16,7 +16,7 @@ import { Vehicle } from './vehicle.js';
 import { Input } from './input.js';
 import { CarCamera } from './camera.js';
 import { Hud } from './hud.js';
-import { LapTimer, formatTime } from './laptimer.js';
+import { LapTimer, SECTORS, formatTime } from './laptimer.js';
 import { createGui } from './gui.js';
 import { loadCarModel, buildCarFromModel } from './carmodel.js';
 import { PALETTE } from './scene.js';
@@ -30,6 +30,7 @@ import { PadPanel } from './padui.js';
 import { Music } from './music.js';
 import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
 import { Autopilot } from './autopilot.js';
+import { GhostLap } from './ghost.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
@@ -415,10 +416,108 @@ export async function boot() {
   hud.setTrackName(trackDef.name);
   hud.buildMinimap(track.points);
   const lapTimer = new LapTimer(`${trackDef.id}:${carDef.id}`);
+  const ghost = new GhostLap(`${trackDef.id}:${carDef.id}`);
+  let sectorsShown = 0;
   const stepper = new FixedStepper();
 
   let vehicle = new Vehicle(world, RAPIER, track.spawnAt(SPAWN_PROGRESS));
   let car = mountCar(scene, null);
+
+  /**
+   * The car your best lap was driven in, to drive against.
+   *
+   * The same mesh as your own, made translucent rather than a simplified
+   * stand-in: the whole value of a ghost is reading its line and its braking
+   * point off it, and you read those off a shape you recognise. It carries no
+   * physics and no collider -- it is a picture of a lap, and driving through it
+   * has to be free or it stops being a reference and becomes an obstacle.
+   */
+  function buildGhostCar() {
+    const built = mountCar(scene, null);   // adds its own wheels and scene entry
+    built.group.traverse((o) => {
+      if (!o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      o.material = mats.map((m) => {
+        const ghosted = m.clone();
+        ghosted.transparent = true;
+        ghosted.opacity = GHOST_OPACITY;
+        // Both of these are here because the obvious settings look wrong.
+        //
+        // depthWrite off is the usual advice for transparency, and on a car it
+        // is exactly backwards: nothing occludes anything, so you see the seats
+        // and the far side of the shell THROUGH the near side and the car reads
+        // as an interior with no outside. Writing depth lets the nearest
+        // surface hide what is behind it, which is what makes it read as a car
+        // at all.
+        ghosted.depthWrite = true;
+        // And the far side of the bodywork is still drawn without this, since a
+        // model authored for an opaque car has no reason to cull anything.
+        ghosted.side = THREE.FrontSide;
+        return ghosted;
+      });
+      if (o.material.length === 1) [o.material] = o.material;
+      o.castShadow = false;
+      o.receiveShadow = false;
+    });
+    built.group.visible = false;
+    return built;
+  }
+
+  // Built on demand rather than at boot: the lap that first sets a reference is
+  // driven in a session that started without one, and waiting for a reload to
+  // show the ghost means never seeing it on the run that earned it.
+  let ghostCar = null;
+  const GHOST_OPACITY = 0.45;
+  const _ghostPos = new THREE.Vector3();
+
+  // How far the car's origin sits above the road surface. A recording holds a
+  // point ON the road, but a car's group is anchored at the chassis, so placing
+  // the ghost at the recorded point buries it to the windows -- 0.71 m of a
+  // car about 1.2 m tall.
+  //
+  // Taken from the circuit's own spawn height rather than reassembled from the
+  // suspension figures here, so it cannot drift away from where the game
+  // actually puts a car. The sag is the one part spawn does not include: it
+  // drops the car at its RESTING height and lets it settle, and a ghost that
+  // never settles has to be lowered by hand. Closed form from carmodel.js.
+  const GHOST_LIFT = track.spawnAt(0).position.y - track.points[0].y
+    - 9.81 / (4 * TUNING.suspension.stiffness);
+
+  /**
+   * Put the ghost where its lap says it was at this point on the clock.
+   *
+   * A recording holds only progress and how far off the centreline it ran; the
+   * rest is looked up in the circuit, which is why it costs 8 KB instead of a
+   * megabyte. The heading comes from the road's own tangent rather than from
+   * the recording, so the ghost never points somewhere the road does not go --
+   * it loses the drift angle, and that is a fair trade for never looking
+   * broken.
+   */
+  function placeGhost(elapsed) {
+    if (!ghost.hasReference) return;
+    if (!ghostCar) ghostCar = buildGhostCar();
+    const pose = ghost.poseAt(elapsed);
+    if (!pose) { ghostCar.group.visible = false; return; }
+
+    const pts = track.points;
+    const n = pts.length;
+    const x = pose.progress * n;
+    const i = Math.floor(x) % n;
+    const j = (i + 1) % n;
+    const f = x - Math.floor(x);
+    const a = pts[i];
+    const b = pts[j];
+    const r = track.rights[i];
+    _ghostPos.set(
+      a.x + (b.x - a.x) * f + r.x * pose.lateral,
+      a.y + (b.y - a.y) * f + GHOST_LIFT,
+      a.z + (b.z - a.z) * f + r.z * pose.lateral,
+    );
+    ghostCar.group.position.copy(_ghostPos);
+    const t = track.tangents[i];
+    ghostCar.group.rotation.set(0, Math.atan2(t.x, t.z), 0);
+    ghostCar.group.visible = true;
+  }
 
   const carCamera = new CarCamera(camera, renderer.domElement, (x, z) => track.terrainHeight(x, z));
 
@@ -558,7 +657,7 @@ export async function boot() {
       // Its laps are timed and shown, but they are not yours and never take
       // the record.
       lapTimer.counting = !autopilot.enabled;
-      if (autopilot.enabled) { respawn(); lapTimer.invalidate(); }
+      if (autopilot.enabled) { respawn(); lapTimer.invalidate(); ghost.abandon(); }
       hud.toast(autopilot.enabled ? 'autopilot — watch it drive' : 'autopilot off', 2200);
     }
     // 1-7 switch post effects on and off while driving, whatever style is on.
@@ -650,7 +749,7 @@ export async function boot() {
       hud.toast(state.source === 'gamepad' ? `pad: ${input.describe()}` : 'keyboard — plug in a pad for analog control', 2600);
     }
 
-    if (state.reset) { respawn(); hud.toast('respawned'); }
+    if (state.reset) { respawn(); ghost.abandon(); hud.toast('respawned'); }
     if (state.camera) hud.toast(`camera: ${carCamera.cycle()}`);
 
     // --- physics ---
@@ -690,6 +789,37 @@ export async function boot() {
     const onTrack = Math.abs(projection.lateral) < 8;
     lapTimer.update(dt, projection.progress, onTrack);
     hud.setProgress(projection.progress, carPos, lapTimer.running);
+
+    // --- driving against your own best lap ---------------------------------
+    //
+    // Order matters here and it is not obvious. Crossing the line ENDS one lap
+    // and STARTS the next in the same frame, so a recording kept for the lap
+    // that just finished has to be taken before the next one wipes it. Written
+    // the other way round -- and it was -- every best lap commits a recording
+    // that is one frame old and empty.
+    if (lapTimer.justCompleted && lapTimer.isBest) ghost.commit();
+    if (lapTimer.justStarted) { ghost.begin(); sectorsShown = 0; }
+    if (lapTimer.running) ghost.sample(projection.progress, lapTimer.current, projection.lateral);
+
+    // Sectors say WHERE the delta bar's number came from. The bar tells you
+    // that you are down four tenths; the split tells you it all went in the
+    // first third, which is the half of it you can act on.
+    if (lapTimer.sectorsHit.size > sectorsShown) {
+      const s = SECTORS[sectorsShown];
+      const was = ghost.timeAt(s);
+      sectorsShown = lapTimer.sectorsHit.size;
+      if (was !== null && lapTimer.running) {
+        const d = lapTimer.current - was;
+        hud.toast(`S${sectorsShown}   ${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}`, 1600);
+      }
+    }
+
+    hud.setDelta(
+      lapTimer.running && ghost.hasReference
+        ? ghost.delta(projection.progress, lapTimer.current)
+        : null,
+    );
+    placeGhost(lapTimer.running ? lapTimer.current : -1);
 
     if (lapTimer.justCompleted) {
       hud.toast(
@@ -741,7 +871,8 @@ export async function boot() {
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
     vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
-    skidmarks, smoke,
+    skidmarks, smoke, lapTimer, ghost,
+    get ghostCar() { return ghostCar; },
     get tyreAudio() { return tyreAudio; },
   };
 

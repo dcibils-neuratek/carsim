@@ -141,7 +141,92 @@ export class Hud {
     this._gy = 0;
     this._peakG = 0;
     this._balance = 0;
+    this._delta = 0;
     this._buildTach();
+    this._buildDelta();
+  }
+
+  /**
+   * The delta bar: how far up or down you are on your own best lap, right now.
+   *
+   * Built here rather than written into the page, so the whole feature is one
+   * file and the markup does not carry an element that means nothing until
+   * there is a lap to compare against.
+   *
+   * It sits under the running clock because that is where the eye already is,
+   * and it is a BAR rather than only a number: at speed there is no time to
+   * read three digits and work out their sign, but a stripe growing to the
+   * right of centre needs no reading at all.
+   */
+  _buildDelta() {
+    const laps = document.getElementById('laps');
+    if (!laps) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'lapDelta';
+    wrap.style.cssText = 'margin-top:6px;display:none';
+
+    const track = document.createElement('div');
+    track.style.cssText = 'position:relative;height:6px;border-radius:3px;'
+      + 'background:rgba(255,255,255,.10);overflow:hidden';
+
+    // The centre line is the reference lap. Everything is read against it, so
+    // it stays visible under the fill rather than being covered by it.
+    const zero = document.createElement('div');
+    zero.style.cssText = 'position:absolute;left:50%;top:0;width:1px;height:100%;'
+      + 'background:rgba(255,255,255,.45)';
+
+    const fill = document.createElement('div');
+    fill.style.cssText = 'position:absolute;top:0;height:100%;left:50%;width:0';
+
+    const text = document.createElement('div');
+    text.style.cssText = 'text-align:right;font-variant-numeric:tabular-nums;'
+      + 'font-size:13px;letter-spacing:1px;margin-top:2px';
+
+    track.append(fill, zero);
+    wrap.append(track, text);
+    laps.append(wrap);
+    this.el.deltaWrap = wrap;
+    this.el.deltaFill = fill;
+    this.el.deltaText = text;
+  }
+
+  /**
+   * @param {number|null} seconds  + is down on the best lap, - is up on it.
+   *   null hides the bar -- no reference lap, or not on a timed lap.
+   */
+  setDelta(seconds) {
+    const wrap = this.el.deltaWrap;
+    if (!wrap) return;
+    if (seconds === null || seconds === undefined) {
+      wrap.style.display = 'none';
+      // Cleared while hidden, or the smoothing carries the last lap's gap into
+      // the first second of the next one and reads as having lost time that
+      // was never lost.
+      this._delta = 0;
+      return;
+    }
+    wrap.style.display = 'block';
+
+    // Smoothed, because the raw figure is a difference between two
+    // interpolated clocks and jitters by a few hundredths at the checkpoint
+    // boundaries. The number is read, not integrated, so a little lag costs
+    // nothing and a twitching readout costs legibility.
+    this._delta += (seconds - this._delta) * 0.25;
+    const d = this._delta;
+
+    // Full scale at two seconds. Wider and a good lap shows no movement at
+    // all; narrower and the bar is pinned for most of a bad one.
+    const frac = Math.max(-1, Math.min(1, d / 2));
+    const half = Math.abs(frac) * 50;
+    const fill = this.el.deltaFill;
+    fill.style.background = d > 0 ? '#e05252' : '#57d97a';
+    fill.style.left = d > 0 ? '50%' : `${50 - half}%`;
+    fill.style.width = `${half}%`;
+
+    const text = this.el.deltaText;
+    text.textContent = `${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}`;
+    text.style.color = d > 0 ? '#e05252' : '#57d97a';
   }
 
   /**

@@ -8,7 +8,7 @@
 // back to. They are kept per circuit AND per car, because a time set in the
 // SC18 tells you nothing about how well you are driving the Alpine.
 
-const SECTORS = [0.33, 0.66];
+export const SECTORS = [0.33, 0.66];
 const WRAP_HIGH = 0.85;   // progress above this counts as "approaching the line"
 const WRAP_LOW = 0.15;
 
@@ -55,12 +55,16 @@ export class LapTimer {
     this.sectorsHit = new Set();
     this._prevProgress = null;
     this.justCompleted = false;
+    // A lap crossing the line both ends one lap and starts the next, and the
+    // recorder needs the start edge as much as the finish one.
+    this.justStarted = false;
     this.isBest = false;
   }
 
   /** Call once per frame with the car's progress around the lap (0..1). */
   update(dt, progress, onTrack) {
     this.justCompleted = false;
+    this.justStarted = false;
     if (this.running) this.current += dt;
 
     const prev = this._prevProgress;
@@ -92,6 +96,7 @@ export class LapTimer {
     // Any line crossing starts (or restarts) a lap, valid or not.
     this.running = true;
     this.current = 0;
+    this.justStarted = true;
     this.sectorsHit.clear();
   }
 
