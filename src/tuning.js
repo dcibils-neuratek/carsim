@@ -133,6 +133,21 @@ export const DEFAULTS = {
     // from every automatic ever built, where the pedal on the floor is the
     // kickdown signal. Both rules are kept, split by the pedal: lift and it
     // avoids bogging, floor it and it goes looking for a gear.
+    // Which axle the power goes to: 0 is rear, 1 is front, 0.5 is an even
+    // four-wheel-drive split. It was rear-wheel drive and nothing else until a
+    // front-drive car needed adding, and a front-drive car simulated as
+    // rear-drive is not a compromise, it is the opposite car -- a Mini is
+    // famous for pulling itself out of a corner and running wide when you ask
+    // for too much, and driving the rear turns that into oversteer.
+    //
+    // Nothing else has to change for it to behave: grip is already solved per
+    // wheel and the steering is already on the front pair, so power understeer
+    // falls out of the friction circle on its own. The handbrake still cuts
+    // REAR drive, which on a front-driven car is nothing to cut -- also
+    // correct, since locking the undriven rear axle is exactly how you rotate
+    // one of these.
+    driveFront: 0,
+
     kickdownThrottle: 0.85, // pedal past this asks for a gear, not just torque
     // How close to the upshift point a kickdown is allowed to land. Without a
     // margin the gearbox drops a gear, immediately passes its own upshift point

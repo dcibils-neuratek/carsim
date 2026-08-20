@@ -541,11 +541,14 @@ export class Vehicle {
     const force = (this.engineTorque * ratio * tx.efficiency) / TUNING.wheels.radius;
     this.driveForce = force;
 
-    // Rear-wheel drive: the drive torque goes to the rears only.
-    // Written to _wheelForce rather than the controller, because _applyBrakes
-    // combines drive and braking into a single longitudinal force per wheel.
-    this._wheelForce[WHEEL.RL] = force / 2;
-    this._wheelForce[WHEEL.RR] = force / 2;
+    // Split by axle. Written to _wheelForce rather than the controller,
+    // because _applyBrakes combines drive and braking into a single
+    // longitudinal force per wheel.
+    const front = THREE.MathUtils.clamp(tx.driveFront ?? 0, 0, 1);
+    this._wheelForce[WHEEL.FL] = (force * front) / 2;
+    this._wheelForce[WHEEL.FR] = (force * front) / 2;
+    this._wheelForce[WHEEL.RL] = (force * (1 - front)) / 2;
+    this._wheelForce[WHEEL.RR] = (force * (1 - front)) / 2;
   }
 
   /**
@@ -769,9 +772,18 @@ export class Vehicle {
       mesh.position.set(p.x, p.y - susp[i], p.z);
       mesh.rotation.set(0, 0, 0);
       mesh.rotateY(lerp(A.wheels[i].steering, B.wheels[i].steering, a));
-      // The axle points along -X, so a positive reported rotation spins the
-      // wheel backwards in mesh space.
-      mesh.rotateX(-shortestLerpAngle(A.wheels[i].rotation, B.wheels[i].rotation, a));
+      // Forward is +Z, so rolling forward carries the top of the wheel toward
+      // +Z -- which is a POSITIVE rotation about +X. This used to be negated,
+      // on the reasoning that the axle points along -X, and every car in the
+      // game spun its wheels backwards as a result.
+      //
+      // It survived because nothing showed it. A tyre is a plain black ring
+      // and the earlier rims were coarse enough that neither direction looked
+      // wrong; it took a model with a detailed rim for anyone to see it.
+      // Measured on the marker at the top of the wheel: driving forward at
+      // 27 km/h it was travelling backwards at 15 rad over 14 samples, and the
+      // Alpine -- the oldest car here -- did the same at 17.
+      mesh.rotateX(shortestLerpAngle(A.wheels[i].rotation, B.wheels[i].rotation, a));
     }
 
     if (bodyGroup) this._leanBody(bodyGroup, susp);
