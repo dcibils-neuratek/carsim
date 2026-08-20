@@ -12,7 +12,7 @@ export const sc18 = {
   file: './assets/cars/2019_lamborghini_sc18_alston-optimized.glb',
   tagline: 'A one-off 6.5 V12 with a wing off a race car. Nothing here is subtle.',
   badge: 'HYPER',
-  drive: 'Mid AWD*',
+  drive: 'Mid AWD',
   tuning: {
     // 5.30 x 2.10 x 1.14 m -- the longest and by far the widest car here.
     chassis: {
@@ -33,14 +33,17 @@ export const sc18 = {
       ],
       redlineRpm: 8500, maxRpm: 8800,
     },
-    // NOT the real drivetrain, and the asterisk on the card says so. The
-    // simulation drives the rear wheels only -- an all-wheel-drive path
-    // would mean splitting torque, a centre differential and a second set of
-    // traction limits, which is a change to the vehicle model rather than to
-    // a car file. What AWD actually buys is traction, so that is what is
-    // given back: the most grip in the garage. It launches and puts power
-    // down like the real thing, and it will step out under power where the
-    // real one would not.
+    // The most grip in the garage, and it is no longer standing in for a
+    // drivetrain this car did not have. It used to: the simulation drove the
+    // rear wheels only, the card carried an asterisk, and the grip here was
+    // described as giving back what four-wheel drive would have bought.
+    //
+    // That story does not survive measurement. This car is power-limited, not
+    // traction-limited: 0-100 comes out at 2.78 s at every drive split tried,
+    // and still 2.78 s with the tyre grip halved. The rear never slips on a
+    // launch, so there was never any traction for the extra grip to be
+    // replacing. The number is fine -- it is a hypercar on slicks -- but it is
+    // grip, not compensation.
     wheels: {
       frictionFront: 1.82, frictionRear: 1.86,
       // From the model's own hubs, per docs/car-models.md. Note they are
@@ -51,6 +54,17 @@ export const sc18 = {
     },
     transmission: {
       // 7-speed ISR, tall to suit 8500 rpm and 350 km/h.
+      // Four-wheel drive for real now, and 0.3 is the RESTING split -- what
+      // the layout gives when neither axle is busy. The centre differential in
+      // Vehicle._driveSplit moves it from there, and a rear bias at rest is
+      // what this kind of car runs in the dry.
+      //
+      // Measured, it costs nothing and it is honest: identical 0-100 and
+      // identical corner-exit speed against driving the rear alone, because
+      // the differential hands it all back to the rear the moment the front
+      // tyres are busy cornering. A FIXED 0.3 would have cost 21 km/h of
+      // corner exit, and a fixed 0.5 nearly 40.
+      driveFront: 0.3,
       gears: [3.14, 2.21, 1.65, 1.30, 1.04, 0.85, 0.69],
       final: 3.42, autoUpshiftRpm: 8200, autoDownshiftRpm: 3400,
     },

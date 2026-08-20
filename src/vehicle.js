@@ -544,11 +544,60 @@ export class Vehicle {
     // Split by axle. Written to _wheelForce rather than the controller,
     // because _applyBrakes combines drive and braking into a single
     // longitudinal force per wheel.
-    const front = THREE.MathUtils.clamp(tx.driveFront ?? 0, 0, 1);
+    const front = this._driveSplit();
     this._wheelForce[WHEEL.FL] = (force * front) / 2;
     this._wheelForce[WHEEL.FR] = (force * front) / 2;
     this._wheelForce[WHEEL.RL] = (force * (1 - front)) / 2;
     this._wheelForce[WHEEL.RR] = (force * (1 - front)) / 2;
+  }
+
+  /**
+   * How much of the drive goes to the front axle this step: the centre
+   * differential.
+   *
+   * `driveFront` is the RESTING split, what the mechanical layout gives you
+   * when nothing is being asked of either axle. It is not what a four-wheel
+   * drive car actually does. What makes four-wheel drive worth having is not
+   * that all four tyres get torque -- it is that a centre differential moves
+   * torque to the axle with grip to spare.
+   *
+   * A fixed split is not merely a rough approximation of that, it is worse
+   * than not having it. Measured on the SC18 accelerating out of a corner: at
+   * a rigid 50/50 it left at 118.6 km/h against 156.7 driving the rear alone,
+   * because half the engine was being sent to front tyres already spending
+   * their circle on 2.3 g of cornering, while the rears ran straight with
+   * capacity going unused. Every step from 0 to 0.5 cost speed, monotonically.
+   * There is no fixed number that works.
+   *
+   * So each axle is weighted by what it has LEFT. Lateral utilisation comes
+   * from the tyre telemetry, and the friction circle says an axle spending a
+   * fraction u sideways keeps sqrt(1 - u^2) for driving. Weighting the resting
+   * split by that has exactly the properties wanted: with both axles equally
+   * free it returns the resting split untouched, so a straight line is
+   * unchanged; with the front loaded up in a corner it sends the torque back.
+   *
+   * And it needs no special case for the cars that are not four-wheel drive.
+   * A resting split of 0 makes the front weight zero however free that axle
+   * is, and 1 does the same to the rear, so a rear- or front-driven car falls
+   * straight through with its split intact.
+   *
+   * The telemetry read here is one step old -- it is sampled after the forces
+   * are applied -- which at 120 Hz is 8 ms of lag. A real centre diff is not
+   * instant either.
+   */
+  _driveSplit() {
+    const rest = THREE.MathUtils.clamp(TUNING.transmission.driveFront ?? 0, 0, 1);
+    if (rest <= 0 || rest >= 1) return rest;
+
+    const w = this.telemetry?.wheels;
+    if (!w) return rest;
+    const spare = (a, b) => {
+      const u = Math.min(1, (w[a].latUtil + w[b].latUtil) / 2);
+      return Math.sqrt(Math.max(0, 1 - u * u));
+    };
+    const wF = rest * spare(WHEEL.FL, WHEEL.FR);
+    const wR = (1 - rest) * spare(WHEEL.RL, WHEEL.RR);
+    return wF + wR > 1e-6 ? wF / (wF + wR) : rest;
   }
 
   /**
