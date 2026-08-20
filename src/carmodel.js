@@ -46,14 +46,26 @@ export async function loadCarModel(url) {
 
   root.traverse((o) => {
     if (!o.isMesh || !o.geometry) return;
-    const geo = o.geometry.clone();
+    const geo = deNormalize(o.geometry.clone());
     geo.applyMatrix4(o.matrixWorld);
     let named = false;
     for (let n = o; n; n = n.parent) {
       if (n.name && WHEEL_NAME.test(n.name)) { named = true; break; }
     }
+    // Materials count as names too, and on some exports they are the ONLY
+    // names. A model can arrive with every node called Object_7 while its
+    // materials are called tire, tire_side, brakedisk and rimlogo -- which
+    // happens whenever the exporter groups geometry by material rather than by
+    // part. Reading only the node names threw that away and left the wheels
+    // welded into the bodywork, where they neither steer nor turn.
+    if (!named) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      named = mats.some((m) => m && m.name && WHEEL_NAME.test(m.name));
+    }
     all.push({ geo, material: o.material, name: o.name || '', named });
   });
+
+  discardScenery(all);
 
   // Names first, geometry second.
   //
@@ -72,7 +84,200 @@ export async function loadCarModel(url) {
     else bodyParts.push({ geo: part.geo, material: part.material, name: part.name });
   }
 
+  absorbWheelParts(wheelGeoms, bodyParts);
+
   return { bodyParts, wheelGeoms, gltf };
+}
+
+/**
+ * Move rims, discs and anything else built around the hub out of the bodywork
+ * and into the wheels, in place.
+ *
+ * Naming finds the tyre and stops. On a model grouped by material the rim is
+ * whatever the paint material happened to be called -- on the F1 it is
+ * "McLaren_F1_1993_By_Alex_Ka", twelve thousand triangles of it -- and the
+ * brake disc is a separate mesh again. Left in the body they stand still while
+ * the tyre turns inside them, and since a tyre is a plain black ring the car
+ * reads as having wheels that do not rotate at all. That is what it looked
+ * like: static wheels, when in fact the only part that was spinning was the
+ * one part with nothing on it to show the spin.
+ *
+ * Two tests, both against the wheels already found, and a part must pass in at
+ * least two corners to move -- a mesh holding all four rims passes in four,
+ * while something that merely happens to be round in one corner does not.
+ *
+ * ROUND about the axle, seen from the side. A rim and a disc are; a suspension
+ * arm crossing the same space is not, and on this model neither is the
+ * underbody or the wheel-arch liner.
+ *
+ * CENTRED on the hub. This is the one that keeps the front repeater lamp out:
+ * it is small and round and sits inside the wheel's box, and only its distance
+ * from the axle gives it away.
+ */
+function absorbWheelParts(wheelGeoms, bodyParts) {
+  if (!wheelGeoms.length || !bodyParts.length) return;
+
+  const union = new THREE.Box3();
+  for (const g of wheelGeoms) { g.computeBoundingBox(); union.union(g.boundingBox); }
+  const mid = union.getCenter(new THREE.Vector3());
+  const span = union.getSize(new THREE.Vector3());
+  // The car has not been oriented yet at this point -- that happens later, in
+  // buildCarFromModel -- so the length axis has to be found rather than
+  // assumed. Written assuming +Z, this silently did nothing at all on a model
+  // authored along X, which is a whole class of car it would have refused.
+  const LEN = span.x >= span.z ? 'x' : 'z';
+  const WID = LEN === 'x' ? 'z' : 'x';
+  // Four wheels across one wheel's height, so the height is a diameter.
+  const radius = span.y / 2;
+  if (!(radius > 0)) return;
+
+  const CORNERS = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const ROUND = 0.75;       // side-on aspect ratio a wheel part must reach
+  const OFF_AXLE = 0.35;    // how far off the hub its centre may sit, in radii
+
+  // Reduce one mesh to its extents inside one corner of the car.
+  const inCorner = (geo, sl, sw) => {
+    const pos = geo.attributes.position;
+    let ylo = Infinity; let yhi = -Infinity; let llo = Infinity; let lhi = -Infinity;
+    let n = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const l = LEN === 'x' ? pos.getX(i) : pos.getZ(i);
+      const wdt = WID === 'x' ? pos.getX(i) : pos.getZ(i);
+      if ((l - mid[LEN]) * sl < 0 || (wdt - mid[WID]) * sw < 0) continue;
+      const y = pos.getY(i);
+      n++;
+      if (y < ylo) ylo = y; if (y > yhi) yhi = y;
+      if (l < llo) llo = l; if (l > lhi) lhi = l;
+    }
+    return { n, y: (ylo + yhi) / 2, l: (llo + lhi) / 2, sy: yhi - ylo, sl: lhi - llo };
+  };
+
+  const hubs = CORNERS.map(([sl, sw]) => {
+    let best = null;
+    for (const g of wheelGeoms) {
+      const c = inCorner(g, sl, sw);
+      if (c.n && (!best || c.n > best.n)) best = c;
+    }
+    return best && best.n ? best : null;
+  });
+
+  // A hair of tolerance on the containment test, and it is not cosmetic. A
+  // model whose wheels arrive as one mesh per AXLE gives a union exactly as
+  // wide as the track, and the rim inside it is exactly as wide again -- so an
+  // exact containsBox() rejected the rims of this car by a rounding error.
+  // Nothing that is not a wheel gains entry from 24 mm, and everything still
+  // has to pass the roundness and off-axle tests below.
+  const room = union.clone().expandByScalar(radius * 0.08);
+
+  for (let i = bodyParts.length - 1; i >= 0; i--) {
+    const geo = bodyParts[i].geo;
+    geo.computeBoundingBox();
+    if (!room.containsBox(geo.boundingBox)) continue;
+
+    let corners = 0;
+    for (let k = 0; k < CORNERS.length; k++) {
+      const hub = hubs[k];
+      if (!hub) continue;
+      const c = inCorner(geo, CORNERS[k][0], CORNERS[k][1]);
+      if (c.n < 24) continue;
+      if (Math.min(c.sy, c.sl) / Math.max(c.sy, c.sl, 1e-6) < ROUND) continue;
+      if (Math.hypot(c.y - hub.y, c.l - hub.l) > radius * OFF_AXLE) continue;
+      corners++;
+    }
+    if (corners >= 2) {
+      wheelGeoms.push(geo);
+      bodyParts.splice(i, 1);
+    }
+  }
+}
+
+/**
+ * Turn quantized integer attributes back into plain floats, in place.
+ *
+ * `gltf-transform optimize` -- the command this project's own docs tell you to
+ * run -- writes KHR_mesh_quantization: positions become normalized integers and
+ * the scale that turns them back into metres is left in the node matrix. Three
+ * renders that correctly, and every node carries its own scale, so a file can
+ * hold factors of 7.1 and 0.04 side by side.
+ *
+ * Baking the node matrix into the geometry is how this loader stops caring
+ * about the exporter's hierarchy, and on a quantized mesh it quietly destroys
+ * the model: applyMatrix4 writes the transformed values straight back into the
+ * Int16 array, so the normalization is lost and every mesh collapses to the
+ * ±1 cube the integers describe. It does not throw. The car simply arrives as
+ * a 2 x 2 x 2 block, and since scale and orientation are both read off the
+ * bounding box, everything after it is wrong too.
+ *
+ * getX/getY/getZ apply the normalization, which is what makes this a copy
+ * rather than a calculation.
+ */
+function deNormalize(geo) {
+  for (const [name, attr] of Object.entries(geo.attributes)) {
+    if (!attr.normalized) continue;
+    const out = new Float32Array(attr.count * attr.itemSize);
+    for (let i = 0; i < attr.count; i++) {
+      const at = i * attr.itemSize;
+      if (attr.itemSize > 0) out[at] = attr.getX(i);
+      if (attr.itemSize > 1) out[at + 1] = attr.getY(i);
+      if (attr.itemSize > 2) out[at + 2] = attr.getZ(i);
+      if (attr.itemSize > 3) out[at + 3] = attr.getW(i);
+    }
+    geo.setAttribute(name, new THREE.BufferAttribute(out, attr.itemSize));
+  }
+  return geo;
+}
+
+/**
+ * Throw away everything in the file that is not the car, in place.
+ *
+ * Downloaded models are often a little SCENE rather than a car: a ground disc
+ * to stand on, a backdrop dome, a soft shadow blob under the sills. They cost
+ * nothing to render and they wreck everything downstream, because scale and
+ * orientation are both read off the bounding box -- one 15.6 m ground plane
+ * around a 5.2 m car and the car is scaled to a third of its size and laid on
+ * an axis it does not lie on.
+ *
+ * Two tests, because the props fail in two different ways:
+ *
+ * FLAT. A mesh with no thickness at all is a decal, a shadow catcher or a
+ * backdrop card. Bodywork always encloses some volume, so nothing real is
+ * lost, and a zero-thickness surface sitting on the paint would z-fight anyway.
+ *
+ * OUTSIDE. Anything reaching well beyond the car is scenery. "The car" is
+ * taken from the meshes with real tessellation in them -- a ground plane is two
+ * triangles and a dome is thirty, while any panel large enough to matter runs
+ * to thousands -- so the reference box is built from substantial meshes only
+ * and cannot itself be dragged out by the props it is meant to find.
+ */
+function discardScenery(parts) {
+  const SUBSTANTIAL = 256;    // triangles: below this a big mesh is a prop
+  const MARGIN = 1.2;         // how far past the car a real part may reach
+
+  const core = new THREE.Box3();
+  for (const p of parts) {
+    p.geo.computeBoundingBox();
+    const idx = p.geo.index;
+    const tris = (idx ? idx.count : p.geo.attributes.position.count) / 3;
+    if (tris >= SUBSTANTIAL) core.union(p.geo.boundingBox);
+  }
+  if (core.isEmpty()) return;
+
+  const centre = core.getCenter(new THREE.Vector3());
+  const half = core.getSize(new THREE.Vector3()).multiplyScalar(MARGIN / 2);
+  const size = new THREE.Vector3();
+  const c = new THREE.Vector3();
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const box = parts[i].geo.boundingBox;
+    box.getSize(size);
+    box.getCenter(c);
+    const flat = Math.min(size.x, size.y, size.z) <= Math.max(size.x, size.y, size.z) * 1e-3;
+    const outside = Math.abs(c.x - centre.x) > half.x
+      || Math.abs(c.y - centre.y) > half.y
+      || Math.abs(c.z - centre.z) > half.z
+      || size.x > half.x * 2 || size.y > half.y * 2 || size.z > half.z * 2;
+    if (flat || outside) parts.splice(i, 1);
+  }
 }
 
 /**
@@ -129,7 +334,7 @@ function geometricWheelTest(parts) {
  * Build the render car from a loaded model, matched to the tuned dimensions.
  * Returns the same shape as scene.js createCarMesh().
  */
-export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
+export function buildCarFromModel(loaded, tuning, palette, yaw = 0, paint = null) {
   const { bodyParts, wheelGeoms } = loaded;
   const all = bodyParts.map((p) => p.geo).concat(wheelGeoms);
   if (!all.length) throw new Error('model contained no meshes');
@@ -230,11 +435,28 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0) {
   // and reused -- flipping the flag per part would rebuild the same shader
   // program repeatedly for no reason.
   const flattened = new Map();
+  // Repaint, for a car whose model came in a colour it should not be in.
+  //
+  // Everything else here works hard to keep the colour the model's author
+  // chose, and this is the deliberate exception rather than a loosening of it:
+  // a car states `paint` only when its own asset is wrong for it, and it has
+  // to name the material it means. Matching "body" or "base" by guesswork
+  // would repaint the wheels on this very car, whose rim material is called
+  // Koleso_mat_Base.
+  const repaint = paint && paint.match
+    ? { re: new RegExp(paint.match, 'i'), color: new THREE.Color(paint.color) }
+    : null;
   const flatten = (material) => {
     if (!material) return material;
     if (!flattened.has(material.uuid)) {
       const m = material.clone();
       m.flatShading = true;
+      if (repaint && m.name && repaint.re.test(m.name)) {
+        m.color = repaint.color.clone();
+        // A texture would tint rather than replace, and the point is to
+        // replace: a baked-in body colour has to go for the new one to show.
+        if (m.map) m.map = null;
+      }
 
       // Give reflective paint something to work with.
       //
