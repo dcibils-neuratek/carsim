@@ -246,8 +246,13 @@ function carSilhouette(car) {
     alpine:  'M18,74 L34,52 L62,40 L108,36 L152,44 L186,58 L206,74 Z',
     gt3rs:   'M14,74 L26,56 L52,46 L86,34 L122,34 L148,46 L166,44 L166,30 L200,30 L200,36 L172,36 L172,50 L202,58 L212,74 Z',
     sc18:    'M10,74 L18,60 L48,52 L78,38 L120,36 L150,48 L168,50 L168,28 L206,28 L206,34 L176,34 L176,54 L206,60 L214,74 Z',
+    // Long low nose, a small canopy set well forward, and a tail that runs
+    // flat to the tip. No wing: that is most of what an F1 looks like.
+    mclarenf1: 'M12,74 L24,60 L58,50 L96,38 L124,37 L152,45 L184,55 L212,74 Z',
   };
-  const TINT = { alpine: '#9fb6c9', gt3rs: '#c8a02c', sc18: '#2e2f33' };
+  const TINT = {
+    alpine: '#9fb6c9', gt3rs: '#c8a02c', sc18: '#2e2f33', mclarenf1: '#b9bfc6',
+  };
   const body = BODY[car.id] || BODY.alpine;
   const tint = TINT[car.id] || '#9fb6c9';
   return `<svg viewBox="0 0 224 96" preserveAspectRatio="xMidYMid meet">
@@ -547,7 +552,7 @@ export async function boot() {
     let built;
     if (carModel) {
       try {
-        built = buildCarFromModel(carModel, TUNING, PALETTE, carDef.modelYaw ?? 0);
+        built = buildCarFromModel(carModel, TUNING, PALETTE, carDef.modelYaw ?? 0, carDef.paint);
       } catch (err) {
         console.warn('car model could not be built, using the procedural car:', err);
         built = createCarMesh(TUNING);
