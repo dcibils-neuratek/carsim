@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Permanent+Marker&display=swap">
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Bungee&family=Permanent+Marker&display=swap">
 <style>
   :root {
     --fg: #e8eef5;
@@ -19,6 +19,11 @@
        whose edges are all readouts, and it reads at a glance, which is the
        only thing that matters on something you look at while driving. */
     --body: "Barlow Condensed", "Roboto Condensed", system-ui, sans-serif;
+    /* The studio's mark and its two phosphors. Same three-copy convergence
+       fringe as the title card, so the two screens read as one house. */
+    --mark: "Bungee", "Impact", sans-serif;
+    --cyan: #35e8ff;
+    --magenta: #ff2e88;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -34,6 +39,27 @@
       radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.14), transparent 62%);
   }
   main { position: relative; max-width: 720px; margin: 0 auto; padding: 54px 24px 90px; }
+
+  /* The studio credit, at the foot of the page and deliberately quiet -- one
+     mention, where a credit belongs, not a banner over the game's own name. */
+  .studio { margin-top: 18px; }
+  .studio .mk {
+    position: relative; display: inline-block; font-family: var(--mark);
+    font-size: 13px; letter-spacing: .1em; line-height: 1;
+    text-decoration: none;
+  }
+  /* Whole pixels, not em: at this size a proportional offset is under a pixel
+     and the browser resolves the fringe into a grey tint. */
+  .studio .ghost   { position: absolute; inset: 0; pointer-events: none;
+                     transition: opacity .16s ease; }
+  /* Well under the body text around it: Bungee carries far more ink per point
+     than the condensed face, so equal opacity reads as much louder. */
+  .studio .ghost.c { color: var(--cyan);    transform: translate(-1px,  .5px); opacity: .38; }
+  .studio .ghost.m { color: var(--magenta); transform: translate( 1px, -.5px); opacity: .38; }
+  .studio .top     { position: relative; color: rgba(232,238,245,.42);
+                     transition: color .16s ease; }
+  .studio a.mk:hover .top   { color: var(--fg); }
+  .studio a.mk:hover .ghost { opacity: .95; }
 
   .wordmark { width: min(420px, 78vw); margin: 0 auto 6px; display: block; }
   .wordmark svg { width: 100%; height: auto; overflow: visible; display: block; }
@@ -119,6 +145,37 @@
   </div>
   <div class="kicker">PURE DRIVING</div>
 
+  <h1>Real physics. Arcade fun.</h1>
+
+  <p class="lead">
+    That is the whole design, and the two halves are not fighting each other.
+    Underneath is an honest simulation — weight, grip, torque, drag, four
+    wheels each doing their own job. On top of it is an arcade game: you open a
+    page and you drive.
+  </p>
+
+  <p>
+    This is not trying to be Gran Turismo, and it is certainly not trying to be
+    Assetto Corsa. Those are simulators and they are magnificent, and they want
+    a wheel, a seat, a setup screen and an afternoon. VROOM wants a keyboard
+    and four seconds.
+  </p>
+
+  <p>
+    What it takes from them is the only part that matters: <em>the car is
+    real</em>. A 300 hp mid-engined coupé should feel like a 300 hp mid-engined
+    coupé — light, eager, rotating on the throttle. A hypercar should feel like
+    a hypercar — too much of everything, arriving too early, daring you to stay
+    in it. Those are different cars, and you should know which one you are in
+    before the first corner is over.
+  </p>
+
+  <p>
+    So: a real car, in an arcade world. Nothing to set up before you are
+    allowed to move, no licences to earn, no career to grind. Pick a circuit,
+    pick a car, drive.
+  </p>
+
   <h1>About VROOM</h1>
 
   <p class="lead">
@@ -155,7 +212,7 @@
     there is no <em>press any button to continue</em> in between.
   </p>
 
-  <h1>The physics are real, though</h1>
+  <h1>What &ldquo;real physics&rdquo; means here</h1>
 
   <p>
     Arcade on the outside, honest underneath. This is the part I care most
@@ -182,16 +239,32 @@
 
   <p>
     Every car is built from the real one and then checked against the real one.
-    The numbers on the car cards are read out of the running game, not typed in
-    by me and hoped for. A card cannot promise you something the car will not do.
+    The numbers below are read out of the running game — the power off the
+    car's own torque curve, the times off a car actually driven down a flat
+    pad in the simulation. None of them are typed in by me and hoped for. A
+    card cannot promise you something the car will not do.
   </p>
 
   <table>
-    <tr><th>Car</th><th>Power</th><th>0–100</th><th>Top speed</th></tr>
-    <tr><td>Alpine A110</td><td>300 hp</td><td>4.05 s</td><td>267 km/h</td></tr>
-    <tr><td>Porsche GT3 RS</td><td>510 hp</td><td>2.87 s</td><td>267 km/h</td></tr>
-    <tr><td>Lamborghini SC18</td><td>770 hp</td><td>2.86 s</td><td>350 km/h</td></tr>
+    <tr><th>Car</th><th>Layout</th><th>Power</th><th>0–100</th><th>Top speed</th></tr>
+    <tr><td>MINI Cooper S</td><td>Front, FWD</td><td>202 hp</td><td>5.07 s</td><td>229 km/h</td></tr>
+    <tr><td>Lancia Delta Integrale</td><td>Front, AWD</td><td>212 hp</td><td>5.43 s</td><td>208 km/h</td></tr>
+    <tr><td>Alpine A110</td><td>Mid, RWD</td><td>300 hp</td><td>3.59 s</td><td>258 km/h</td></tr>
+    <tr><td>Porsche GT3 RS</td><td>Rear, RWD</td><td>510 hp</td><td>2.80 s</td><td>261 km/h</td></tr>
+    <tr><td>McLaren F1</td><td>Mid, RWD</td><td>618 hp</td><td>2.93 s</td><td>365 km/h</td></tr>
+    <tr><td>Lamborghini SC18</td><td>Mid, AWD</td><td>770 hp</td><td>2.78 s</td><td>333 km/h</td></tr>
   </table>
+
+  <p>
+    Read that table sideways and you can see the point of it. The MINI has less
+    power than the Lancia and still beats it to 100, because it is 64 kg
+    lighter. The McLaren gives away a tenth to the Porsche off the line and
+    then goes 100 km/h faster than it, because one of them is geared for a
+    circuit and the other was built to be the fastest thing on a road. Six
+    cars, five different layouts — front, mid and rear engines, driving two
+    wheels or four. They are not the same car with a different number on it,
+    and you are not supposed to drive them the same way.
+  </p>
 
   <p>
     The Lamborghini is quoted at 770 hp at 8500 rpm and 720 Nm at 6750. Those
@@ -222,6 +295,10 @@
         blind is the problem.</li>
     <li>The engines are real recordings. A V12 fires twice as often as a flat
         six, so the Lamborghini sits most of a fifth above the Porsche.</li>
+    <li>Lift off at high revs and the exhaust pops and cracks behind you. Real
+        cars do that because unburnt fuel lights in a hot pipe. This one does
+        it because it tells you the throttle is shut, and because it is
+        enormously satisfying.</li>
   </ul>
 
   <p>
@@ -232,20 +309,38 @@
   <h1>Six circuits</h1>
 
   <p>
-    Every corner on every circuit was moved by hand until it was fun. There is
-    no generator that can do that part. I know, I tried, and the results drove
-    like a spreadsheet.
+    All six are invented, and every corner on them was moved by hand until it
+    was fun. There is no generator that can do that part. I know, I tried, and
+    the results drove like a spreadsheet. Real circuits were tried too and
+    given up on for the same reason: you cannot widen a corner on the
+    Nürburgring, because the moment you do it stops being the Nürburgring.
+  </p>
+
+  <p>
+    Each one also gets its own hour of the day, which turns out to change a
+    place more than its shape does. The sun's height sets how long the shadows
+    run; how much of the light comes from the sky instead sets how deep they
+    go. Between those two you get dawn, noon and golden hour out of the same
+    renderer.
   </p>
 
   <table>
-    <tr><th>Circuit</th><th>Grip</th><th>What it wants from you</th></tr>
-    <tr><td>Forest</td><td>1.00</td><td>Fast sweepers, a chicane, a long hairpin</td></tr>
-    <tr><td>Woods</td><td>0.96</td><td>Narrow, twisty, short sightlines</td></tr>
-    <tr><td>Mediterranean</td><td>1.02</td><td>Open and quick. Where top gear finally matters</td></tr>
-    <tr><td>Snow</td><td>0.55</td><td>Wide and flowing. Going is easy. Stopping is the event</td></tr>
-    <tr><td>Dirt</td><td>0.62</td><td>Gravel. Steer it on the throttle or do not steer at all</td></tr>
-    <tr><td>Mountains</td><td>0.98</td><td>Big climbs, and descents that arrive far too soon</td></tr>
+    <tr><th>Circuit</th><th>Length</th><th>Grip</th><th>Hour</th><th>What it wants from you</th></tr>
+    <tr><td>Forest</td><td>6.7 km</td><td>0.97</td><td>Early morning</td><td>Fast sweepers, a chicane, a long hairpin</td></tr>
+    <tr><td>Grünkessel</td><td>5.2 km</td><td>0.87</td><td>Overcast</td><td>A tight stadium loop, a long run to the hairpin, a chicane before the line</td></tr>
+    <tr><td>Mediterranean</td><td>5.0 km</td><td>1.05</td><td>Golden hour</td><td>Open and quick. Where top gear finally matters</td></tr>
+    <tr><td>Mountains</td><td>5.2 km</td><td>0.92</td><td>Hard noon</td><td>Big climbs, and descents that arrive far too soon</td></tr>
+    <tr><td>Snow</td><td>5.1 km</td><td>0.55</td><td>Blue hour</td><td>Wide and flowing. Going is easy. Stopping is the event</td></tr>
+    <tr><td>Dirt</td><td>5.0 km</td><td>0.62</td><td>Late afternoon</td><td>Gravel. Steer it on the throttle or do not steer at all</td></tr>
   </table>
+
+  <p>
+    The grip column used to read 1.00, 1.02, 0.98, 0.96 — four circuits within
+    six per cent of each other, which is four circuits that drive the same.
+    They are spread now. Grünkessel is damp and overcast and has the least grip
+    of any tarmac here; the Mediterranean is hot and has the most. That gap is
+    worth more than another layout would be.
+  </p>
 
   <p>
     Dirt is my favourite and it works the rest of the game hardest. Three
@@ -256,14 +351,30 @@
   <h1>What there is to do</h1>
 
   <p>
-    Beat yourself. Every circuit remembers your best lap, and the gap between
-    that lap and the one you are on is the entire game. Take all six.
+    Every circuit is a <strong>three-lap race</strong>. Cross the line, do three
+    clean laps, and you get a total — which is the thing an endless practice
+    session never gives you: a result. Laps you cut are not counted, so the
+    total is honest.
   </p>
 
   <p>
-    Coming: more cars, more circuits, and multiplayer. Racing someone is the
-    obvious next thing and the one I want most. It arrives when it is good.
-    Free, like the rest of it.
+    Then the wall. Beat the total and you get three letters on the high score
+    table, one board per circuit, ten deep, exactly as it worked when the
+    machine ate your coin. The board records the car you brought, because
+    bringing the Lamborghini is a decision and it should have to say so.
+  </p>
+
+  <p>
+    Underneath that, the older game is still the real one: every circuit
+    remembers your best lap in every car, and the gap between that lap and the
+    one you are on is what you are actually chasing.
+  </p>
+
+  <p>
+    Coming: a championship — all six circuits, one running total — plus more
+    cars, more circuits, and multiplayer. Racing someone is the obvious next
+    thing and the one I want most. It arrives when it is good. Free, like the
+    rest of it.
   </p>
 
   <p><a class="drive" href="./index.html">Drive</a></p>
@@ -280,11 +391,22 @@
       Engine recordings from markeasting/engine, MIT licensed — the BAC Mono
       set for the Alpine and the procar set for the Porsche and the
       Lamborghini.
-      Porsche 911 GT3 RS and Lamborghini SC18 models under their respective
-      licences.
+      Porsche 911 GT3 RS, Lamborghini SC18, McLaren F1, MINI Cooper S and
+      Lancia Delta HF Integrale Evo 2 models under their respective licences.
       Road surfaces from Poliigon's free library.
-      Type is Permanent Marker and Barlow Condensed.
+      Type is Permanent Marker, Barlow Condensed and Bungee.
     </p>
+
+    <div class="studio">
+      <!-- Named explicitly. Two of the three copies are aria-hidden, and
+           relying on the third to supply the link's accessible name left it
+           announcing as an unnamed link. -->
+      <a class="mk" href="./site/" aria-label="Megatronik Studio">
+        <span class="ghost c" aria-hidden="true">MEGATRONIK STUDIO</span>
+        <span class="ghost m" aria-hidden="true">MEGATRONIK STUDIO</span>
+        <span class="top">MEGATRONIK STUDIO</span>
+      </a>
+    </div>
   </footer>
 
 </main>

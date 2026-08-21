@@ -11,13 +11,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Permanent+Marker&display=swap">
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Bungee&family=Permanent+Marker&display=swap">
 <style>
   :root {
     --fg: #e8eef5;
     --dim: #8fa3b8;
     --accent: #ffd23f;
     --danger: #ff4d4d;
+    /* The studio's two phosphors. They exist for the title card and nothing
+       else: cyan and magenta on a sunlit road are two more colours competing
+       with the one that matters, and the one that matters is amber. Everything
+       from #hud down stays on --accent. */
+    --cyan: #35e8ff;
+    --magenta: #ff2e88;
     /* Was 0.62, which vanished against a sunlit road -- the panels read as a
        faint smudge and the thin marks inside them disappeared entirely. These
        sit over bright grass and asphalt, so they have to hold their own. */
@@ -36,6 +42,10 @@
        marker face has no tabular figures, so numbers would jitter sideways as
        they changed, and small caps in it are barely legible. */
     --title: "Permanent Marker", "Comic Sans MS", cursive;
+    /* The studio name, and only the studio name. Bungee is signage -- it is
+       drawn to be read across a room, which is exactly what a publisher mark
+       on a title card is doing. Never a sentence in it. */
+    --mark: "Bungee", "Impact", sans-serif;
     /* Everything that is not a title. Condensed buys width back on a screen
        whose edges are all readouts, and it reads at a glance, which is the
        only thing that matters on something you look at while driving. */
@@ -336,6 +346,97 @@
   #help .grp:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   #help b { color: var(--fg); font-weight: 600; }
 
+  /* ---- race results ---- */
+  /* Modal on purpose. The race is over, nothing behind it wants the keyboard,
+     and the one thing on it that matters -- three letters -- deserves the
+     whole screen the way a cabinet gave it the whole screen. */
+  #finish {
+    display: none;
+    position: absolute; inset: 0; z-index: 8;
+    align-items: center; justify-content: center;
+    background: rgba(4, 7, 11, .82);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    pointer-events: auto;
+  }
+  #finish.on { display: flex; flex-direction: column; }
+  #finish .fTitle {
+    font-family: var(--title); font-size: clamp(30px, 5vw, 46px);
+    color: var(--accent); letter-spacing: 1px; line-height: 1;
+    text-shadow: 0 4px 0 rgba(0,0,0,.5), 0 0 26px rgba(255,150,40,.35);
+  }
+  #finish .fWhere {
+    font-size: 13px; letter-spacing: 2.5px; color: var(--dim);
+    margin: 10px 0 14px; text-transform: uppercase;
+  }
+  /* The number you came for, and the only thing on the screen at this size. */
+  #finish .fTotal {
+    font-size: clamp(40px, 7vw, 66px); font-weight: 300; line-height: 1;
+    letter-spacing: 1px; color: var(--fg);
+  }
+  #finish .fLaps { margin: 16px 0 4px; min-width: 210px; }
+  #finish .fRow {
+    display: flex; justify-content: space-between; gap: 26px;
+    font-size: 15px; padding: 2px 0;
+  }
+  #finish .fRow .k { color: rgba(232,238,245,.42); letter-spacing: 2px; font-size: 12px; }
+  #finish .fRow .t { color: rgba(232,238,245,.8); }
+  #finish .fRow .t.hot { color: var(--accent); }
+
+  #finish .fRank { color: var(--accent); font-size: 14px; letter-spacing: 2px; margin-top: 14px; }
+  #finish .fNote { color: rgba(232,238,245,.35); font-size: 13px; letter-spacing: 1.5px; margin-top: 14px; }
+  #finish .fEntry { text-align: center; margin-top: 12px; }
+  #finish .slots { display: flex; gap: 12px; justify-content: center; margin: 10px 0 8px; }
+  #finish .slot {
+    font-family: var(--title); font-size: 38px; line-height: 1;
+    width: 46px; padding-bottom: 5px; color: rgba(232,238,245,.55);
+    border-bottom: 3px solid rgba(232,238,245,.18);
+  }
+  /* The cursor. A cabinet blinked the slot you were on and it is the only cue
+     telling you which letter the stick is about to change. */
+  #finish .slot.on {
+    color: var(--accent); border-bottom-color: var(--accent);
+    animation: slotBlink 1s steps(1, end) infinite;
+  }
+  @keyframes slotBlink { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .45 } }
+  #finish .fHint { font-size: 12px; color: rgba(232,238,245,.4); letter-spacing: .5px; }
+  #finish .fHint b { color: rgba(232,238,245,.72); font-weight: 600; }
+
+  #finish .fBoard {
+    margin-top: 18px; padding: 12px 16px; min-width: min(430px, 88vw);
+    background: rgba(8,13,20,.62); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+  }
+  #finish .bTitle {
+    font-size: 11px; letter-spacing: 3px; color: rgba(232,238,245,.38);
+    text-align: center; margin-bottom: 8px;
+  }
+  #finish .bRow {
+    display: grid; grid-template-columns: 26px 46px 1fr auto; gap: 10px;
+    font-size: 14px; padding: 2px 0; color: rgba(232,238,245,.62);
+  }
+  #finish .bRow .pos { color: rgba(232,238,245,.3); text-align: right; }
+  #finish .bRow .who { font-family: var(--title); letter-spacing: 1px; color: rgba(232,238,245,.85); }
+  #finish .bRow .car { color: rgba(232,238,245,.32); font-size: 12px; text-align: right; }
+  #finish .bRow.me { color: var(--accent); }
+  #finish .bRow.me .who, #finish .bRow.me .pos, #finish .bRow.me .car { color: var(--accent); }
+  #finish .bEmpty { text-align: center; color: rgba(232,238,245,.28); font-size: 13px; }
+
+  #finish .fActions { display: flex; gap: 12px; margin-top: 20px; }
+  #finish button {
+    font-family: var(--body); font-size: 15px; letter-spacing: 2px;
+    text-transform: uppercase; cursor: pointer;
+    padding: 9px 20px; border-radius: 8px;
+    background: rgba(255,255,255,.06); color: var(--fg);
+    border: 1px solid rgba(255,255,255,.14);
+  }
+  #finish button:hover { background: rgba(255,255,255,.12); }
+  #finish button.go { background: var(--accent); color: #10141a; border-color: var(--accent); }
+  #finish button.go:hover { background: #ffdf72; }
+  #finish button b { opacity: .55; font-weight: 600; margin-left: 6px; }
+  #finish .fHint button {
+    font-size: 12px; letter-spacing: 1px; padding: 2px 10px; border-radius: 6px;
+  }
+
   /* One line so the panel is findable at all. Everything else moved behind H;
      this cannot, or nobody would know H does anything. */
   #helpHint {
@@ -360,19 +461,82 @@
   /* ---- boot / press-any-button overlay ---- */
   #boot {
     position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; background: #10141a; text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    /* `safe` matters. A flex container that centres content taller than itself
+       overflows in BOTH directions, and the half that goes off the top is not
+       reachable by scrolling -- the wordmark was already losing its top edge on
+       a 900px window before the studio mark was added, which is what made it
+       obvious. `safe center` centres while it fits and falls back to start
+       when it does not, so the overflow all goes downward where the scrollbar
+       can reach it. */
+    justify-content: safe center;
+    /* Darker than the game's own #10141a, and deliberately. This screen is not
+       over a sunlit road -- it is the dark room the cabinet stands in, and the
+       cards and the wordmark have more to push against at #07080c. */
+    gap: 10px; background: #07080c; text-align: center;
     overflow-y: auto; padding: 22px 0;
   }
   /* A hint of the sky the game actually renders, so the title card and the
-     first corner belong to the same world. */
+     first corner belong to the same world -- plus the studio's two phosphors
+     coming in from the corners. All of it is light bouncing off the wall
+     behind the cabinet, never a filled block: the surfaces have to stay black
+     enough to read six circuit cards on. */
   #boot::before {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background:
       radial-gradient(120% 78% at 50% 118%, rgba(255,210,63,.10), transparent 60%),
-      radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.16), transparent 62%);
+      radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.16), transparent 62%),
+      radial-gradient(58% 44% at 6% 4%,    rgba(53,232,255,.13), transparent 66%),
+      radial-gradient(54% 42% at 96% 10%,  rgba(255,46,136,.11), transparent 64%);
+  }
+  /* Scanlines, on the title card only. Turning the road into a CRT costs
+     contrast at 200 km/h for nothing; turning the menu into one costs
+     nothing and is the whole point of the look. */
+  #boot::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+    opacity: .5; mix-blend-mode: multiply;
   }
   #boot > * { position: relative; }
+
+  /* ---- the studio credit, at the foot of the title card ---- */
+  /* Below the byline and deliberately quiet. A publisher card above the
+     wordmark was the wrong read: the studio is not what anyone opened this
+     page for, and putting its name where the eye lands first says otherwise.
+     Down here it is findable and out of the way, which is all it needs to be.
+     One line, and this is the only place the studio is named on this screen. */
+  /* The mark alone. It carried an "A GAME BY" label for a while, one line under
+     a byline that already opens "A game built just for fun" -- the same three
+     words twice, stacked. The mark says who made it without being told to. */
+  #studio { margin-top: 14px; }
+  #studio .mk {
+    position: relative; display: inline-block;
+    font-family: var(--mark);
+    font-size: 13px; letter-spacing: .1em; line-height: 1;
+    text-decoration: none;
+  }
+  /* Three copies a pixel apart: a CRT with its convergence out, which is what
+     every white letter on a monitor looked like in 1996. The colour copies are
+     aria-hidden or a screen reader reads the studio's name three times.
+
+     Whole pixels here, not the em offsets the landing page uses. Em is right
+     for a mark that scales from 38px to 96px; this one lives between 15 and 20,
+     where .05em is two thirds of a pixel and the browser resolves the fringe
+     into a faint grey tint. A fringe you cannot see is not a fringe. */
+  #studio .ghost   { position: absolute; inset: 0; pointer-events: none;
+                     transition: opacity .16s ease; }
+  /* Sat at .6 to begin with, which made a heavy signage face the brightest
+     thing in the footer -- brighter than the byline above it, which is exactly
+     backwards. Bungee carries far more ink per point than the condensed body
+     face, so matching it by opacity means going well under. */
+  #studio .ghost.c { color: var(--cyan);    transform: translate(-1px,  .5px); opacity: .38; }
+  #studio .ghost.m { color: var(--magenta); transform: translate( 1px, -.5px); opacity: .38; }
+  #studio .top     { position: relative; color: rgba(232,238,245,.42);
+                     transition: color .16s ease; }
+  /* The fringe comes up on hover instead of drifting on its own. Down here the
+     mark should be still until somebody goes looking for it. */
+  #studio a.mk:hover .top   { color: var(--fg); }
+  #studio a.mk:hover .ghost { opacity: .95; }
 
   #logo { width: min(560px, 84vw); }
   #logo svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -482,8 +646,12 @@
   .trackCard .swatch { height: 168px; display: block; width: 100%; line-height: 0; }
   .trackCard .swatch svg { width: 100%; height: 100%; display: block; }
   .trackCard .nm {
-    font-family: var(--title); font-size: 25px; font-weight: 400;
-    letter-spacing: 1px; margin-top: 12px;
+    /* Fluid, because the grid is always three across and the cards get narrow
+       long before the window does. At a fixed 25px, MEDITERRANEAN ran past its
+       card and `overflow: hidden` quietly ate the last letter -- a circuit
+       whose name is cut off reads as a broken menu, not a narrow one. */
+    font-family: var(--title); font-size: clamp(19px, 2.3vw, 25px); font-weight: 400;
+    letter-spacing: 1px; margin-top: 12px; padding: 0 10px;
   }
   .trackCard .tag { font-size: 15px; color: var(--dim); line-height: 1.5;
                     margin: 7px 18px 0; min-height: 34px; }
@@ -667,6 +835,9 @@
        cannot leave the on-screen help telling you the wrong button. -->
   <!-- Deliberately terse. At this width every extra word wraps to another
        line, and the block was tall enough to collide with the grip panel. -->
+  <!-- Results, laps and the high score table. Built by src/finish.js. -->
+  <div id="finish"></div>
+
   <!-- Getting back out. A key alone is not discoverable -- nobody guesses
        Escape at something that never showed them a menu -- so it is a real
        button, and the key is written on it. -->
@@ -716,6 +887,15 @@
   <div class="byline">
     A game built just for fun. &nbsp;<b>Diego Cibils, 2026.</b>
     &nbsp;·&nbsp; <a href="./about.html">about</a>
+  </div>
+
+  <!-- The studio credit, last on the screen. -->
+  <div id="studio">
+    <a class="mk" href="./site/" aria-label="Megatronik Studio">
+      <span class="ghost c" aria-hidden="true">MEGATRONIK STUDIO</span>
+      <span class="ghost m" aria-hidden="true">MEGATRONIK STUDIO</span>
+      <span class="top">MEGATRONIK STUDIO</span>
+    </a>
   </div>
 </div>
 

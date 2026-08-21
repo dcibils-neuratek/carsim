@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Megatronik Studio — arcade games you just play</title>
+<meta name="description" content="A one-man game studio making pick-up-and-play arcade games. No accounts, no subscriptions, no launchers. Open a page and play.">
+<meta name="theme-color" content="#07080c">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Megatronik Studio">
+<meta property="og:description" content="Arcade games you just play. No accounts, no subscriptions, no BS.">
+<meta property="og:image" content="media/vroom-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Bungee&family=Permanent+Marker&display=swap">
+<style>
+  :root {
+    --bg:      #07080c;
+    --fg:      #eef2f7;
+    --dim:     #8b96a8;
+    --faint:   rgba(238,242,247,.55);
+    --line:    rgba(255,255,255,.09);
+    --panel:   rgba(255,255,255,.035);
+
+    /* The studio's own colours. CRT phosphors: cyan and magenta.
+       Games bring their own accent — VROOM's amber lives only in its card. */
+    --cyan:    #35e8ff;
+    --magenta: #ff2e88;
+    --amber:   #ffd23f;
+
+    --mark:  "Bungee", "Impact", sans-serif;
+    --body:  "Barlow Condensed", "Roboto Condensed", system-ui, sans-serif;
+    --game:  "Permanent Marker", "Comic Sans MS", cursive;
+
+    --pad:   clamp(20px, 5vw, 40px);
+    --maxw:  1080px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Scanlines. Barely there — enough to read as a screen, not enough to
+     fight the text on top of it. */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    background: repeating-linear-gradient(
+      to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+    opacity: .5;
+    mix-blend-mode: multiply;
+  }
+
+  a { color: inherit; }
+
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
+
+  .eyebrow {
+    font-size: 13px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--cyan); font-weight: 600; margin: 0 0 14px;
+  }
+  .eyebrow.pink { color: var(--magenta); }
+
+  h2 {
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(30px, 5vw, 48px); line-height: 1.05; letter-spacing: .01em;
+    margin: 0 0 20px;
+  }
+  h3 {
+    font-family: var(--body); font-weight: 600; text-transform: uppercase;
+    font-size: 20px; letter-spacing: .06em; margin: 0 0 8px;
+  }
+  p { margin: 0 0 18px; color: rgba(238,242,247,.82); }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--fg); font-weight: 600; }
+
+  /* ---------------------------------------------------------------- nav */
+
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(7,8,12,.78);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap {
+    display: flex; align-items: center; gap: 20px;
+    height: 62px;
+  }
+  nav .brand {
+    font-family: var(--mark); font-size: 15px; letter-spacing: .02em;
+    text-decoration: none; margin-right: auto; white-space: nowrap;
+  }
+  nav .brand span { color: var(--cyan); }
+  nav a.link {
+    font-size: 15px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); text-decoration: none; font-weight: 500;
+  }
+  nav a.link:hover { color: var(--fg); }
+  @media (max-width: 620px) { nav a.link.hide-sm { display: none; } }
+
+  /* --------------------------------------------------------------- hero */
+
+  header {
+    position: relative; overflow: hidden;
+    padding: clamp(56px, 11vw, 116px) 0 clamp(48px, 8vw, 84px);
+  }
+  /* A frame of the game behind the type, pushed almost all the way down. It is
+     there to say "this is a driving studio" at a glance, not to be looked at —
+     anything readable here competes with the headline sitting on top of it. */
+  .hero-bg {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background: url('media/vroom-alt.jpg') center 34% / cover no-repeat;
+    opacity: .17; filter: saturate(.45) contrast(1.04);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.5) 52%, transparent 92%);
+            mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.5) 52%, transparent 92%);
+  }
+  header::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(70% 52% at 18% 0%,   rgba(53,232,255,.16), transparent 64%),
+      radial-gradient(66% 56% at 92% 22%,  rgba(255,46,136,.14), transparent 62%),
+      radial-gradient(90% 60% at 50% 118%, rgba(255,210,63,.07), transparent 64%);
+  }
+  header .wrap { position: relative; z-index: 2; }
+
+  /* The wordmark. Three stacked copies offset a pixel or two apart, the way a
+     CRT with its convergence out reproduces a white letter as a cyan edge and
+     a magenta one. The colour copies are aria-hidden so it reads once. */
+  .wordmark {
+    position: relative; display: inline-block;
+    font-family: var(--mark);
+    font-size: clamp(38px, 9.2vw, 96px);
+    line-height: .96; letter-spacing: -.005em;
+    margin: 0 0 6px;
+  }
+  .wordmark .ghost { position: absolute; inset: 0; pointer-events: none; }
+  .wordmark .ghost.c { color: var(--cyan);    transform: translate(-.028em, .014em); opacity: .85; }
+  .wordmark .ghost.m { color: var(--magenta); transform: translate(.028em, -.014em); opacity: .85; }
+  .wordmark .top     { position: relative; color: var(--fg); }
+  @media (prefers-reduced-motion: no-preference) {
+    .wordmark .ghost.c { animation: drift-c 7s ease-in-out infinite; }
+    .wordmark .ghost.m { animation: drift-m 7s ease-in-out infinite; }
+  }
+  @keyframes drift-c {
+    0%,100% { transform: translate(-.028em, .014em); }
+    50%     { transform: translate(-.014em, .006em); }
+  }
+  @keyframes drift-m {
+    0%,100% { transform: translate(.028em, -.014em); }
+    50%     { transform: translate(.014em, -.006em); }
+  }
+
+  .studio-line {
+    font-size: clamp(13px, 2.1vw, 17px); letter-spacing: .52em;
+    text-transform: uppercase; color: var(--dim);
+    margin: 0 0 clamp(30px, 5vw, 46px);
+  }
+
+  .hero-line {
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(34px, 6.6vw, 68px); line-height: 1.03;
+    max-width: 15ch; margin: 0 0 22px;
+  }
+  .hero-line em { font-style: normal; color: var(--cyan); }
+
+  .hero-sub {
+    font-size: clamp(18px, 2.5vw, 22px); color: var(--faint);
+    max-width: 46ch; margin: 0 0 34px;
+  }
+  .hero-sub b { color: var(--fg); font-weight: 600; }
+
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: 19px; letter-spacing: .1em;
+    padding: 13px 28px; border-radius: 4px;
+    text-decoration: none; border: 1px solid transparent;
+    transition: transform .12s ease, background .16s ease, border-color .16s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: var(--amber); color: #10141a;
+    box-shadow: 0 0 0 1px rgba(255,210,63,.4), 0 10px 34px rgba(255,160,40,.22);
+  }
+  .btn-primary:hover { background: #ffdf72; }
+  .btn-ghost { border-color: var(--line); color: var(--fg); }
+  .btn-ghost:hover { border-color: rgba(255,255,255,.28); background: var(--panel); }
+
+  /* ------------------------------------------------------------- ticker */
+
+  .ticker {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.02);
+    overflow: hidden; padding: 15px 0;
+    /* Fade the ends so items enter and leave instead of popping. */
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+            mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+  }
+  .ticker-track { display: flex; width: max-content; animation: slide 42s linear infinite; }
+  .ticker:hover .ticker-track { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    .ticker { -webkit-mask-image: none; mask-image: none; }
+    .ticker-track > div:nth-child(2) { display: none; }
+  }
+  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker-group { display: flex; align-items: center; flex: 0 0 auto; }
+  .ticker-group span {
+    font-size: 14px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--dim); padding: 0 20px; white-space: nowrap;
+  }
+  .ticker-group span::after {
+    content: '·'; color: rgba(255,255,255,.22); margin-left: 20px;
+  }
+
+  /* ------------------------------------------------------------ section */
+
+  section { padding: clamp(60px, 9vw, 108px) 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .lede { font-size: clamp(19px, 2.4vw, 24px); color: var(--faint); max-width: 54ch; }
+  .lede b { color: var(--fg); font-weight: 600; }
+
+  .rules { display: grid; gap: 18px; margin-top: 44px;
+           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .rule {
+    border: 1px solid var(--line); border-radius: 8px; padding: 24px;
+    background: var(--panel);
+  }
+  .rule .num {
+    font-family: var(--mark); font-size: 13px; color: var(--cyan);
+    display: block; margin-bottom: 14px; letter-spacing: .05em;
+  }
+  .rule p { font-size: 17px; color: var(--faint); }
+
+  /* -------------------------------------------------------------- games */
+
+  .game {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,210,63,.05), rgba(255,255,255,.02));
+    margin-top: 40px;
+  }
+  .game-shot {
+    display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+    border-bottom: 1px solid var(--line); background: #0d1117;
+  }
+  .game-body { padding: clamp(24px, 4vw, 40px); }
+  .game-title {
+    font-family: var(--game); font-size: clamp(38px, 6.4vw, 62px);
+    line-height: 1; margin: 0 0 4px;
+    background: linear-gradient(180deg, #fff4cf 0%, var(--amber) 44%, #f07f2a 56%, #c8322c 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    transform: skewX(-6deg); transform-origin: left bottom;
+    display: inline-block;
+  }
+  .game-tag {
+    font-size: 14px; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--amber); margin: 0 0 20px; opacity: .85;
+  }
+  .game-body > p { max-width: 62ch; }
+
+  .specs {
+    display: grid; gap: 1px; margin: 28px 0 30px;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    background: var(--line); border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden;
+  }
+  .spec { background: #0a0c11; padding: 16px 18px; }
+  .spec b {
+    display: block; font-size: 26px; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums; color: var(--fg);
+  }
+  .spec span {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim);
+  }
+
+  .game-note {
+    margin-top: 20px; font-size: 15px; letter-spacing: .04em;
+    color: rgba(238,242,247,.42);
+  }
+
+  .soon {
+    margin-top: 18px; border: 1px dashed rgba(255,255,255,.16); border-radius: 12px;
+    padding: 26px clamp(24px, 4vw, 40px); background: rgba(255,255,255,.015);
+  }
+  .soon h3 { color: var(--dim); }
+  .soon p { color: rgba(238,242,247,.5); font-size: 17px; max-width: 56ch; }
+
+  /* ---------------------------------------------------------------- who */
+
+  .split { display: grid; gap: clamp(28px, 5vw, 56px); grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+  .quote {
+    border-left: 3px solid var(--magenta); padding: 4px 0 4px 24px;
+    margin: 0 0 26px;
+  }
+  .quote p {
+    font-family: var(--body); font-weight: 600; text-transform: uppercase;
+    font-size: clamp(24px, 3.6vw, 36px); line-height: 1.14; color: var(--fg);
+  }
+
+  /* ------------------------------------------------------------- footer */
+
+  footer {
+    border-top: 1px solid var(--line); padding: 40px 0 56px;
+    color: rgba(238,242,247,.42); font-size: 15px;
+  }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: baseline; }
+  footer .brand {
+    font-family: var(--mark); font-size: 14px; color: rgba(238,242,247,.62);
+    margin-right: auto;
+  }
+  footer a { color: rgba(238,242,247,.62); }
+  footer a:hover { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">MEGATRONIK<span>.</span></a>
+    <a class="link hide-sm" href="#games">Games</a>
+    <a class="link hide-sm" href="#studio">Studio</a>
+    <a class="link" href="../index.html">Play</a>
+  </div>
+</nav>
+
+<header id="top">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap">
+    <!-- Named explicitly. aria-hidden on the colour copies is not enough on its
+         own: name-from-content still walked all three and the heading announced
+         as "MEGATRONIK MEGATRONIK MEGATRONIK". -->
+    <h1 class="wordmark" aria-label="Megatronik">
+      <span class="ghost c" aria-hidden="true">MEGATRONIK</span>
+      <span class="ghost m" aria-hidden="true">MEGATRONIK</span>
+      <span class="top">MEGATRONIK</span>
+    </h1>
+    <div class="studio-line">Studio</div>
+
+    <p class="hero-line">Arcade games you <em>just play</em>.</p>
+    <p class="hero-sub">
+      No accounts. No subscriptions. No launcher, no season pass, no
+      forty-minute tutorial. <b>Open a page, press a button, you're driving.</b>
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="../index.html">Play VROOM ▸</a>
+      <a class="btn btn-ghost" href="#studio">What this is</a>
+    </div>
+  </div>
+</header>
+
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <div class="ticker-group">
+      <span>NES</span><span>SNES</span><span>Mega Drive</span><span>N64</span>
+      <span>Dreamcast</span><span>PS1</span><span>PS2</span><span>PSP</span>
+      <span>Xbox</span><span>PS3</span><span>360</span><span>PS4</span>
+      <span>PS5</span><span>PC</span><span>Arcade cabinets</span>
+      <span>30 years of this</span>
+    </div>
+    <div class="ticker-group">
+      <span>NES</span><span>SNES</span><span>Mega Drive</span><span>N64</span>
+      <span>Dreamcast</span><span>PS1</span><span>PS2</span><span>PSP</span>
+      <span>Xbox</span><span>PS3</span><span>360</span><span>PS4</span>
+      <span>PS5</span><span>PC</span><span>Arcade cabinets</span>
+      <span>30 years of this</span>
+    </div>
+  </div>
+</div>
+
+<section id="studio">
+  <div class="wrap">
+    <p class="eyebrow">What this is</p>
+    <h2>Bringing back the game<br>you could just start</h2>
+    <p class="lede">
+      Somewhere between the arcade and now, games got heavy. Megatronik Studio
+      makes the other kind: <b>small, fast, finished games</b> you open and play,
+      built with the feel of a 90s cabinet and the reach of a modern browser.
+    </p>
+
+    <div class="rules">
+      <div class="rule">
+        <span class="num">01</span>
+        <h3>Four seconds to fun</h3>
+        <p>
+          The arcade contract: coin in, and a few seconds later you are already
+          playing. No sign-in, no lobby, no shop standing between you and the
+          first corner.
+        </p>
+      </div>
+      <div class="rule">
+        <span class="num">02</span>
+        <h3>Nothing to buy</h3>
+        <p>
+          No accounts, no subscriptions, no currency, no battle pass, nothing
+          to unlock. The moment a game gets a store, it stops being about the
+          game and starts being about the store.
+        </p>
+      </div>
+      <div class="rule">
+        <span class="num">03</span>
+        <h3>Real physics. Arcade fun.</h3>
+        <p>
+          Anyone should be playing inside ten seconds — and underneath, an
+          honest simulation, so a 300 hp coupé and a hypercar are two
+          genuinely different animals rather than the same one with a bigger
+          number on it.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="games">
+  <div class="wrap">
+    <p class="eyebrow">Games</p>
+    <h2>Out now</h2>
+    <p class="lede">One game so far, and it is finished enough to lose an evening to.</p>
+
+    <article class="game">
+      <img class="game-shot" src="media/vroom-hero.jpg" alt="VROOM: a low-poly race car mid-corner on a circuit, with speedometer and tachometer on screen." loading="lazy" width="1600" height="900">
+      <div class="game-body">
+        <h3 class="game-title">VROOM</h3>
+        <p class="game-tag">Arcade driving · Play in browser · Free</p>
+        <p>
+          Pick a circuit, pick a car, drive. Flat-shaded and readable like the
+          racers it comes from — and underneath, four wheels on four springs,
+          weight that moves when you brake, and tyres that give up gradually
+          instead of all at once. Every car is built from the real one's torque
+          curve, gearing and drag, then measured in the running game to make
+          sure it does what the card says.
+        </p>
+        <p>
+          It is not trying to be Gran Turismo and it is not trying to be
+          Assetto Corsa. A real car, in an arcade world: six cars across five
+          drivetrain layouts, six circuits, and nothing to set up before you
+          are allowed to move.
+        </p>
+
+        <div class="specs">
+          <div class="spec"><b>6</b><span>Cars</span></div>
+          <div class="spec"><b>6</b><span>Circuits</span></div>
+          <div class="spec"><b>0</b><span>Accounts</span></div>
+          <div class="spec"><b>Free</b><span>Forever</span></div>
+        </div>
+
+        <div class="cta-row">
+          <a class="btn btn-primary" href="../index.html">Play now ▸</a>
+          <a class="btn btn-ghost" href="../about.html">About VROOM</a>
+        </div>
+        <!-- Said out loud because the alternative is somebody opening it on a
+             phone, finding nothing to press, and deciding it is broken. -->
+        <p class="game-note">Keyboard or gamepad, in a desktop browser. Touch controls are on the list.</p>
+      </div>
+    </article>
+
+    <div class="soon">
+      <h3>Next up</h3>
+      <p>
+        Whatever turns out to be fun. Same rules: small, finished, free, and
+        playable in the time it takes to decide you want to play something.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="who">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Who</p>
+        <h2>One person,<br>making all of it</h2>
+        <p>
+          Megatronik Studio is one man. Design, code, physics, art, audio, this
+          page. I have been playing games for thirty years — NES, SNES,
+          Dreamcast, PS2, PS3, PSP, PS4, PS5, Xbox, PC, and most of what came in
+          between — and at some point wanting to make one stopped being a
+          someday thing.
+        </p>
+        <p>
+          The studio is also how I learn. Every game gets me a little further
+          into rendering, physics, feel and the strange craft of making a
+          machine enjoyable to operate. I write down what I figure out and ship
+          the thing either way.
+        </p>
+      </div>
+      <div>
+        <p class="eyebrow pink">On AI</p>
+        <div class="quote">
+          <p>AI can't make something fun.<br>That part is still mine.</p>
+        </div>
+        <p>
+          I use AI heavily — code, assets, all of it. It lets one person build
+          at a scale that used to need a team, and I am not going to pretend
+          otherwise.
+        </p>
+        <p>
+          But fun is not a thing you can prompt for. It comes from playing the
+          build for the hundredth time, moving a number by two hundredths,
+          driving the same corner until it feels right, and watching someone
+          else pick up the controller and seeing the exact moment they get
+          bored. That is the job, and it is still a human doing it.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="brand">MEGATRONIK STUDIO</span>
+    <span>Built by Diego Cibils</span>
+    <a href="../index.html">Play VROOM</a>
+    <a href="../about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>
