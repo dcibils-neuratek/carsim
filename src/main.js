@@ -31,6 +31,8 @@ import { Music } from './music.js';
 import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
 import { Autopilot } from './autopilot.js';
 import { GhostLap } from './ghost.js';
+import { Race } from './race.js';
+import { FinishScreen } from './finish.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
@@ -422,6 +424,7 @@ export async function boot() {
   hud.buildMinimap(track.points);
   const lapTimer = new LapTimer(`${trackDef.id}:${carDef.id}`);
   const ghost = new GhostLap(`${trackDef.id}:${carDef.id}`);
+  const race = new Race();
   let sectorsShown = 0;
   const stepper = new FixedStepper();
 
@@ -632,6 +635,31 @@ export async function boot() {
 
   // One definition, shared by the key and the button, so they cannot drift.
   const toMenu = () => { location.search = ''; };
+
+  /**
+   * Start the race over without rebuilding the world.
+   *
+   * A reload would be simpler and is what T does, but it costs a second of
+   * black screen and re-parses the circuit -- fine as a way out to the menu,
+   * far too slow for the button you press the instant you cross the line and
+   * want another go. Everything that carries state across a race is reset here
+   * by hand, and the list is short enough to keep honest.
+   */
+  function restartRace() {
+    race.reset();
+    lapTimer.reset();
+    ghost.abandon();
+    sectorsShown = 0;
+    respawn(SPAWN_PROGRESS);
+    skidmarks.clear();
+    smoke.clear();
+    hud.toast(`${race.totalLaps} laps — go`, 1800);
+  }
+
+  const finishScreen = new FinishScreen(
+    document.getElementById('finish'),
+    (action) => { if (action === 'again') restartRace(); else toMenu(); },
+  );
   document.getElementById('menuBtn')?.addEventListener('click', toMenu);
 
   window.addEventListener('resize', () => {
@@ -703,6 +731,7 @@ export async function boot() {
       get vehicle() { return vehicle; },
       get car() { return car; },
       track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks, smoke,
+      lapTimer, race, finishScreen, restartRace,
     },
   });
 
@@ -766,11 +795,31 @@ export async function boot() {
     if (state.reset) { respawn(); ghost.abandon(); hud.toast('respawned'); }
     if (state.camera) hud.toast(`camera: ${carCamera.cycle()}`);
 
+    // Hands off once the race is over.
+    //
+    // The world keeps stepping -- the car rolls to a stop, the suspension
+    // settles, the engine idles down, and it all stays on screen behind the
+    // results. What it must not do is respond: a pad still resting on the
+    // trigger would otherwise drive off into the scenery under the leaderboard,
+    // and the keys the results screen wants (R, T, Enter, the arrows) are the
+    // same keys that drive.
+    if (race.finished) {
+      state.throttle = 0;
+      state.brake = 0;
+      state.steer = 0;
+      state.handbrake = 0;
+      state.shiftUp = false;
+      state.shiftDown = false;
+      state.reset = false;
+      state.camera = false;
+      state.toggleGearbox = false;
+    }
+
     // --- physics ---
     // The autopilot substitutes for the pad at the input layer and nowhere
     // else: same car, same physics, same limits. If it cannot make a corner,
     // neither can you.
-    if (autopilot.enabled) Object.assign(state, autopilot.update(vehicle));
+    if (autopilot.enabled && !race.finished) Object.assign(state, autopilot.update(vehicle));
 
     let firstStep = true;
     stepper.advance(dt, (h) => {
@@ -802,7 +851,7 @@ export async function boot() {
     const projection = track.project(carPos);
     const onTrack = Math.abs(projection.lateral) < 8;
     lapTimer.update(dt, projection.progress, onTrack);
-    hud.setProgress(projection.progress, carPos, lapTimer.running);
+    hud.setProgress(projection.progress, carPos, lapTimer.running, race);
 
     // --- driving against your own best lap ---------------------------------
     //
@@ -811,6 +860,13 @@ export async function boot() {
     // that just finished has to be taken before the next one wipes it. Written
     // the other way round -- and it was -- every best lap commits a recording
     // that is one frame old and empty.
+    race.update(lapTimer);
+    if (race.justFinished) {
+      finishScreen.show({
+        race, track: trackDef, car: carDef,
+        counted: race.counted, at: Date.now(),
+      });
+    }
     if (lapTimer.justCompleted && lapTimer.isBest) ghost.commit();
     if (lapTimer.justStarted) { ghost.begin(); sectorsShown = 0; }
     if (lapTimer.running) ghost.sample(projection.progress, lapTimer.current, projection.lateral);
@@ -837,7 +893,8 @@ export async function boot() {
 
     if (lapTimer.justCompleted) {
       hud.toast(
-        `LAP ${lapTimer.lapCount}  ${formatTime(lapTimer.last)}${lapTimer.isBest ? '   ★ BEST' : ''}`,
+        `LAP ${Math.min(race.laps.length, race.totalLaps)}/${race.totalLaps}  ` +
+        `${formatTime(lapTimer.last)}${lapTimer.isBest ? '   ★ BEST' : ''}`,
         2800,
       );
     }
@@ -885,7 +942,7 @@ export async function boot() {
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
     vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
-    skidmarks, smoke, lapTimer, ghost,
+    skidmarks, smoke, lapTimer, ghost, race,
     get ghostCar() { return ghostCar; },
     get tyreAudio() { return tyreAudio; },
   };

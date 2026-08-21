@@ -457,7 +457,13 @@ export class Hud {
    * wants is progress through the lap they are actually on -- which is zero
    * until they cross.
    */
-  setProgress(progress, carPos, lapStarted = true) {
+  /**
+   * @param {object} [race]  when a race is on, the readout counts laps rather
+   *   than only the percentage of this one -- "LAP 2/3  47%" answers both "how
+   *   far round am I" and "how much of this is left", and the second question
+   *   only exists now that a session ends.
+   */
+  setProgress(progress, carPos, lapStarted = true, race = null) {
     if (!this._mm) return;
     const p = lapStarted ? Math.min(Math.max(progress, 0), 1) : 0;
     this.el.mmDot.setAttribute('cx', (this._mm.ox + carPos.x * this._mm.scale).toFixed(2));
@@ -466,7 +472,12 @@ export class Hud {
     this.el.mmDone.setAttribute('stroke-dasharray',
       `${(this._mmLength * p).toFixed(1)} ${this._mmLength.toFixed(1)}`);
     this.el.mmBarFill.style.width = `${(p * 100).toFixed(1)}%`;
-    this.el.mmPct.textContent = `LAP ${Math.round(p * 100)}%`;
+    const pct = `${Math.round(p * 100)}%`;
+    this.el.mmPct.textContent = race
+      ? (race.finished
+          ? `FINISHED  ${race.totalLaps}/${race.totalLaps}`
+          : `LAP ${Math.max(1, race.lapNumber)}/${race.totalLaps}  ${pct}`)
+      : `LAP ${pct}`;
   }
 
   toggleDebug() {
