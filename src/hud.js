@@ -1,6 +1,6 @@
 // DOM overlay: the twin-dial cluster, lap times, toast, and the debug readout.
 
-import { TUNING, torqueAt } from './tuning.js';
+import { TUNING, torqueAt, peakPowerHp } from './tuning.js';
 import { formatTime } from './laptimer.js';
 
 const WHEEL_NAMES = ['FL', 'FR', 'RL', 'RR'];
@@ -142,8 +142,100 @@ export class Hud {
     this._peakG = 0;
     this._balance = 0;
     this._delta = 0;
+    this._hp = 0;
+    this._nm = 0;
     this._buildTach();
     this._buildDelta();
+    this._buildPower();
+  }
+
+  /**
+   * What the engine is making RIGHT NOW, in hp and Nm.
+   *
+   * The dials tell you how fast the car is going and how fast it is spinning.
+   * Neither tells you how hard it is pulling, and that is the number the whole
+   * gearbox exists to manage: the same 4000 rpm is 180 hp in third and 180 hp
+   * in fifth, but the shove is completely different, and a driver watching
+   * this can see a kickdown arrive as the torque bar jumping.
+   *
+   * Both bars are scaled to THIS car's own peak, so full bar means "all of it"
+   * rather than a number that only means something if you remember what the
+   * car makes. The peaks come from the same functions that fill the car cards,
+   * so the bar and the card cannot disagree.
+   *
+   * Built here rather than written into the page, like the delta bar: the
+   * whole feature stays in one file.
+   */
+  _buildPower() {
+    const dash = document.getElementById('dash');
+    if (!dash) return;
+
+    this._peakHp = Math.max(1, peakPowerHp());
+    this._peakNm = Math.max(1, TUNING.engine.peakTorque);
+
+    // Width tracks the dials rather than being a fixed pixel figure, so the
+    // block stays the width of the binnacle at every screen size -- --d is
+    // clamped between 112 and 186 px and moves with the viewport.
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'width:var(--d);margin-top:8px;display:flex;'
+      + 'flex-direction:column;gap:4px';
+
+    const row = (label, colour) => {
+      const line = document.createElement('div');
+      line.style.cssText = 'display:flex;align-items:center;gap:6px';
+
+      const key = document.createElement('span');
+      key.textContent = label;
+      key.style.cssText = 'font-size:10px;letter-spacing:1px;width:20px;'
+        + 'color:rgba(232,238,245,.45)';
+
+      const track = document.createElement('div');
+      track.style.cssText = 'position:relative;flex:1;height:4px;border-radius:2px;'
+        + 'background:rgba(255,255,255,.10);overflow:hidden';
+
+      const fill = document.createElement('div');
+      fill.style.cssText = `position:absolute;left:0;top:0;height:100%;width:0;background:${colour}`;
+      track.append(fill);
+
+      const val = document.createElement('span');
+      val.style.cssText = 'font-size:11px;font-variant-numeric:tabular-nums;'
+        + 'width:30px;text-align:right;color:rgba(232,238,245,.75)';
+      val.textContent = '0';
+
+      line.append(key, track, val);
+      wrap.append(line);
+      return { fill, val };
+    };
+
+    // Amber for power and steel for torque: the two are read together and at a
+    // glance the colour is what tells you which is which, not the label.
+    this.el.hpBar = row('HP', '#ffd23f');
+    this.el.nmBar = row('NM', '#7fb2e5');
+    dash.append(wrap);
+  }
+
+  /** @param {import('./vehicle.js').Vehicle} vehicle */
+  setPower(vehicle) {
+    if (!this.el.hpBar) return;
+
+    // engineTorque carries engine braking, so it goes NEGATIVE off the
+    // throttle. That is correct for the physics and meaningless on a bar, so
+    // the display floors at zero -- an engine being driven by the car is not
+    // making power, it is absorbing it.
+    const nm = Math.max(0, vehicle.engineTorque || 0);
+    const hp = (nm * vehicle.rpm) / 9549 / 0.7457;
+
+    // Smoothed for the same reason the speedo needle is: a shift cuts torque
+    // to zero for 140 ms and the raw number flickers through it.
+    this._hp += (hp - this._hp) * 0.18;
+    this._nm += (nm - this._nm) * 0.18;
+
+    const set = (bar, value, peak) => {
+      bar.fill.style.width = `${Math.min(100, (value / peak) * 100)}%`;
+      bar.val.textContent = Math.round(value);
+    };
+    set(this.el.hpBar, this._hp, this._peakHp);
+    set(this.el.nmBar, this._nm, this._peakNm);
   }
 
   /**
@@ -415,6 +507,8 @@ export class Hud {
     const kmh = Math.abs(this._displaySpeed);
     this.el.speedVal.textContent = Math.round(kmh);
     this._setNeedle(this.el.spdNeedle, kmh / this._speedMax);
+
+    this.setPower(vehicle);
 
     const e = TUNING.engine;
     this._setNeedle(this.el.tachNeedle, vehicle.rpm / this._tachMax);

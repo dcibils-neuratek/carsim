@@ -651,6 +651,15 @@ export async function boot() {
     // The binding screen owns its own keys; the game just stays out of the
     // way so the car cannot be driven blind behind it.
     if (padPanel.isOpen) return;
+    // The controls list, which used to be permanently in the corner. Toggling
+    // it here rather than in the Hud because every other overlay key lives on
+    // this switch and splitting them makes the set impossible to read.
+    if (e.code === 'KeyH') {
+      const panel = document.getElementById('help');
+      const hint = document.getElementById('helpHint');
+      const on = panel?.classList.toggle('on');
+      if (hint) hint.style.opacity = on ? '0.25' : '';
+    }
     if (e.code === 'Backquote') hud.toast(hud.toggleDebug() ? 'debug on' : 'debug off');
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');

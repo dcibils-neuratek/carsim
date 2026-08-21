@@ -83,17 +83,33 @@
        ever growing tall enough to eat the road. Smaller than before, because
        two dials stacked are twice as tall as two side by side.
 
-       Bound by HEIGHT as well as width, which side-by-side never needed: the
-       stack plus the gear strip runs about 1.9 dials tall, so on a short
-       window a width-only rule pushes the speedo off the bottom edge. */
-    --d: clamp(112px, min(13.5vw, 21vh), 186px);
+       Bound by HEIGHT as well as width, which side-by-side never needed: two
+       equal dials, the gear strip and the power bars run about 2.4 dials tall,
+       so on a short window a width-only rule pushes the bottom of the cluster
+       off the screen -- or into the lap panel above it. */
+    --d: clamp(112px, min(13.5vw, 17vh), 186px);
+    /* The vh term is what keeps the whole binnacle off the lap panel on a
+       short window, so it has to come down whenever the cluster grows. It was
+       21vh when the speedo was three quarters of the tacho and there were no
+       power bars under it; those two changes added 69 px of column, and at
+       620 px tall the dials started overlapping the lap times. On a tall
+       screen the vw term governs and this changes nothing. */
   }
-  /* The tacho is the bigger of the two, and that is a ranking rather than a
-     decoration: it is the one you read continuously, on every shift, while the
-     speed is a thing you glance at. Sizing them the same made you hunt for the
-     one that mattered. */
+  /* Both dials the same size.
+     The tacho was the bigger of the two for a while, as a ranking rather than
+     a decoration: it is the one you read continuously, on every shift, while
+     speed is a thing you glance at. That is still true of how they are USED,
+     and it turned out not to be a good reason to draw them differently -- two
+     instruments of different sizes in one binnacle read as one of them not
+     having fitted, and the eye goes to the odd one out rather than to the one
+     that matters. */
   .dial { position: relative; width: var(--d); height: var(--d); }
-  #speedo { width: calc(var(--d) * 0.76); height: calc(var(--d) * 0.76); }
+  /* Both dials the same size. The speedo was three quarters of the tacho for
+     a while, on the reasoning that revs are what you steer by and speed is
+     just a number -- true while driving, and it read as a mistake while
+     looking. Two instruments of different sizes in one binnacle look like one
+     of them did not fit. */
+  #speedo { width: var(--d); height: var(--d); }
   .dial svg { width: 100%; height: 100%; overflow: visible; }
 
   /* The bright ring is what makes these read as instruments rather than as
@@ -165,12 +181,21 @@
     position: absolute; left: 22px; bottom: 20px; width: var(--rail);
     display: flex; flex-direction: column; gap: 12px;
   }
-  #grip { background: var(--panel); border-radius: 10px; overflow: hidden; }
+  /* Lighter than the other panels, on purpose.
+     This one sits low on the left where the road runs through it, and at the
+     shared --panel opacity it read as a hole cut in the scene rather than as
+     an instrument laid over it. The dials next to it are 0.55 and float; this
+     matches them. The thin edge is what the dials get from their bezel: it
+     keeps the panel bounded without needing a slab behind it. */
+  #grip {
+    background: rgba(8, 12, 18, .5); border-radius: 10px; overflow: hidden;
+    border: 1px solid rgba(232, 238, 245, .10);
+  }
   #grip .head {
     padding: 7px 12px 6px; text-align: center;
     font-size: 12px; letter-spacing: 3px; color: var(--dim);
-    background: rgba(255,255,255,.05);
-    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.035);
+    border-bottom: 1px solid rgba(255,255,255,.06);
   }
 
   #gmeter { position: relative; padding: 10px 12px 2px; }
@@ -276,17 +301,48 @@
     background: rgba(255,210,63,.10);
   }
 
-  /* ---- help, bottom left ---- */
-  /* Keeps to its own lane on the left so it never runs under the dials, which
-     sit centred and are the one thing on the overlay you read at a glance. */
+  /* ---- help, on H ----
+     It used to live permanently in the bottom-left corner, and a list of
+     seventeen keys is reference material: you read it twice in your first
+     session and then it is scenery for the rest of your life with the game.
+     Scenery that covers the road. Now it is behind H, which buys the corner
+     back and lets the list be COMPLETE and legible rather than compressed
+     into six lines that fit. */
   #help {
-    font-size: 12.5px; color: var(--dim); line-height: 1.55;
-    background: var(--panel); padding: 8px 11px; border-radius: 10px;
-    /* Each line pairs keys with what they do, so wrapping would strand a key
-       on its own row. The panel is sized to the longest line instead. */
-    white-space: nowrap;
+    display: none;
+    position: absolute; left: 50%; top: 42px; transform: translateX(-50%);
+    background: rgba(8, 13, 20, .92); border: 1px solid rgba(232,238,245,.12);
+    border-radius: 12px; padding: 16px 22px 18px;
+    font-size: 13px; color: var(--dim); line-height: 1.5;
+    max-width: min(720px, 92vw);
   }
+  #help.on { display: block; }
+  #help .helpTitle {
+    text-align: center; font-size: 12px; letter-spacing: 3px;
+    color: var(--accent); margin-bottom: 12px;
+  }
+  /* Key column right-aligned against its meaning, so the eye runs down the
+     gutter instead of hunting across ragged rows. */
+  #help .helpGrid {
+    display: grid; grid-template-columns: auto 1fr auto 1fr;
+    gap: 5px 10px; align-items: baseline;
+  }
+  #help .hk { text-align: right; white-space: nowrap; }
+  #help .grp {
+    grid-column: 1 / -1; margin-top: 8px; padding-top: 7px;
+    border-top: 1px solid rgba(255,255,255,.07);
+    font-size: 11px; letter-spacing: 2px; color: rgba(232,238,245,.35);
+  }
+  #help .grp:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   #help b { color: var(--fg); font-weight: 600; }
+
+  /* One line so the panel is findable at all. Everything else moved behind H;
+     this cannot, or nobody would know H does anything. */
+  #helpHint {
+    font-size: 12px; color: rgba(232,238,245,.40); letter-spacing: 1px;
+    padding-left: 2px;
+  }
+  #helpHint b { color: rgba(232,238,245,.70); font-weight: 600; }
 
   /* ---- toast ---- */
   #toast {
@@ -502,14 +558,38 @@
       <div class="ends"><span>UNDER</span><span id="balanceText">NEUTRAL</span><span>OVER</span></div>
     </div>
   </div>
-  <div id="help">
-    <div><b>LS</b>/<b>WASD</b> drive &nbsp; <b data-bind="handbrake"></b>/<b>Space</b> handbrake</div>
-    <div><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b>/<b>Shift Ctrl</b> gears &nbsp; <b data-bind="reset"></b>/<b>R</b> reset</div>
-    <div><b data-bind="camera"></b>/<b>C</b> cam &nbsp; <b>G</b> tune &nbsp; <b>B</b> pad &nbsp; <b>M</b> manual</div>
-    <div><b>`</b> debug &nbsp; <b>P</b> colliders &nbsp; <b>O</b> wireframe</div>
-    <div><b>V</b> sound &nbsp; <b>N</b> music &nbsp; <b>K</b> clear marks</div>
-    <div><b>1-7</b> post effects &nbsp; <b>J</b> autopilot &nbsp; <b>T</b>/<b>Esc</b> menu</div>
+  <div id="helpHint"><b>H</b> &nbsp;controls</div>
   </div>
+
+  <!-- The full key list, on H. Lives outside the rail because it is centred
+       over the road rather than stacked in the corner. -->
+  <div id="help">
+    <div class="helpTitle">CONTROLS</div>
+    <div class="helpGrid">
+      <div class="grp">DRIVING</div>
+      <span class="hk"><b>LS</b> / <b>WASD</b></span><span>steer, throttle, brake</span>
+      <span class="hk"><b data-bind="handbrake"></b> / <b>Space</b></span><span>handbrake</span>
+      <span class="hk"><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b> / <b>Shift</b> <b>Ctrl</b></span><span>shift up, down</span>
+      <span class="hk"><b>M</b></span><span>manual / automatic gearbox</span>
+      <span class="hk"><b data-bind="reset"></b> / <b>R</b></span><span>put the car back on the road</span>
+      <span class="hk"><b data-bind="camera"></b> / <b>C</b></span><span>change camera</span>
+
+      <div class="grp">SESSION</div>
+      <span class="hk"><b>T</b> / <b>Esc</b></span><span>back to the circuits</span>
+      <span class="hk"><b>J</b></span><span>autopilot &mdash; watch it drive</span>
+      <span class="hk"><b>K</b></span><span>clear the skid marks</span>
+      <span class="hk"><b>V</b></span><span>sound on / off</span>
+      <span class="hk"><b>N</b></span><span>music on / off</span>
+
+      <div class="grp">SETUP AND DEBUG</div>
+      <span class="hk"><b>G</b></span><span>tuning panel</span>
+      <span class="hk"><b>B</b></span><span>gamepad bindings</span>
+      <span class="hk"><b>1</b>&ndash;<b>7</b></span><span>post-processing effects</span>
+      <span class="hk"><b>`</b></span><span>telemetry overlay</span>
+      <span class="hk"><b>P</b></span><span>physics colliders</span>
+      <span class="hk"><b>O</b></span><span>wireframe</span>
+      <span class="hk"><b>H</b></span><span>this panel</span>
+    </div>
   </div>
 
   <!-- Twin-dial cluster, after the real A110's: tacho left, speedo right, a

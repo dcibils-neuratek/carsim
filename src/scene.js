@@ -62,8 +62,6 @@ export function createScene(def) {
   sun.userData.offset = def.sun.position.slice();
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 420;
   // Tight ortho box that we slide along with the car -- a box big enough to
   // cover the whole circuit would make the shadows uselessly blocky.
   const s = 55;
@@ -71,8 +69,32 @@ export function createScene(def) {
   sun.shadow.camera.right = s;
   sun.shadow.camera.top = s;
   sun.shadow.camera.bottom = -s;
-  sun.shadow.bias = -0.0008;
-  sun.shadow.normalBias = 0.03;
+
+  // Near and far wrapped tightly around the light, and it is worth explaining
+  // why they are not just "1 and far enough".
+  //
+  // shadow.bias is in the shadow camera's DEPTH units, so what it costs in
+  // metres is bias * (far - near). At near 1 and far 420 that made a bias of
+  // -0.0008 worth 34 cm of displacement along the light ray -- and a shadow
+  // pushed a third of a metre away from its caster detaches at the contact
+  // patch. The car reads as hovering above the road, which is exactly what it
+  // looked like.
+  //
+  // The light sits a fixed distance from the focus (updateSunTarget keeps the
+  // offset constant), so the depth range only has to cover the ortho box and
+  // whatever terrain rises inside it. Half that box's diagonal is about 78 m;
+  // 100 m of margin either side is generous and still halves the range.
+  const dist = Math.hypot(...def.sun.position);
+  const span = 100;
+  sun.shadow.camera.near = Math.max(1, dist - span);
+  sun.shadow.camera.far = dist + span;
+
+  // Now that a unit of bias is worth a fifth of what it was, it can be small
+  // enough to stop peter-panning while still keeping acne off the road. Most
+  // of the work is done by normalBias, which offsets along the surface normal
+  // rather than along the light, so it does not slide the shadow sideways.
+  sun.shadow.bias = -0.00015;
+  sun.shadow.normalBias = 0.05;
   scene.add(sun);
   scene.add(sun.target);
 
