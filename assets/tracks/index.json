@@ -5,7 +5,7 @@
   "default": "forest",
   "tracks": [
     "forest.track.json",
-    "woods.track.json",
+    "nurburgring.track.json",
     "mediterranean.track.json",
     "snow.track.json",
     "dirt.track.json",
