@@ -22,9 +22,10 @@ import { gt3rs } from './garage/gt3rs.js';
 import { sc18 } from './garage/sc18.js';
 import { mclarenf1 } from './garage/mclarenf1.js';
 import { mini } from './garage/mini.js';
+import { delta } from './garage/delta.js';
 
 /** Least powerful first, so the row reads as a ladder you climb. */
-export const CARS = byPower([alpine, gt3rs, sc18, mclarenf1, mini]);
+export const CARS = byPower([alpine, gt3rs, sc18, mclarenf1, mini, delta]);
 
 export const DEFAULT_CAR = 'alpine';
 
