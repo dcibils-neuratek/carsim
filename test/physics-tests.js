@@ -25,6 +25,10 @@ import {
 import { validateTrack, LIMITS } from '../src/trackcheck.js';
 import { tyreMix } from '../src/tyreaudio.js';
 import { AT_LIMIT } from '../src/telemetry.js';
+import { LapTimer } from '../src/laptimer.js';
+import { Race } from '../src/race.js';
+import { rankFor, submit, board, sanitiseInitials, BOARD_SIZE } from '../src/leaderboard.js';
+import { ridgeRing } from '../src/scene.js';
 
 const DT = TUNING.world.fixedStep;
 const CHUNK = 400;              // steps between yields, keeps the page alive
@@ -333,13 +337,17 @@ export async function runAll(el) {
   await testHandbrake(ctx, r);
   await testHandbrakeUnderPower(ctx, r);
   await testStaysStoppedOnTheBrake(ctx, r);
+  testSceneryClear(ctx.track, getTrack('forest'), r, ' — forest');
   await testLap(ctx, r, ' — forest');
+  testLeaderboard(r);
+  await testRace(ctx, r);
 
   // Every other circuit gets its own world, and the two checks that catch a
   // bad layout: terrain punching through the road, and anywhere undriveable.
   for (const id of TRACK_IDS.filter((t) => t !== 'forest')) {
     const other = await buildWorld(id);
     await testTerrainClearance(other, r, ` — ${id}`);
+    testSceneryClear(other.track, getTrack(id), r, ` — ${id}`);
     await testGeometry(getTrack(id), r, ` — ${id}`);
     await testLap(other, r, ` — ${id}`);
   }
@@ -1176,6 +1184,138 @@ async function testHandbrake(ctx, r) {
   r.check('handbrake breaks the rear axle loose',
     pulled.slip > plain.slip * 1.2,
     `rear slip ${(plain.slip * 180 / Math.PI).toFixed(1)} -> ${(pulled.slip * 180 / Math.PI).toFixed(1)} deg`);
+}
+
+/**
+ * A whole race, driven by the autopilot.
+ *
+ * The one test that can catch a race that never ends. Every part of this is
+ * cheap to reason about in isolation and easy to get wrong together: the lap
+ * timer will not count a lap whose sectors were missed, the race only advances
+ * on the timer's edges, and the car has to physically get round three times
+ * for any of it to fire. A unit test on Race with fake edges would pass while
+ * the real thing sat at "LAP 1/3" forever.
+ */
+async function testRace(ctx, r) {
+  r.section('three-lap race');
+  const { track, vehicle } = ctx;
+  vehicle.reset(track.spawnAt(0.985));
+  await run(ctx, 240);
+
+  const lapTimer = new LapTimer(null);   // null key: never touches localStorage
+  const race = new Race(3);
+  const drive = makeAutopilot(track);
+  const pos = new THREE.Vector3();
+  let finishedAtStep = null;
+  let steps = 0;
+
+  // Three laps of a 5 km circuit at the autopilot's deliberately moderate pace.
+  await run(ctx, 150000, drive, (v, i) => {
+    if (race.finished) return false;
+    steps = i;
+    v.position(pos);
+    lapTimer.update(DT, track.project(pos).progress, true);
+    race.update(lapTimer);
+    if (race.justFinished) finishedAtStep = i;
+    return true;
+  });
+
+  const summed = race.laps.reduce((a, b) => a + b, 0);
+  r.results.race = { laps: race.laps.map((t) => +t.toFixed(3)), total: +race.total.toFixed(3) };
+
+  r.check('the race finishes', race.finished,
+    race.finished ? `${race.laps.length} laps in ${race.total.toFixed(1)} s`
+                  : `stuck on lap ${race.lapNumber} after ${(steps * DT).toFixed(0)} s`);
+  r.check('banks exactly three laps', race.laps.length === 3, `${race.laps.length} laps`);
+  r.check('total is the sum of the laps', Math.abs(race.total - summed) < 1e-6,
+    `${race.total.toFixed(3)} vs ${summed.toFixed(3)}`);
+  r.check('every lap is a plausible time',
+    race.laps.every((t) => t > 20 && t < 600),
+    race.laps.map((t) => t.toFixed(1)).join(', '));
+  // A finished race must stay finished: the car rolls on past the line for a
+  // while afterwards, and another crossing must not start banking lap four.
+  const before = race.laps.length;
+  await run(ctx, 3000, drive, (v) => {
+    v.position(pos);
+    lapTimer.update(DT, track.project(pos).progress, true);
+    race.update(lapTimer);
+  });
+  r.check('a finished race stays finished', race.laps.length === before && race.finished,
+    `${race.laps.length} laps after rolling on`);
+  r.check('the finish fires exactly once', finishedAtStep !== null && !race.justFinished,
+    finishedAtStep === null ? 'never fired' : `at step ${finishedAtStep}`);
+}
+
+/** The high score table: ordering, the cut, and what it refuses to store. */
+function testLeaderboard(r) {
+  r.section('leaderboard');
+  const id = `__test_${Math.floor(performance.now())}`;
+
+  r.check('an empty board takes anything', rankFor(id, 100) === 1, `rank ${rankFor(id, 100)}`);
+
+  submit(id, { who: 'AAA', total: 100, car: 'Alpine A110' });
+  submit(id, { who: 'BBB', total: 90, car: 'McLaren F1' });
+  submit(id, { who: 'CCC', total: 110, car: 'MINI Cooper S' });
+  const list = board(id);
+  r.check('sorted quickest first',
+    list.map((e) => e.total).join(',') === '90,100,110', list.map((e) => e.total).join(','));
+  r.check('a quicker time takes the top', rankFor(id, 80) === 1, `rank ${rankFor(id, 80)}`);
+  r.check('a slower time lands last', rankFor(id, 200) === 4, `rank ${rankFor(id, 200)}`);
+  // Whoever set it got there first. A board that demotes a standing record for
+  // an equal time rewards showing up late.
+  r.check('a tie does not displace the standing time', rankFor(id, 100) === 3,
+    `rank ${rankFor(id, 100)}`);
+
+  for (let i = 0; i < BOARD_SIZE; i++) submit(id, { who: 'ZZZ', total: 50 + i, car: 'x' });
+  r.check('the board is capped', board(id).length === BOARD_SIZE, `${board(id).length} entries`);
+  r.check('a slow time is refused once the board is full', rankFor(id, 999) === null,
+    `rank ${rankFor(id, 999)}`);
+  r.check('nothing is written when it does not qualify',
+    submit(id, { who: 'QQQ', total: 999 }) === null && !board(id).some((e) => e.who === 'QQQ'));
+
+  r.check('initials are three characters', sanitiseInitials('ab') === 'AB ', `"${sanitiseInitials('ab')}"`);
+  r.check('initials drop what the entry screen cannot type',
+    sanitiseInitials('a!b@c#d') === 'ABC', `"${sanitiseInitials('a!b@c#d')}"`);
+  r.check('empty initials fall back', sanitiseInitials('') === 'AAA', `"${sanitiseInitials('')}"`);
+
+  try { localStorage.removeItem('vroom.leaderboard.v1'); } catch { /* nothing to clean */ }
+}
+
+/**
+ * Nothing decorative may stand on the circuit.
+ *
+ * The skyline was a ring of mountains centred on the WORLD ORIGIN at a radius
+ * typed into each track file, and neither half of that had anything to do with
+ * where the circuit actually is -- five of six had a peak sitting on the road.
+ * It has no collider, so the car drove straight through the middle of a
+ * mountain: no impact, no explanation, just no view.
+ *
+ * Checked against the built centreline rather than the control points, because
+ * the centreline is the thing you drive on and it is what a player sees a
+ * mountain standing in the middle of.
+ */
+function testSceneryClear(track, def, r, label = '') {
+  r.section(`scenery clear of the road${label}`);
+  const ring = ridgeRing(def);
+
+  let worst = Infinity;
+  let worstAt = null;
+  for (let i = 0; i < track.points.length; i++) {
+    const p = track.points[i];
+    // Distance from the ring's centre; the ring is at `inner` at its closest.
+    const gap = ring.inner - Math.hypot(p.x - ring.cx, p.z - ring.cz);
+    if (gap < worst) {
+      worst = gap;
+      worstAt = +(i / track.points.length).toFixed(3);
+    }
+  }
+
+  r.check('the skyline never stands on the circuit', worst > 0,
+    worst > 0 ? `clears by ${worst.toFixed(0)} m`
+              : `overlaps by ${(-worst).toFixed(0)} m at progress ${worstAt}`);
+  // Beyond merely not touching: a peak close enough to loom over the road
+  // reads as scenery that got loose, even when it is technically outside.
+  r.check('the skyline keeps its distance', worst > 120, `${worst.toFixed(0)} m of clear air`);
 }
 
 async function testLap(ctx, r, label = '') {

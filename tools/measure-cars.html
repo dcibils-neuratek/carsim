@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carsim — measure every car</title>
+<style>
+  body { margin:0; padding:22px; background:#0d1117; color:#d7e0ea;
+         font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size:13px; }
+  pre { white-space: pre; line-height:1.6; margin:0; }
+  h1 { font-size:15px; letter-spacing:3px; margin:0 0 14px; }
+  .dim { color:#8fa3b8; }
+</style>
+</head>
+<body>
+<h1>MEASURE EVERY CAR</h1>
+<pre id="out">running…</pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs"
+  }
+}
+</script>
+
+<script type="module">
+/*
+ * 0-100, 0-200 and top speed for every car, and length, width and grip for
+ * every circuit.
+ *
+ * The about page prints these, and it claims out loud that they are read out
+ * of the running game rather than typed in. That claim only stays true if
+ * there is a way to re-read them, so this is it: open the page, copy the
+ * table. The physics suite measures the default car only, which is the right
+ * scope for a regression test and the wrong scope for a spec sheet.
+ *
+ * Headless -- no renderer, no canvas, and a private flat pad rather than a
+ * circuit, because no circuit here has a straight long enough to reach 350.
+ */
+import * as THREE from 'three';
+import { TUNING, resetTuning, torqueAt, peakPowerHp } from '../src/tuning.js';
+import { initPhysics, RAPIER } from '../src/physics.js';
+import { Vehicle } from '../src/vehicle.js';
+import { CARS, applyCarTuning } from '../src/cars.js';
+import { Track } from '../src/track.js';
+import { loadTracks, getTrack, TRACK_IDS } from '../src/tracks.js';
+
+const DT = TUNING.world.fixedStep;
+const CHUNK = 600;
+const NEUTRAL = {
+  steer: 0, throttle: 0, brake: 0, handbrake: 0,
+  shiftUp: false, shiftDown: false, reset: false, camera: false, toggleGearbox: false,
+};
+const input = (o = {}) => ({ ...NEUTRAL, ...o });
+
+const out = document.getElementById('out');
+const lines = [];
+function log(s) { lines.push(s); out.textContent = lines.join('\n'); }
+
+// Not setTimeout: Chrome clamps it to ~1 Hz in a hidden tab, which would turn
+// this into a run that never finishes if you click away from it.
+const chan = new MessageChannel();
+const yieldToLoop = () => new Promise((r) => { chan.port1.onmessage = r; chan.port2.postMessage(0); });
+
+async function run(world, vehicle, steps, controller, onStep) {
+  for (let i = 0; i < steps; i++) {
+    vehicle.update(DT, controller ? controller(vehicle, i) : NEUTRAL, null);
+    world.step();
+    if (onStep && onStep(vehicle, i) === false) return i;
+    if (i % CHUNK === CHUNK - 1) await yieldToLoop();
+  }
+  return steps;
+}
+
+/* A pad long enough that a 350 km/h car never reaches the end of it. */
+const PAD = { x: 6000, z: 6000, halfWidth: 900, halfLength: 60000 };
+function makePad(world) {
+  return world.createCollider(
+    RAPIER.ColliderDesc.cuboid(PAD.halfWidth, 5, PAD.halfLength)
+      .setTranslation(PAD.x, -5, PAD.z).setFriction(1.0));
+}
+const spawn = (back) => ({
+  position: { x: PAD.x, y: 0.9, z: PAD.z - back },
+  rotation: { x: 0, y: 0, z: 0, w: 1 },
+});
+
+/*
+ * Where drive force meets drag, solved rather than driven.
+ *
+ * Only used to pick a rolling launch speed. Terminal velocity is approached
+ * asymptotically -- net force shrinks to nothing as you close on it -- so
+ * launching from rest would need minutes of simulated time per car and would
+ * still report a number that was climbing when the clock ran out.
+ */
+function terminalKmh() {
+  const t = TUNING;
+  const top = t.transmission.gears[t.transmission.gears.length - 1];
+  const eff = t.transmission.efficiency ?? 0.9;
+  let best = 0;
+  for (let rpm = 1500; rpm <= t.engine.maxRpm; rpm += 25) {
+    const v = (rpm * 2 * Math.PI * t.wheels.radius) / (60 * top * t.transmission.final);
+    const drive = torqueAt(rpm) * top * t.transmission.final * eff / t.wheels.radius;
+    if (drive > t.aero.dragCoeff * v * v + t.aero.rollingResistance && v > best) best = v;
+  }
+  return best * 3.6;
+}
+
+/*
+ * Every corner on a circuit, by radius, off the built centreline.
+ *
+ * Curvature is a turn rate per metre, so radius is its reciprocal, smoothed
+ * over 20 m -- a single noisy sample is not a corner. `spread` is the gap
+ * between the tightest and the widest of them, and it is the number that says
+ * whether a lap has variety in it: eleven corners all taken at the same speed
+ * is a circuit with one corner on it, repeated.
+ */
+function corners(track, grip) {
+  const n = track.points.length, spacing = track.length / n;
+  const win = Math.max(1, Math.round(20 / spacing));
+  const rad = [];
+  for (let i = 0; i < n; i++) {
+    let k = 0;
+    for (let j = -win; j <= win; j++) k += track.curvature[(i + j + n) % n];
+    k = Math.abs(k / (2 * win + 1));
+    rad.push({ pct: (i / n) * 100, r: k > 1e-6 ? 1 / k : Infinity });
+  }
+  const mins = [];
+  for (let i = 0; i < n; i++) {
+    if (rad[i].r > 400) continue;
+    const last = mins[mins.length - 1];
+    if (last && Math.abs(last.pct - rad[i].pct) < 3) {
+      if (rad[i].r < last.r) mins[mins.length - 1] = rad[i];
+      continue;
+    }
+    mins.push(rad[i]);
+  }
+  const rs = mins.map((m) => m.r).sort((a, b) => a - b);
+  const tightest = rs[0] ?? Infinity;
+  return {
+    count: rs.length,
+    tightest,
+    widest: rs[rs.length - 1] ?? Infinity,
+    spread: (rs[rs.length - 1] ?? 0) - tightest,
+    slowestKmh: Math.sqrt(grip * 9.81 * tightest) * 3.6,
+    list: mins.map((m) => ({ pct: +m.pct.toFixed(1), r: +m.r.toFixed(0) })),
+  };
+}
+
+/* Keep it pointed straight without scrubbing off the speed being measured. */
+const straight = (p) => (v) => {
+  v.position(p);
+  return input({ throttle: 1, steer: THREE.MathUtils.clamp((p.x - PAD.x) * 0.008, -0.04, 0.04) });
+};
+
+async function measure(world, car) {
+  resetTuning();
+  applyCarTuning(TUNING, car);
+  const hp = Math.round(peakPowerHp());
+  const p = new THREE.Vector3();
+
+  // --- standing start: 0-100, 0-200 ---
+  let v = new Vehicle(world, RAPIER, spawn(50000));
+  await run(world, v, 90);                       // let the suspension settle
+  let t = 0, t100 = null, t200 = null;
+  await run(world, v, 12000, straight(p), (veh) => {
+    t += DT;
+    if (t100 === null && veh.speedKmh >= 100) t100 = t;
+    if (t200 === null && veh.speedKmh >= 200) t200 = t;
+    return !(t100 !== null && t200 !== null);    // stop as soon as both are in
+  });
+  v.dispose();
+
+  // --- rolling start: top speed ---
+  v = new Vehicle(world, RAPIER, spawn(50000));
+  await run(world, v, 60);
+  const launch = Math.max(20, (terminalKmh() * 0.92) / 3.6);
+  v.body.setLinvel({ x: 0, y: 0, z: launch }, true);
+  let peak = 0;
+  await run(world, v, 9000, straight(p), (veh) => { peak = Math.max(peak, veh.speedKmh); });
+  const topGear = v.gearLabel;
+  v.dispose();
+
+  return { name: car.name, drive: car.drive, hp,
+           mass: TUNING.chassis.mass, t100, t200, peak, topGear };
+}
+
+(async () => {
+  const world = await initPhysics();
+  makePad(world);
+  const rows = [];
+  log('car                       hp    mass   0-100    0-200    top speed');
+  log('─'.repeat(70));
+  for (const car of CARS) {
+    const r = await measure(world, car);
+    rows.push(r);
+    log(`${r.name.padEnd(24)} ${String(r.hp).padStart(4)}  `
+      + `${String(r.mass).padStart(5)}   `
+      + `${(r.t100 ? r.t100.toFixed(2) + ' s' : '—').padEnd(8)} `
+      + `${(r.t200 ? r.t200.toFixed(2) + ' s' : '—').padEnd(8)} `
+      + `${r.peak.toFixed(0)} km/h`);
+  }
+
+  // --- circuits --------------------------------------------------------
+  // Length is the built centreline, not the sum of the control points: a
+  // uniform cubic B-spline does not interpolate its controls, so the polyline
+  // through them runs about 12% long. Only the curve the car actually drives
+  // counts.
+  // The default index URL is relative to the page, and this page is a
+  // directory deeper than the game is.
+  await loadTracks('../assets/tracks/index.json');
+  const scene = new THREE.Scene();          // geometry only, never rendered
+  const tracks = [];
+  log('\n\ncircuit           length    road width   grip  tightest   slowest  cnr  spread   difficulty');
+  log('─'.repeat(70));
+  for (const id of TRACK_IDS) {
+    const def = getTrack(id);
+    const t = new Track(world, RAPIER, scene, def);
+    const width = (t.halfWidth ?? def.halfWidth ?? 6) * 2;
+    const grip = def.surface?.roadGrip ?? def.road?.surface?.roadGrip ?? 1;
+    const c = corners(t, grip);
+    tracks.push({ id, name: def.name, km: t.length / 1000, width, grip,
+                  difficulty: def.difficulty, tagline: def.tagline, ...c });
+    log(`${def.name.padEnd(17)} ${(t.length / 1000).toFixed(2) + ' km'} `
+      + `${(width.toFixed(1) + ' m').padStart(11)}   `
+      + `${grip.toFixed(2)}  `
+      + `${(Number.isFinite(c.tightest) ? c.tightest.toFixed(0) + ' m' : '—').padStart(7)} `
+      + `${(Number.isFinite(c.slowestKmh) ? c.slowestKmh.toFixed(0) + ' km/h' : '—').padStart(9)} `
+      + `${String(c.count).padStart(3)}  `
+      + `${(Number.isFinite(c.spread) ? c.spread.toFixed(0) + ' m' : '—').padStart(6)}   ${def.difficulty}`);
+    t.dispose?.();
+    await yieldToLoop();
+  }
+
+  log('\n' + JSON.stringify({ cars: rows, tracks }, null, 1));
+  window.__stats = { cars: rows, tracks };
+  window.__measureDone = true;
+})().catch((e) => { out.textContent = 'ERROR\n' + (e && e.stack || e); window.__measureDone = true; });
+</script>
+</body>
+</html>
