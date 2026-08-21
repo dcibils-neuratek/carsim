@@ -60,6 +60,9 @@ export class EngineAudio {
     this._muted = false;
     this._throttle = 0;
     this._rpm = 0;
+    this._popFor = 0;      // seconds of crackle still owed
+    this._popNext = 0;     // countdown to the next one
+    this._prevPedal = 0;
   }
 
   get muted() { return this._muted; }
@@ -80,8 +83,15 @@ export class EngineAudio {
       // Sub-buses hanging off the master, so each source can be balanced
       // against the others rather than everything moving together. Tyre and
       // road are handed to TyreAudio; music is wired but unfed.
+      //
+      // The exhaust gets its OWN bus rather than sharing the engine's, and it
+      // has to. Both come out of the same pipe in real life, but here they are
+      // balanced against each other: making room for the bangs means turning
+      // the engine down, and on a shared bus that turns the bangs down by
+      // exactly as much. Two things you want to trade off cannot live on one
+      // fader.
       this.buses = {};
-      for (const name of ['engine', 'tyre', 'road', 'music']) {
+      for (const name of ['engine', 'exhaust', 'tyre', 'road', 'music']) {
         const bus = this.ctx.createGain();
         bus.gain.value = TUNING.audio[`${name}Volume`] ?? 1;
         bus.connect(this.master);
@@ -101,6 +111,13 @@ export class EngineAudio {
         source.start();
         this.nodes[key] = { source, gain, ...def };
       }));
+
+      // One second of white noise, shared by every pop. Each pop reads a
+      // random slice of it, so they never sound like the same click repeated.
+      const n = Math.floor(this.ctx.sampleRate);
+      this._noise = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+      const data = this._noise.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
 
       // The graph is built and live regardless of whether the context is
       // actually running -- those are different problems and conflating them
@@ -174,7 +191,7 @@ export class EngineAudio {
     if (!this.master) return;
     this.master.gain.value = this._muted ? 0 : TUNING.audio.volume;
     if (!this.buses) return;
-    for (const name of ['engine', 'tyre', 'road', 'music']) {
+    for (const name of ['engine', 'exhaust', 'tyre', 'road', 'music']) {
       const bus = this.buses[name];
       if (bus) bus.gain.value = TUNING.audio[`${name}Volume`] ?? 1;
     }
@@ -232,7 +249,125 @@ export class EngineAudio {
         Math.max(finite(a.smoothing, 0.02), 0.001),
       );
     }
+
+    this._updatePops(dt, rpm, pedalIn, e);
   }
+
+  /**
+   * Crackle on the overrun.
+   *
+   * Charged by CLOSING the throttle at rpm, not by holding it closed: a pop is
+   * unburnt fuel reaching a hot pipe, and what sends it there is the sudden
+   * mismatch between an engine still spinning fast and a throttle that has
+   * just shut. So the burst is spent down over the following half second and
+   * the car goes quiet again, rather than crackling all the way down a long
+   * off-throttle section.
+   *
+   * How much you get scales with how far up the rev range the lift happened,
+   * which is the other half of why it reads as real -- lifting at 3500 gives a
+   * couple of ticks and lifting at the limiter gives a volley.
+   */
+  _updatePops(dt, rpm, pedal, e) {
+    const x = TUNING.audio.exhaust;
+    if (!x || !this._noise || !(x.pops > 0)) { this._prevPedal = pedal; return; }
+
+    // A lift is "the throttle was recently open and is now shut", not "it was
+    // open last frame and is shut this one".
+    //
+    // The one-frame edge is the obvious way to write this and it never fires.
+    // A gamepad trigger can snap shut, but a keyboard ramps the virtual pedal
+    // down at 4.5 per second -- about 0.075 a frame -- so by the time the
+    // pedal is under 0.12 the previous frame's value is around 0.20, and the
+    // two halves of the test are never true together. Measured in the running
+    // game: a real lift from 5802 rpm fired exactly zero pops.
+    //
+    // A decaying peak fixes it for both. It remembers the throttle was open
+    // for 400 ms, which is long enough to cover any release rate a human or a
+    // ramp produces, and consuming it on use stops one lift retriggering.
+    // 0.7 s of memory rather than 0.4. The keyboard takes about 220 ms to ramp
+    // the pedal shut, so the window has to outlast that with room to spare --
+    // and on a machine dropping frames a single step can be a quarter second,
+    // which ate most of a 0.4 s window before the pedal had finished closing.
+    this._pedalHigh = Math.max(pedal, (this._pedalHigh ?? 0) - dt / 0.7);
+    const lifted = this._pedalHigh > 0.35 && pedal < 0.12;
+    if (lifted) this._pedalHigh = 0;
+    this._prevPedal = pedal;
+    if (lifted && rpm > x.fromRpm) {
+      const hot = ratio(rpm, x.fromRpm, e.redlineRpm);
+      this._popFor = Math.max(this._popFor, x.burst * (0.35 + 0.65 * hot) * x.pops);
+      this._popNext = 0;
+    }
+
+    // Back on the throttle and it stops immediately: the fuel now has
+    // somewhere better to burn.
+    if (pedal > 0.2 || rpm < e.idleRpm * 1.2) this._popFor = 0;
+    if (this._popFor <= 0) return;
+
+    this._popFor -= dt;
+    this._popNext -= dt;
+    if (this._popNext > 0) return;
+    this._popNext = x.rateMin + Math.random() * (x.rateMax - x.rateMin);
+    this._firePop(x, Math.min(1, this._popFor / Math.max(x.burst, 1e-3)));
+  }
+
+  /**
+   * One bang: two voices, because a backfire is two sounds.
+   *
+   * The THUMP is the pipe ringing -- low, resonant, and what you feel. The
+   * CRACK is the detonation itself -- short, high and broad, and what you
+   * actually hear. Built with only the thump, this effect measured 0.42 at the
+   * output and still got lost under an engine at 0.10, because all of its
+   * energy sat at 250 Hz where small speakers give up.
+   */
+  _firePop(x, strength) {
+    const t = this.ctx.currentTime;
+    const voice = (loHz, hiHz, decayBase, level) => {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._noise;
+
+      // Randomised so a volley is a series of different bangs. The bandpass IS
+      // the exhaust here: a pipe rings at its own frequency whatever excites it.
+      const band = this.ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = loHz + Math.random() * (hiHz - loHz);
+      band.Q.value = 2 + Math.random() * 5;
+
+      // Makeup gain, and without it this effect is inaudible rather than quiet.
+      //
+      // A bandpass fed white noise throws almost all of it away: it passes a
+      // band about f0/Q wide out of the whole spectrum, so the power that
+      // survives is that fraction of Nyquist and the amplitude is its square
+      // root. At 250 Hz and Q 4 that is 5% of what went in. Measured through an
+      // OfflineAudioContext, the pops came out at 0.0010 RMS against engine
+      // samples sitting near 0.10 -- a hundred times down, which is silence.
+      //
+      // Derived rather than fitted to a constant, because f0 and Q are
+      // randomised per pop: a fixed makeup would make every bang a different
+      // loudness depending on which filter it drew. This keeps them level.
+      const makeup = Math.sqrt((this.ctx.sampleRate / 2) * band.Q.value / band.frequency.value);
+
+      // NOT scaled by x.pops, and that is the point of the parameter. It used
+      // to be, which double-counted: a car with pops at 0.95 got both a longer
+      // volley AND a louder bang out of one number. It also is not what
+      // happens -- a rally car does not detonate HARDER than a road car, it
+      // does it more often. `pops` now buys burst length only.
+      const gain = this.ctx.createGain();
+      const peak = x.volume * level * makeup
+        * (0.45 + 0.55 * Math.random()) * (0.3 + 0.7 * strength);
+      const decay = decayBase * (0.6 + 0.8 * Math.random());
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.004 + decay);
+
+      src.connect(band).connect(gain).connect(this.buses.exhaust || this.buses.engine);
+      src.start(t, Math.random() * 0.8, 0.004 + decay + 0.02);
+      src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
+    };
+
+    voice(x.toneLow, x.toneHigh, x.decay, 1);
+    voice(x.crackLow, x.crackHigh, x.crackDecay, x.crackMix);
+  }
+
 
   dispose() { if (this.ctx) this.ctx.close(); }
 }

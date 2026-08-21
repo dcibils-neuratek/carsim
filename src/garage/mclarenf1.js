@@ -95,6 +95,8 @@ export const mclarenf1 = {
     audio: {
       blendLowRpm: 3000, blendHighRpm: 6400,
       pitchOffset: 330, pitchPerRpm: 0.22,
+      // Naturally aspirated, and a 1993 road car besides.
+      exhaust: { pops: 0.1 },
     },
   },
   sounds: {

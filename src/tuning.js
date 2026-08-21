@@ -212,7 +212,14 @@ export const DEFAULTS = {
     // ever turn everything down together, which is useless when the thing you
     // want is the tyres over the engine.
     volume: 0.6,        // master
-    engineVolume: 1.0,
+    // Down from 1.0 to make room for the exhaust. The bangs are the event you
+    // want to hear on a lift, and the engine is what is masking them -- the
+    // 2 dB it gives up buys the pops 2 dB of relative level, which the ear
+    // notices far more than the amplitude it frees.
+    engineVolume: 0.8,
+    // Its own fader, and its own bus. See audio.js: sharing the engine's would
+    // make this trade impossible.
+    exhaustVolume: 1.0,
     tyreVolume: 1.0,
     roadVolume: 1.0,
     musicVolume: 0.6,   // reserved: the bus exists, nothing feeds it yet
@@ -232,6 +239,80 @@ export const DEFAULTS = {
     blendHighRpm: 5200,   // above this, only the "high" ones
     responsiveness: 14,   // how fast rpm/throttle tracking follows the physics
     smoothing: 0.02,      // gain ramp time, keeps crossfades from clicking
+
+    // Overrun pops, and the reason they are an EVENT rather than a filter.
+    //
+    // The engine's note is a recording, and a recording already contains the
+    // exhaust it came out of. What a crossfade between an on-throttle and an
+    // off-throttle loop cannot produce is the crackle on a lift, because that
+    // is not the engine making a different noise -- it is a separate
+    // combustion happening somewhere else. Fuel that did not burn in the
+    // cylinder reaches a hot exhaust and goes off in the PIPE.
+    //
+    // Which is why the trigger is what it is: the throttle closing, at rpm,
+    // with the engine on overrun. And why the amount belongs to the car rather
+    // than to the game. A turbocharged rally car with a hot manifold does it
+    // constantly; a naturally aspirated V12 barely does it at all. Each car
+    // states its own `pops`.
+    exhaust: {
+      pops: 0.25,       // 0 silent, 1 rally car. Overridden per car.
+      fromRpm: 3500,    // a lift below this is just a lift
+      burst: 0.55,      // seconds of crackle a full-rev lift buys
+      // Spaced further apart than they were, and that is what buys the volume
+      // below. With a 0.22 s thump and a 35 ms gap, three bangs could be
+      // ringing at once and their peaks summed -- so the level had to be held
+      // down for a worst case that sounded like one loud bang rather than a
+      // volley. Wider gaps mean each one stands alone and can be louder.
+      rateMin: 0.06,    // gap between pops, seconds
+      rateMax: 0.17,
+      toneLow: 110,     // bandpass centre, Hz -- the pipe's voice
+      toneHigh: 420,
+
+      // The CRACK, and the reason the bang was inaudible rather than quiet.
+      //
+      // A backfire is two sounds. The detonation itself is a sharp broadband
+      // crack; the pipe it happens in rings low underneath it. The low ring
+      // was all this had, and a 250 Hz burst is the part of the spectrum a
+      // laptop speaker reproduces worst -- so a pop measuring 0.42 at the
+      // output could be lost under an engine measuring 0.10.
+      //
+      // The crack is short and high and does the cutting through. It is the
+      // half you hear; the thump is the half you feel.
+      crackLow: 1200,   // Hz
+      crackHigh: 3600,
+      crackDecay: 0.035,
+      crackMix: 0.7,    // relative to the thump
+      // Both raised after listening. A pop peaked at 0.59 against engine
+      // samples at 0.10, and still read as quiet -- because a peak is not
+      // loudness when the sound is 100 ms long. Its RMS was 0.016, a sixth of
+      // the engine's, so the ear had almost nothing to hold on to.
+      //
+      // decay does more here than volume: lengthening the bang puts energy
+      // under the peak instead of just making the spike taller, which is what
+      // turns a click into a bang.
+      // decay does more than volume here: lengthening the bang puts energy
+      // under the peak instead of making the spike taller, which is what turns
+      // a click into a bang. It went from 0.12 to 0.17 for that reason.
+      //
+      // volume is capped by headroom rather than by taste. One bang measures
+      // about 0.42 at the output; two overlapping make 0.67, and the engine on
+      // the overrun has to fit under 1.0 alongside them.
+      decay: 0.22,      // how long the low thump takes to die
+      // Set against the ceiling, from levels measured in the running game
+      // rather than assumed -- and the assumption was wrong twice.
+      //
+      // The engine was taken to drop away on the overrun. It does not: metered
+      // on its own bus it goes 0.588 under power to 0.545 off it, barely a
+      // move, because the off-throttle samples are nearly as loud as the
+      // on-throttle ones. That left far more headroom than the guess allowed
+      // -- engine 0.33 and pop 0.44 at the output summed to 0.76, so a quarter
+      // of the scale was going unused while the bangs were still too quiet.
+      //
+      // 0.95 puts one bang at about 0.61 at the output against the engine's
+      // 0.33, for 0.94 together. That is the scale full, and it is where this
+      // knob stops.
+      volume: 0.95,     // every bang the same size -- `pops` sets how MANY
+    },
 
     // Tyre audio. This is the car's warning channel -- with no force feedback
     // through a wheel, it is the only thing that can tell you the limit is

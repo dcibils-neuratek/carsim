@@ -123,6 +123,11 @@ export const mini = {
     // A four, so it keeps the default four-cylinder recordings rather than the
     // procar V12 set the Porsche and the Lamborghini borrow. The blend points
     // move down to suit an engine that is finished at 6750.
-    audio: { blendLowRpm: 2200, blendHighRpm: 5400 },
+    // Turbocharged, and a modern hot hatch is TUNED to crackle -- it is half
+    // of what the sports exhaust is sold on.
+    audio: {
+      blendLowRpm: 2200, blendHighRpm: 5400,
+      exhaust: { pops: 0.55 },
+    },
   },
 };

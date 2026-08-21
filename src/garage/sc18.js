@@ -92,6 +92,8 @@ export const sc18 = {
     audio: {
       blendLowRpm: 3400, blendHighRpm: 7200,
       pitchOffset: 380, pitchPerRpm: 0.24,
+      // A naturally aspirated V12 does this least of anything here.
+      exhaust: { pops: 0.12 },
     },
   },
   sounds: {

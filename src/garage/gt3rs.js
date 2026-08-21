@@ -83,6 +83,9 @@ export const gt3rs = {
     audio: {
       blendLowRpm: 3600, blendHighRpm: 7600,
       pitchOffset: -260, pitchPerRpm: 0.17,
+      // Naturally aspirated, so there is little unburnt fuel to reach
+      // the pipe. A flat six ticks on the overrun; it does not bang.
+      exhaust: { pops: 0.15 },
     },
   },
 

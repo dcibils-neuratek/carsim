@@ -44,7 +44,11 @@ export const alpine = {
     },
     brakes: { maxBrakeForce: 14000, frontBias: 0.62 },
     aero: { dragCoeff: 0.49, downforce: 2.9 },
-    audio: { blendLowRpm: 2400, blendHighRpm: 5200 },
+    // Turbo four, but a road car with a road exhaust rather than a rally one.
+    audio: {
+      blendLowRpm: 2400, blendHighRpm: 5200,
+      exhaust: { pops: 0.4 },
+    },
     // Measured off the model, so the simulated wheels sit in the arches the
     // artist drew.
     // From the model's own hubs, like the GT3 RS. Its wheelbase measures
