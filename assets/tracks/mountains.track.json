@@ -8,7 +8,8 @@
   "notes": [
     "The elevation IS the circuit: an 18 m climb over the first half, then a long descent that arrives at the final corners carrying far too much speed.",
     "This circuit doubles back over itself with big height differences, which is why terrain.envelope.slope is 0.20 rather than the usual 0.06. Terrain is the lower envelope of nearby road surfaces: too shallow a slope lets a low section's envelope win next to a much higher one and carves a trench beside the road that the car falls into. Too steep, and the heightfield chords ABOVE the asphalt over a crest -- which is what the deeper roadClearance covers.",
-    "The closing hairpin is ~4.4 m radius against a 12 m guideline. It laps, but it reads as a kink, and there is 67 m of clear ground around it -- this is a layout job, not a smoothing one."
+    "The closing hairpin is ~4.4 m radius against a 12 m guideline. It laps, but it reads as a kink, and there is 67 m of clear ground around it -- this is a layout job, not a smoothing one.",
+    "Hard clear noon at altitude. A near-vertical sun and very little sky fill, which gives the blackest shadows in the game. Cold, older tarmac, so less grip than the heat of the Mediterranean."
   ],
   "road": {
     "halfWidth": 6.2,
@@ -17,7 +18,7 @@
       "maxDegrees": 4.5
     },
     "surface": {
-      "roadGrip": 0.98,
+      "roadGrip": 0.92,
       "grassGrip": 0.3
     },
     "controlPoints": [
@@ -140,22 +141,22 @@
   },
   "environment": {
     "fog": {
-      "near": 300,
-      "far": 1500
+      "near": 320,
+      "far": 1600
     },
     "sun": {
-      "color": "#fff0d0",
-      "intensity": 2.7,
+      "color": "#ffffff",
+      "intensity": 3.0,
       "position": [
-        110,
-        140,
-        -40
+        34,
+        215,
+        -30
       ]
     },
     "palette": {
-      "sky": "#5aa0dd",
-      "skyHigh": "#1d4f8c",
-      "horizon": "#dfe9ef",
+      "sky": "#4a95d8",
+      "skyHigh": "#14417a",
+      "horizon": "#e8f1f6",
       "ground": "#7d7a63",
       "groundDark": "#5d5b49",
       "asphalt": "#44474d",
@@ -167,6 +168,11 @@
       "leaf": "#466b3f",
       "post": "#f0f2f5",
       "postStripe": "#2c2f34"
+    },
+    "ambient": {
+      "intensity": 0.72,
+      "sky": "#4f97d8",
+      "ground": "#4a4838"
     }
   },
   "scenery": {

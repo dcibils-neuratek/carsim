@@ -52,7 +52,19 @@ export function createScene(def) {
   scene.add(createHorizonRange(def));
   scene.environment = createEnvironment(pal);
 
-  const hemi = new THREE.HemisphereLight(pal.sky, pal.groundDark, 1.15);
+  // Fill light, per circuit.
+  //
+  // This was pinned at 1.15, which is a fine midday number and the reason a
+  // circuit could never be anything but midday: the sun can be dropped to
+  // nothing and the world stays evenly lit from the sky, so dusk came out as
+  // "noon with an orange lamp" and night was not expressible at all. Shadow
+  // DEPTH is the difference between the sun and this, so it is the control
+  // that decides what time it is, more than the sun's own intensity.
+  const hemi = new THREE.HemisphereLight(
+    def.ambient?.sky ?? pal.sky,
+    def.ambient?.ground ?? pal.groundDark,
+    def.ambient?.intensity ?? 1.15,
+  );
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(def.sun.color, def.sun.intensity);
@@ -197,12 +209,57 @@ function createSky(pal) {
 
 // A ring of jagged peaks so the horizon isn't a flat line. Purely decorative,
 // no collision -- it sits well beyond anywhere the car can reach.
+/** Clear air between the outermost part of the circuit and the skyline. */
+const RIDGE_MARGIN = 250;
+
+/**
+ * Where the skyline ring actually sits, as { cx, cz, radius, inner }.
+ *
+ * Split out from the mesh so it can be checked without a renderer: `inner` is
+ * the closest a peak can come to the ring's centre once jitter has pulled it
+ * in, and that is the number a circuit has to stay clear of.
+ */
+export function ridgeRing(def) {
+  const jitter = def.scenery.ridgeJitter;
+  const pts = def.controlPoints ?? [];
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const [x, , z] of pts) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+  const cx = pts.length ? (minX + maxX) / 2 : 0;
+  const cz = pts.length ? (minZ + maxZ) / 2 : 0;
+  let reach = 0;
+  for (const [x, , z] of pts) reach = Math.max(reach, Math.hypot(x - cx, z - cz));
+
+  const radius = Math.max(def.scenery.ridgeRadius, reach + RIDGE_MARGIN + jitter / 2);
+  return { cx, cz, radius, inner: radius - jitter / 2, reach };
+}
+
 function createHorizonRange(def) {
   const positions = [];
-  const radius = def.scenery.ridgeRadius;
   const count = def.scenery.ridgeCount;
   const [hMin, hMax] = def.scenery.ridgeHeight;
   const jitter = def.scenery.ridgeJitter;
+
+  // Centred on the CIRCUIT, and never smaller than the circuit.
+  //
+  // This ring used to be centred on the world origin at a radius typed into
+  // the track file, and both halves of that were wrong. No circuit here is
+  // centred on the origin -- they sit up to 550 m off it -- and the authored
+  // radii were smaller than the distance the layout actually reaches, so five
+  // of the six had a mountain standing on the road. It is only a skyline mesh
+  // with no collider, so the car drove through it, which is worse than hitting
+  // it: you cannot see where you are going and nothing explains why.
+  //
+  // Control points bound the built centreline rather than tracking it, because
+  // a uniform cubic B-spline passes INSIDE its controls -- so measuring the
+  // footprint from them is conservative in the direction that matters.
+  // Jitter pulls a peak INWARD by up to half its range, so the floor has to
+  // clear the track by the margin plus that.
+  const { cx, cz, radius } = ridgeRing(def);
   // Deterministic pseudo-random so the skyline is the same every run.
   let seed = 1337;
   const rand = () => {
@@ -217,9 +274,9 @@ function createHorizonRange(def) {
     const h = hMin + rand() * (hMax - hMin);
     const r = radius + (rand() - 0.5) * jitter;
     positions.push(
-      Math.cos(a0) * radius, -20, Math.sin(a0) * radius,
-      Math.cos(a1) * radius, -20, Math.sin(a1) * radius,
-      Math.cos(am) * r, h, Math.sin(am) * r,
+      cx + Math.cos(a0) * radius, -20, cz + Math.sin(a0) * radius,
+      cx + Math.cos(a1) * radius, -20, cz + Math.sin(a1) * radius,
+      cx + Math.cos(am) * r, h, cz + Math.sin(am) * r,
     );
   }
 

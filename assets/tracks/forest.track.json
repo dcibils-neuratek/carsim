@@ -7,9 +7,13 @@
   "difficulty": "Medium",
   "notes": [
     "A closed B-spline's tangent at the start point is set by the point BEFORE it, so the last control point steers the direction the road arrives on the straight. Keep it roughly in line with the straight -- put it off to one side and the spline whips into a tiny-radius loop right at the join, which is the one corner every circuit here kept failing on.",
-    "The hairpin at the south end must sweep around without reversing against its own previous leg. A point that sits back the way the path just came from makes the spline double back and the ribbon folds through itself."
+    "The hairpin at the south end must sweep around without reversing against its own previous leg. A point that sits back the way the path just came from makes the spline double back and the ribbon folds through itself.",
+    "Early morning. A low sun through the trees, long shadows across the road, and enough haze to shorten the sightlines."
   ],
   "road": {
+    "surface": {
+      "roadGrip": 0.97
+    },
     "controlPoints": [
       [0, 0, -829.9],
       [0, 0, -463.2],
@@ -33,5 +37,30 @@
       [-177.56, -0.3, -972.72],
       [-32.9, -0.2, -864.7]
     ]
+  },
+  "environment": {
+    "sun": {
+      "position": [
+        -118,
+        44,
+        52
+      ],
+      "color": "#ffe2b8",
+      "intensity": 2.2
+    },
+    "ambient": {
+      "intensity": 1.05,
+      "sky": "#9dbdd6",
+      "ground": "#3c5c30"
+    },
+    "fog": {
+      "near": 240,
+      "far": 1400
+    },
+    "palette": {
+      "sky": "#8fc2e2",
+      "skyHigh": "#3f79ab",
+      "horizon": "#e6d9c4"
+    }
   }
 }

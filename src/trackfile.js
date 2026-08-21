@@ -170,6 +170,20 @@ export function validateTrackFile(raw, source = 'track file') {
     throw new TrackFormatError('"environment.sun.position" must be [x, y, z]');
   }
 
+  if (raw.environment.ambient !== undefined) {
+    const amb = raw.environment.ambient;
+    if (typeof amb !== 'object' || amb === null || Array.isArray(amb)) {
+      throw new TrackFormatError('"environment.ambient" must be an object');
+    }
+    if (typeof amb.intensity !== 'number' || !(amb.intensity >= 0 && amb.intensity <= 4)) {
+      throw new TrackFormatError(
+        `"environment.ambient.intensity" should be a number in [0, 4], got ${amb.intensity}`,
+      );
+    }
+    if (amb.sky !== undefined) parseColor(amb.sky, 'environment.ambient.sky');
+    if (amb.ground !== undefined) parseColor(amb.ground, 'environment.ambient.ground');
+  }
+
   const fogNear = require_(raw, 'environment.fog.near', 'number');
   const fogFar = require_(raw, 'environment.fog.far', 'number');
   if (fogFar <= fogNear) {
@@ -264,6 +278,17 @@ export function normaliseTrack(raw) {
       intensity: raw.environment.sun.intensity,
       position: [...raw.environment.sun.position],
     },
+    // Sky fill. Optional, and the shape of it is what makes a time of day:
+    // the ratio between this and the sun is what sets how deep a shadow goes,
+    // which reads as the hour far more strongly than the sun's colour does.
+    // Omitted means the old fixed 1.15, i.e. midday.
+    ambient: raw.environment.ambient ? {
+      intensity: raw.environment.ambient.intensity,
+      ...(raw.environment.ambient.sky
+        ? { sky: parseColor(raw.environment.ambient.sky, 'ambient.sky') } : {}),
+      ...(raw.environment.ambient.ground
+        ? { ground: parseColor(raw.environment.ambient.ground, 'ambient.ground') } : {}),
+    } : null,
 
     scenery: {
       treeCount: trees.count,

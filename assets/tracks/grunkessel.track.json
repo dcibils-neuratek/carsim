@@ -1,0 +1,192 @@
+{
+  "format": "carsim.track",
+  "version": 1,
+  "id": "grunkessel",
+  "name": "Grünkessel",
+  "tagline": "A tight stadium loop, a long run to the far hairpin, a chicane before the line",
+  "difficulty": "Hard",
+  "notes": [
+    "Fictional, and deliberately so. The layout began as a trace of a real Grand Prix circuit, and carrying the real name turned out to be a bad trade: it invites a comparison with the simulators on the one axis they win -- accuracy -- and it takes away the tool every other circuit here is built with, which is moving a corner because it is more fun moved. A real circuit cannot be tuned. This one can.",
+    "The shape is worth keeping: a tight stadium loop straight after turn 1, a long run down to the far hairpin, back up the inside, across the top, and a chicane onto the start straight. Ninety control points, so the curves are curves rather than a polygon with the corners rounded off.",
+    "Length is whatever the built centreline measures. It is no longer pinned to a published figure, which also retires a mistake worth recording: the scale was set by a script of my own that sampled the spline differently from the way the game builds it, and the circuit came out about 10% longer than the number I had claimed was exact. Measure with the thing that draws it, not with a second implementation of the same idea.",
+    "Overcast, and damp with it. The sun is high but weak and the sky does most of the lighting, so shadows barely exist -- which is what an overcast day actually looks like, and why the grip is the lowest tarmac in the game.",
+    "The terrain envelope is pushed to 0.35 m under the road, well over the 0.15 m default. This circuit invents 20 m of elevation over its lap and runs hills at 1.5 amplitude, and between them the coarse heightfield was chording to within 19 mm of the asphalt even before the corners were reshaped -- close enough that reshaping them took it to 8 mm and tripped the \"invisible wall\" check. The envelope only exists under the road, where the terrain is hidden, so buying margin here costs nothing anyone can see."
+  ],
+  "road": {
+    "halfWidth": 6.0,
+    "curbWidth": 1.0,
+    "banking": {
+      "gain": 150,
+      "maxDegrees": 2.5
+    },
+    "surface": {
+      "roadGrip": 0.87,
+      "grassGrip": 0.34
+    },
+    "controlPoints": [
+      [742.44, 0.0, 137.39],
+      [627.78, 0.21, 105.86],
+      [513.13, 0.43, 74.33],
+      [398.48, 0.65, 39.94],
+      [289.56, 0.89, 8.41],
+      [197.84, 1.15, -23.12],
+      [129.05, 1.43, -48.92],
+      [78.21, 1.74, -53.59],
+      [36.96, 2.07, -45.52],
+      [2.93, 2.44, -28.85],
+      [20.18, 2.83, 6.66],
+      [45.92, 3.25, 37.07],
+      [86.05, 3.7, 68.6],
+      [131.91, 4.18, 100.13],
+      [164.14, 4.68, 124.5],
+      [186.37, 5.2, 151.72],
+      [149.11, 5.73, 177.52],
+      [91.79, 6.26, 200.45],
+      [22.99, 6.8, 220.51],
+      [-37.6, 7.32, 227.82],
+      [-82.59, 7.84, 217.14],
+      [-117.45, 8.33, 197.58],
+      [-94.02, 8.79, 163.93],
+      [-71.84, 9.2, 136.01],
+      [-57.23, 9.57, 105.23],
+      [-49.85, 9.89, 71.49],
+      [-50.77, 10.14, 34.22],
+      [-62.05, 10.32, -7.44],
+      [-100.26, 10.43, -60.38],
+      [-157.58, 10.45, -111.98],
+      [-214.91, 10.39, -163.57],
+      [-266.5, 10.24, -215.16],
+      [-289.83, 10.0, -262.85],
+      [-297.01, 9.67, -311.28],
+      [-288.77, 9.25, -358.85],
+      [-287.91, 8.74, -397.83],
+      [-296.66, 8.14, -436.72],
+      [-317.37, 7.47, -475.39],
+      [-358.22, 6.71, -513.26],
+      [-444.21, 5.89, -547.65],
+      [-544.53, 5.01, -582.05],
+      [-636.25, 4.07, -607.85],
+      [-722.24, 3.09, -616.45],
+      [-793.9, 2.08, -613.58],
+      [-842.63, 1.05, -590.65],
+      [-821.29, 0.0, -557.41],
+      [-787.8, -1.05, -527.51],
+      [-730.84, -2.08, -504.66],
+      [-659.19, -3.09, -487.46],
+      [-587.53, -4.07, -473.13],
+      [-538.21, -5.01, -449.47],
+      [-502.45, -5.89, -412.52],
+      [-480.04, -6.71, -367.36],
+      [-472.88, -7.47, -321.22],
+      [-456.25, -8.14, -274.9],
+      [-415.55, -8.74, -223.76],
+      [-358.22, -9.25, -166.44],
+      [-286.57, -9.67, -100.51],
+      [-214.91, -10.0, -34.59],
+      [-181.52, -10.24, 12.97],
+      [-168.56, -10.39, 55.64],
+      [-167.94, -10.45, 95.81],
+      [-176.53, -10.43, 134.31],
+      [-195.61, -10.32, 170.92],
+      [-204.07, -10.14, 206.07],
+      [-204.76, -9.89, 242.47],
+      [-196.26, -9.57, 280.38],
+      [-174.56, -9.2, 320.07],
+      [-128.92, -8.79, 360.96],
+      [-42.93, -8.33, 406.82],
+      [43.06, -7.84, 441.22],
+      [129.05, -7.32, 464.15],
+      [229.37, -6.8, 464.15],
+      [329.69, -6.26, 446.95],
+      [430.01, -5.73, 418.29],
+      [516.0, -5.2, 383.89],
+      [573.32, -4.68, 355.23],
+      [607.72, -4.18, 343.76],
+      [624.92, -3.7, 372.43],
+      [607.72, -3.25, 406.82],
+      [647.25, -2.83, 417.17],
+      [702.93, -2.44, 413.92],
+      [759.16, -2.07, 388.32],
+      [791.28, -1.74, 355.84],
+      [811.18, -1.43, 322.27],
+      [819.64, -1.15, 288.67],
+      [820.48, -0.89, 255.58],
+      [813.48, -0.65, 223.41],
+      [799.46, -0.43, 192.4],
+      [776.21, -0.21, 163.41]
+    ]
+  },
+  "terrain": {
+    "hills": {
+      "amplitude": 1.5,
+      "scale": 1.6
+    },
+    "envelope": {
+      "roadClearance": 0.35
+    }
+  },
+  "environment": {
+    "fog": {
+      "near": 110,
+      "far": 560
+    },
+    "sun": {
+      "color": "#cbd6d2",
+      "intensity": 1.05,
+      "position": [
+        40,
+        200,
+        20
+      ]
+    },
+    "palette": {
+      "sky": "#8fa3ad",
+      "skyHigh": "#5a707e",
+      "horizon": "#c3ccc8",
+      "ground": "#41632f",
+      "groundDark": "#2e4a23",
+      "asphalt": "#262b2e",
+      "asphaltEdge": "#1b1f22",
+      "curbA": "#b8453f",
+      "curbB": "#e2e2dc",
+      "ridge": "#54636b",
+      "trunk": "#3d2f21",
+      "leaf": "#25502a",
+      "post": "#d8ddda",
+      "postStripe": "#b8453f",
+      "skidmark": "#080a0c"
+    },
+    "ambient": {
+      "intensity": 2.0,
+      "sky": "#b4c3c8",
+      "ground": "#46543f"
+    }
+  },
+  "scenery": {
+    "trees": {
+      "count": 1400,
+      "height": [
+        5.0,
+        11.0
+      ],
+      "radius": [
+        1.2,
+        2.0
+      ],
+      "segments": 5,
+      "clearance": 9
+    },
+    "ridges": {
+      "count": 48,
+      "height": [
+        40,
+        90
+      ],
+      "radius": 800,
+      "jitter": 120
+    },
+    "posts": {
+      "spacing": 9
+    }
+  }
+}

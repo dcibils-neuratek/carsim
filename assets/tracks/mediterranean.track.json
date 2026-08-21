@@ -3,7 +3,7 @@
   "version": 1,
   "id": "mediterranean",
   "name": "Mediterranean",
-  "tagline": "Hot, dry and open \u2014 cypress and fast sweepers",
+  "tagline": "Hot, dry and open — cypress and fast sweepers",
   "difficulty": "Fast",
   "notes": [
     "The fast circuit. roadGrip 1.02 and the widest, most open corners here -- this is the one where the car's aero and top gear finally matter, and the counterweight to Dirt at the other end of the grip range.",
@@ -11,7 +11,8 @@
     "Cypress rather than pine, and it is done with the SAME cone generator: tall and narrow (6-13 m tall, 0.8-1.4 m radius) reads as cypress, where short and wide reads as pine. No new geometry -- the shape of the parameters carries the whole change of country.",
     "No `dust` in the palette, deliberately. This is tarmac, so tyres throw grey rubber smoke and the shared default is correct. Dirt overrides it because gravel throws the ground itself.",
     "Banking is stronger than the other circuits (210 / 4 degrees). Long fast sweepers with no banking feel like they are fighting you at speed, and this is the only track quick enough for that to show.",
-    "The first control point is pulled IN off the polar radius (272 rather than 300). On a pure polar loop the start line lands wherever the sweep happens to be, and here that was mid-corner -- a 50 degree kink across the start straight. Pulling that one point back onto the chord between its neighbours flattens the join to 14 degrees and moves the corner to where it belongs, one point earlier."
+    "The first control point is pulled IN off the polar radius (272 rather than 300). On a pure polar loop the start line lands wherever the sweep happens to be, and here that was mid-corner -- a 50 degree kink across the start straight. Pulling that one point back onto the chord between its neighbours flattens the join to 14 degrees and moves the corner to where it belongs, one point earlier.",
+    "Golden hour. The sun is almost on the horizon, the shadows run the length of the straight, and the tarmac is hot -- the best grip on the roster."
   ],
   "road": {
     "halfWidth": 6.5,
@@ -21,7 +22,7 @@
       "maxDegrees": 4.0
     },
     "surface": {
-      "roadGrip": 1.02,
+      "roadGrip": 1.05,
       "grassGrip": 0.42
     },
     "controlPoints": [
@@ -119,22 +120,22 @@
   },
   "environment": {
     "fog": {
-      "near": 320,
-      "far": 1450
+      "near": 340,
+      "far": 1500
     },
     "sun": {
-      "color": "#fff0d0",
-      "intensity": 2.8,
+      "color": "#ffc484",
+      "intensity": 3.0,
       "position": [
-        60,
-        130,
-        60
+        156,
+        50,
+        -82
       ]
     },
     "palette": {
-      "sky": "#8fc0dd",
-      "skyHigh": "#3d78a8",
-      "horizon": "#f2e6c8",
+      "sky": "#7fb4d8",
+      "skyHigh": "#2f6d9e",
+      "horizon": "#f7d6a2",
       "ground": "#a89a5e",
       "groundDark": "#877c48",
       "asphalt": "#4a4740",
@@ -147,6 +148,11 @@
       "post": "#f0ece0",
       "postStripe": "#c8443a",
       "skidmark": "#14161a"
+    },
+    "ambient": {
+      "intensity": 0.85,
+      "sky": "#e9bd93",
+      "ground": "#6b5735"
     }
   },
   "scenery": {

@@ -3,7 +3,7 @@
   "version": 1,
   "id": "dirt",
   "name": "Dirt",
-  "tagline": "Loose gravel \u2014 steer it on the throttle",
+  "tagline": "Loose gravel — steer it on the throttle",
   "difficulty": "Loose",
   "notes": [
     "A CLOSED circuit, not a point-to-point stage. Lap timing, the minimap and the closed B-spline all assume the road returns to where it started, so a real rally special stage would need changes well beyond a track file. This is rallycross: a loop with a rally surface.",
@@ -12,7 +12,8 @@
     "grassGrip is 0.34 rather than the usual 0.45, and deliberately NOT far below the road: on a gravel stage the verge is the same loose material as the road, so running wide should cost you time and composure without the cliff-edge punishment tarmac gives.",
     "No centre line and earth-coloured kerbs. A dashed white line down the middle is the single fastest way to make dirt read as badly-coloured tarmac.",
     "surface.squeal 0.25 because rubber does not squeal on gravel -- the surface gives way before the tyre does. It scrabbles instead, so most of the squeal is taken out even though this circuit slides more than any other.",
-    "The road is WIDER than the tarmac circuits (7.6 vs 6.0) because the car spends most of the lap pointing somewhere other than where it is going. At tarmac width the same slide angle puts you in the scenery, which reads as the track being unfair rather than the surface being loose."
+    "The road is WIDER than the tarmac circuits (7.6 vs 6.0) because the car spends most of the lap pointing somewhere other than where it is going. At tarmac width the same slide angle puts you in the scenery, which reads as the track being unfair rather than the surface being loose.",
+    "Late afternoon, and the dust in the air is doing the work -- a low warm sun, a short horizon, and everything the colour of the ground it is kicking up."
   ],
   "road": {
     "halfWidth": 7.6,
@@ -118,22 +119,22 @@
   },
   "environment": {
     "fog": {
-      "near": 190,
-      "far": 900
+      "near": 150,
+      "far": 780
     },
     "sun": {
-      "color": "#ffe9c2",
-      "intensity": 2.5,
+      "color": "#ffc887",
+      "intensity": 2.6,
       "position": [
-        90,
-        95,
-        30
+        126,
+        48,
+        72
       ]
     },
     "palette": {
-      "sky": "#9fc4dd",
-      "skyHigh": "#4d7fa4",
-      "horizon": "#e3d6bd",
+      "sky": "#9dbdd4",
+      "skyHigh": "#4a7595",
+      "horizon": "#e8cfa4",
       "ground": "#7c8a4e",
       "groundDark": "#5f6b3c",
       "asphalt": "#8a6f4c",
@@ -147,6 +148,11 @@
       "postStripe": "#c0522d",
       "skidmark": "#5a452c",
       "dust": "#c2a87e"
+    },
+    "ambient": {
+      "intensity": 1.0,
+      "sky": "#d9b98d",
+      "ground": "#5f5636"
     }
   },
   "scenery": {
