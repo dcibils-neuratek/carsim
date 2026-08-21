@@ -17,7 +17,18 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 // Node names whose geometry is wheels rather than bodywork.
 
 // Named light clusters, if a model happens to have them.
-const TAIL_NAME = /tail|rear.?light|brake.?light|stop.?light/i;
+// Rear lights, by mesh or material name.
+//
+// Two traps here, both found on a Lancia whose entire back end lit up under
+// braking. The word boundary is load-bearing: without it `tail` matches inside
+// `deTAIL`, and this model has a `detail_1` mesh and four `Chrome_Detail`
+// meshes -- the mud flaps, the aerial, the rear window trim and the wiper.
+// They all glowed and the actual lights did not.
+//
+// And the lights did not because the name was the other way round. Matching
+// only `rear.?light` misses `Light_Rear` and `LightBump_rear`, which is how
+// this model spells it, so both orders are matched now.
+const TAIL_NAME = /\btail|rear.?light|light.{0,6}rear|brake.?light|stop.?light/i;
 const WHEEL_NAME = /tire|tyre|wheel|rim/i;
 
 export async function loadCarModel(url) {
@@ -350,15 +361,45 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0, paint = null
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
 
-  // A car is longer than it is wide, and wider than it is tall. Whichever axis
-  // is longest is the length; of the remaining two the shorter is height. That
-  // identifies the model's axes without trusting any export convention.
+  // A car is longer than it is wide, so the longest axis is the length. That
+  // much is safe.
   const axes = [
     { axis: 'x', len: size.x }, { axis: 'y', len: size.y }, { axis: 'z', len: size.z },
   ].sort((a, b) => b.len - a.len);
   const lengthAxis = axes[0].axis;
-  const heightAxis = axes[2].axis;
-  const widthAxis = axes[1].axis;
+
+  // Telling WIDTH from HEIGHT by size is not safe, and this is where a Lancia
+  // Delta ended up lying on its side.
+  //
+  // "A car is wider than it is tall" is true of the car and not reliably true
+  // of the model. This one measured 1.71 m across and 1.72 m tall -- one
+  // centimetre over, once a roof aerial and the wheels dropping below the
+  // sills were both in the box -- so the shorter-is-height rule picked the
+  // wrong one and rolled the car ninety degrees. A centimetre either way on a
+  // four-metre car is not a margin, it is a coin toss.
+  //
+  // The wheels settle it. Along the real up axis they sit at ONE END, under
+  // everything; along the width axis they are symmetric about the centre,
+  // because there are two on each side. So the up axis is whichever of the two
+  // candidates the wheels are furthest off-centre along -- a large signal
+  // where the size test had one centimetre, and it needs nothing stated per
+  // car.
+  //
+  // It answers which way is UP as well, which the old rule could not: wheels
+  // below the centre means +up, above it means the model is inverted.
+  let heightAxis = axes[2].axis;
+  let widthAxis = axes[1].axis;
+  let flip = false;
+  if (wheelGeoms.length) {
+    const wb = new THREE.Box3();
+    for (const g of wheelGeoms) { g.computeBoundingBox(); wb.union(g.boundingBox); }
+    const wc = wb.getCenter(new THREE.Vector3());
+    const off = (a) => (wc[a] - center[a]) / Math.max(size[a], 1e-6);
+    const [a, b] = [axes[1].axis, axes[2].axis];
+    if (Math.abs(off(a)) > Math.abs(off(b))) { heightAxis = a; widthAxis = b; }
+    else { heightAxis = b; widthAxis = a; }
+    flip = off(heightAxis) > 0;
+  }
 
   const targetLength = tuning.chassis.halfLength * 2;
   const scale = targetLength / axes[0].len;
@@ -368,6 +409,9 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0, paint = null
   const basis = new THREE.Matrix4();
   const ax = new THREE.Vector3(); const ay = new THREE.Vector3(); const az = new THREE.Vector3();
   unit(widthAxis, ax); unit(heightAxis, ay); unit(lengthAxis, az);
+  // Upside down: roll 180 degrees about the length axis rather than negating
+  // up on its own, which would mirror the car instead of turning it over.
+  if (flip) { ax.negate(); ay.negate(); }
   basis.makeBasis(ax, ay, az);
   orient.copy(basis).invert();
 
