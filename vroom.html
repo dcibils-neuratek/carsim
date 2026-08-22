@@ -2,7 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover fills the display instead of letting iOS inset the page
+     away from the notch, which is where the black bars down each side came
+     from. Everything that must stay clear of the Dynamic Island or the home
+     indicator uses env(safe-area-inset-*) below.
+     user-scalable=no because a pinch mid-corner is never intended. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<!-- Added to the home screen this launches with no browser chrome at all,
+     which is the only way to stop Safari's URL bar sliding in and out and
+     resizing the viewport under the game while you are driving. -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VROOM">
 <title>VROOM</title>
 <!-- Titles only. Loaded with display=swap and a real fallback, because this is
      the one external request the game makes and it must never be able to hold
@@ -55,6 +67,8 @@
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
     overflow: hidden; background: #10141a;
+    /* Fills the safe-area strips edge to edge under viewport-fit=cover. */
+    padding: 0; width: 100vw; height: 100dvh;
     font-family: var(--body);
     /* Every changing number on this screen -- speed, revs, lap time, g -- is
        read while moving, and proportional digits shuffle sideways as they
@@ -300,7 +314,9 @@
   /* The options menu. Every toggle in this game is bound to a letter, which on
      a phone means it is unreachable -- this is the way in. */
   #touch .tMenuBtn {
-    position: absolute; top: 8px; right: 10px;
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
     -webkit-appearance: none; appearance: none; cursor: pointer;
     width: 40px; height: 40px; border-radius: 10px;
     border: 1px solid rgba(232,238,245,.18);
@@ -311,7 +327,9 @@
   #touch .tMenuBtn.on { border-color: var(--accent); color: var(--accent); }
   #touch .tMenu {
     display: none;
-    position: absolute; top: 54px; right: 10px;
+    position: absolute;
+    top: calc(54px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
     background: rgba(8,13,20,.94); border: 1px solid rgba(232,238,245,.14);
     border-radius: 12px; padding: 6px; gap: 4px;
     flex-direction: column; min-width: 168px;
@@ -349,7 +367,7 @@
      small enough to read at a glance rather than to admire. */
   #hud.compact #dash {
     right: auto; bottom: auto;
-    left: 50%; top: 8px; transform: translateX(-50%);
+    left: 50%; top: calc(8px + env(safe-area-inset-top)); transform: translateX(-50%);
     flex-direction: row; align-items: center; gap: 10px;
     --d: clamp(64px, 21vh, 96px);
   }
@@ -357,14 +375,17 @@
   #hud.compact .gearBar { display: none; }
 
   #hud.compact #info {
-    top: 8px; right: 58px;
+    top: calc(8px + env(safe-area-inset-top));
+    right: calc(58px + env(safe-area-inset-right));
     padding: 6px 10px; min-width: 0;
   }
   #hud.compact #trackName { display: none; }
   #hud.compact #laps .row { font-size: 11px; }
   #hud.compact #lapCur { font-size: 17px; }
 
-  #hud.compact #menuBtn { top: 8px; left: 10px; font-size: 11px; padding: 5px 9px; }
+  #hud.compact #menuBtn {
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left)); font-size: 11px; padding: 5px 9px; }
   /* The key hints on these are meaningless without a keyboard. */
   #hud.compact #menuBtn b { display: none; }
 
@@ -380,8 +401,13 @@
      RELATIVE control: wherever the thumb lands becomes centre, so its job is
      to be impossible to miss rather than to be looked at. */
   #touch .tPad {
-    position: absolute; left: 0; bottom: 0;
-    width: 52%; height: 62%;
+    position: absolute;
+    left: env(safe-area-inset-left);
+    /* Clear of the home indicator. A drag that starts on that strip is a
+       system gesture, so steering from there pulls up the app switcher
+       instead of turning the car. */
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: 52%; height: 58%;
     border-top-right-radius: 26px;
     background: linear-gradient(to top right, rgba(255,255,255,.05), transparent 70%);
   }
@@ -403,7 +429,9 @@
   }
 
   #touch .tCol {
-    position: absolute; right: 18px; bottom: 16px;
+    position: absolute;
+    right: calc(18px + env(safe-area-inset-right));
+    bottom: calc(16px + env(safe-area-inset-bottom));
     display: flex; flex-direction: column-reverse; gap: 12px;
   }
   #touch .tBtn {
@@ -422,12 +450,12 @@
   #touch .tGas.on { background: rgba(255,210,63,.28); border-color: var(--accent); color: var(--fg); }
   #touch .tBrake.on { background: rgba(255,77,77,.30); border-color: var(--danger); color: var(--fg); }
   #touch .tHand {
-    position: absolute; bottom: 16px;
+    position: absolute; bottom: calc(16px + env(safe-area-inset-bottom));
     /* Immediately left of the pedal column, whatever size that column is --
      it and this both scale off the short edge, so the gap holds at any
      height. Anchoring it to top: 50% put it on top of the throttle the
      moment the screen was 375 px tall, which is every phone in landscape. */
-    right: calc(18px + clamp(78px, 22vh, 116px) + 12px);
+    right: calc(18px + env(safe-area-inset-right) + clamp(78px, 22vh, 116px) + 12px);
     width: clamp(52px, 14vh, 76px); height: clamp(52px, 14vh, 76px);
     font-size: clamp(9px, 2.2vh, 12px);
   }

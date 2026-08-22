@@ -699,17 +699,68 @@ export async function boot() {
   );
   document.getElementById('menuBtn')?.addEventListener('click', toMenu);
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+  /**
+   * How big the window actually is, which on a phone is not innerWidth.
+   *
+   * iOS reports innerHeight including the strip the URL bar sits in, and
+   * Safari slides that bar away on its own schedule. Between the two the canvas
+   * ends up shorter than the page and the difference shows as a black band
+   * across the top -- the HUD is fixed to the viewport so it keeps drawing over
+   * the band, which makes it look like a rendering fault rather than a sizing
+   * one. visualViewport is the one that reports what you can actually see.
+   */
+  const viewportSize = () => {
+    const vv = window.visualViewport;
+    return {
+      w: Math.round(vv?.width ?? window.innerWidth),
+      h: Math.round(vv?.height ?? window.innerHeight),
+    };
+  };
+
+  let lastSize = { w: 0, h: 0 };
+  const applySize = () => {
+    const { w, h } = viewportSize();
+    if (!w || !h || (w === lastSize.w && h === lastSize.h)) return;
+    lastSize = { w, h };
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(w, h);
     // No style resize call: a style that keeps its own render targets notices
     // the new size on the next frame and rebuilds itself once, rather than
     // once per resize event while the window edge is being dragged.
     // Point size is in pixels, so smoke has to be told or it changes size
     // with the window.
-    smoke.setViewportHeight(window.innerHeight);
-  });
+    smoke.setViewportHeight(h);
+  };
+
+  /**
+   * Re-measure repeatedly for a moment after a rotation.
+   *
+   * iOS fires orientationchange BEFORE the viewport has finished changing, and
+   * a measurement taken then is the old one -- so a single resize on that event
+   * locks in exactly the wrong size and the black band stays until something
+   * else happens to trigger another. Sampling for two thirds of a second costs
+   * nothing (applySize returns immediately when the size has not moved) and
+   * covers the animation however long the device takes over it.
+   */
+  let settleTimer = null;
+  const settleSize = () => {
+    applySize();
+    clearInterval(settleTimer);
+    const until = performance.now() + 650;
+    settleTimer = setInterval(() => {
+      applySize();
+      if (performance.now() > until) clearInterval(settleTimer);
+    }, 60);
+  };
+
+  window.addEventListener('resize', applySize);
+  window.addEventListener('orientationchange', settleSize);
+  // Fires when the URL bar slides away, which `resize` on iOS does not always
+  // do -- and that bar appearing or leaving is most of what changes here.
+  window.visualViewport?.addEventListener('resize', applySize);
+  window.visualViewport?.addEventListener('scroll', applySize);
+  applySize();
 
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
