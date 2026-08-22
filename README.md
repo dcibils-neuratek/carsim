@@ -41,13 +41,25 @@ extra copy every frame.
 Cloudflare Workers Static Assets, `npx wrangler deploy`, assets directory `.`.
 No build step -- the no-npm choice is what makes that possible.
 
-Two files control it and both are committed:
+Set the **Build command** to `sh build.sh`. That is the entire build: it writes
+`version.json` from the commit Cloudflare is building, and stops. No bundler, no
+`npm install`, no output directory.
+
+The stamp shows in the game's title card and in the site footer, so "is what I
+am looking at the thing I just pushed" is answered before you drive rather than
+by guessing. It reads `dev` in amber when served from a working copy, which is
+what you want locally and a loud signal anywhere else.
+
+Three files control it and all are committed:
 
 - `wrangler.jsonc` pins the project settings. Wrangler generates one when it is
   missing, which makes the deploy depend on whatever it inferred that day.
 - `.assetsignore` decides what is NOT uploaded. Without it wrangler uploads the
   repository, `.git` included, and fails on a 46.8 MiB pack file against a
   25 MiB per-asset limit.
+- `build.sh` writes the version stamp. A hand-bumped constant answers "what did
+  I last type" rather than "what is live", and the one time that matters is the
+  one time it was forgotten.
 
 **Retrying a failed deployment replays the same commit**, so a fix that has been
 pushed since will not be in it. Trigger a new deployment from the branch, or

@@ -697,6 +697,12 @@
     color: rgba(232,238,245,.38);
   }
   #boot .byline b { color: rgba(232,238,245,.72); font-weight: 600; }
+  /* The build, on the title card rather than behind a key: the question it
+     answers -- "is what I am looking at the thing I just pushed" -- gets asked
+     before you drive, not during. */
+  #boot .ver { font-variant-numeric: tabular-nums; color: rgba(232,238,245,.30); }
+  /* Unmistakable when a working copy is being served as though it were a deploy. */
+  #boot .ver.dev { color: var(--accent); opacity: .7; }
   #boot .byline a { color: rgba(232,238,245,.55); text-decoration: none;
                     border-bottom: 1px solid rgba(232,238,245,.22); }
   #boot .byline a:hover { color: var(--accent); border-color: var(--accent); }
@@ -1021,6 +1027,7 @@
   <div class="byline">
     A game built just for fun. &nbsp;<b>Diego Cibils, 2026.</b>
     &nbsp;·&nbsp; <a href="./about.html">about</a>
+    &nbsp;·&nbsp; <span class="ver" data-version>—</span>
   </div>
 
   <!-- The studio credit, last on the screen. -->
@@ -1050,6 +1057,10 @@
 </div>
 
 <script type="module">
+  // Stamps every [data-version] element. Deliberately not awaited and not
+  // imported by main.js: a version readout must never be able to stop the game
+  // from starting.
+  import './version.js';
   import { boot } from './src/main.js';
   boot().catch((err) => {
     console.error(err);

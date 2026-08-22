@@ -329,6 +329,11 @@
   }
   footer a { color: rgba(238,242,247,.62); }
   footer a:hover { color: var(--fg); }
+  footer .ver {
+    font-variant-numeric: tabular-nums; font-size: 13px;
+    color: rgba(238,242,247,.28);
+  }
+  footer .ver.dev { color: var(--amber); opacity: .8; }
 </style>
 </head>
 <body>
@@ -529,10 +534,12 @@
   <div class="wrap">
     <span class="brand">MEGATRONIK STUDIO</span>
     <span>Built by Diego Cibils</span>
+    <span class="ver" data-version>—</span>
     <a href="./vroom.html">Play VROOM</a>
     <a href="./about.html">About</a>
   </div>
 </footer>
 
+<script type="module" src="./version.js"></script>
 </body>
 </html>
