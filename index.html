@@ -3,947 +3,536 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VROOM</title>
-<!-- Titles only. Loaded with display=swap and a real fallback, because this is
-     the one external request the game makes and it must never be able to hold
-     up the title screen -- if Google is slow or blocked, the text draws in the
-     fallback and swaps in later rather than sitting invisible. -->
+<title>Megatronik Studio — arcade games you just play</title>
+<meta name="description" content="A one-man game studio making pick-up-and-play arcade games. No accounts, no subscriptions, no launchers. Open a page and play.">
+<meta name="theme-color" content="#07080c">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Megatronik Studio">
+<meta property="og:description" content="Arcade games you just play. No accounts, no subscriptions, no BS.">
+<meta property="og:image" content="media/vroom-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Bungee&family=Permanent+Marker&display=swap">
 <style>
   :root {
-    --fg: #e8eef5;
-    --dim: #8fa3b8;
-    --accent: #ffd23f;
-    --danger: #ff4d4d;
-    /* The studio's two phosphors. They exist for the title card and nothing
-       else: cyan and magenta on a sunlit road are two more colours competing
-       with the one that matters, and the one that matters is amber. Everything
-       from #hud down stays on --accent. */
-    --cyan: #35e8ff;
+    --bg:      #07080c;
+    --fg:      #eef2f7;
+    --dim:     #8b96a8;
+    --faint:   rgba(238,242,247,.55);
+    --line:    rgba(255,255,255,.09);
+    --panel:   rgba(255,255,255,.035);
+
+    /* The studio's own colours. CRT phosphors: cyan and magenta.
+       Games bring their own accent — VROOM's amber lives only in its card. */
+    --cyan:    #35e8ff;
     --magenta: #ff2e88;
-    /* Was 0.62, which vanished against a sunlit road -- the panels read as a
-       faint smudge and the thin marks inside them disappeared entirely. These
-       sit over bright grass and asphalt, so they have to hold their own. */
-    --panel: rgba(8, 13, 20, 0.82);
-    /* The bottom-left rail: the grip panel and the controls list, stacked and
-       so read as one column. Set by the WIDEST line of the controls list --
-       measured with a Range over the row, because those lines cannot wrap
-       without splitting a key from what it does. Re-measured when the body
-       font became condensed: the same list that needed 200px of ink in
-       monospace needs 150 here, so the rail came down from 224 rather than
-       leaving the panels standing 84px wider than anything in them. */
-    --rail: 186px;
+    --amber:   #ffd23f;
 
-    /* Titles only -- the wordmark and the circuit names. Everything that is a
-       READING (speed, revs, lap times, the controls list) stays monospace: a
-       marker face has no tabular figures, so numbers would jitter sideways as
-       they changed, and small caps in it are barely legible. */
-    --title: "Permanent Marker", "Comic Sans MS", cursive;
-    /* The studio name, and only the studio name. Bungee is signage -- it is
-       drawn to be read across a room, which is exactly what a publisher mark
-       on a title card is doing. Never a sentence in it. */
-    --mark: "Bungee", "Impact", sans-serif;
-    /* Everything that is not a title. Condensed buys width back on a screen
-       whose edges are all readouts, and it reads at a glance, which is the
-       only thing that matters on something you look at while driving. */
-    --body: "Barlow Condensed", "Roboto Condensed", system-ui, sans-serif;
+    --mark:  "Bungee", "Impact", sans-serif;
+    --body:  "Barlow Condensed", "Roboto Condensed", system-ui, sans-serif;
+    --game:  "Permanent Marker", "Comic Sans MS", cursive;
+
+    --pad:   clamp(20px, 5vw, 40px);
+    --maxw:  1080px;
   }
+
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    overflow: hidden; background: #10141a;
-    font-family: var(--body);
-    /* Every changing number on this screen -- speed, revs, lap time, g -- is
-       read while moving, and proportional digits shuffle sideways as they
-       change, which reads as the whole HUD twitching. Tabular figures are the
-       one thing the old monospace stack was doing that had to survive. */
-    font-variant-numeric: tabular-nums;
-    font-size: 15px;
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
     color: var(--fg);
+    font-family: var(--body);
+    font-size: 18px;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
-  }
-  canvas { display: block; }
-
-  #hud {
-    position: fixed; inset: 0; pointer-events: none;
-    user-select: none; -webkit-user-select: none;
+    overflow-x: hidden;
   }
 
-  /* ---- twin-dial cluster, after the real A110's ---- */
-  #dash {
-    /* Bottom right, stacked, and off the car.
-       It used to sit centred and cropped by the bottom edge, the way a real
-       binnacle is cropped by the wheel -- which worked while the camera was
-       high and far back and the car was small in the frame. Bringing the eye
-       down to 1.45 m and in to 5 m to make the speed read put the car exactly
-       where the dials were, and two instruments across its rear deck is the
-       one place they cannot go. The corner is the free space on this screen:
-       the grip panel and the controls own the left, the lap panel owns the
-       top right, and nothing owns the bottom right. */
-    position: absolute; right: 20px; bottom: 16px;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    /* No panel behind these, deliberately. The dials read as instruments
-       floating over the road; boxing them in makes the whole bottom of the
-       screen a slab. The grip and help blocks are reference material and do
-       get a frame -- these are not. */
-    /* Scales with the window so it keeps its proportions on any screen without
-       ever growing tall enough to eat the road. Smaller than before, because
-       two dials stacked are twice as tall as two side by side.
-
-       Bound by HEIGHT as well as width, which side-by-side never needed: two
-       equal dials, the gear strip and the power bars run about 2.4 dials tall,
-       so on a short window a width-only rule pushes the bottom of the cluster
-       off the screen -- or into the lap panel above it. */
-    --d: clamp(112px, min(13.5vw, 17vh), 186px);
-    /* The vh term is what keeps the whole binnacle off the lap panel on a
-       short window, so it has to come down whenever the cluster grows. It was
-       21vh when the speedo was three quarters of the tacho and there were no
-       power bars under it; those two changes added 69 px of column, and at
-       620 px tall the dials started overlapping the lap times. On a tall
-       screen the vw term governs and this changes nothing. */
-  }
-  /* Both dials the same size.
-     The tacho was the bigger of the two for a while, as a ranking rather than
-     a decoration: it is the one you read continuously, on every shift, while
-     speed is a thing you glance at. That is still true of how they are USED,
-     and it turned out not to be a good reason to draw them differently -- two
-     instruments of different sizes in one binnacle read as one of them not
-     having fitted, and the eye goes to the odd one out rather than to the one
-     that matters. */
-  .dial { position: relative; width: var(--d); height: var(--d); }
-  /* Both dials the same size. The speedo was three quarters of the tacho for
-     a while, on the reasoning that revs are what you steer by and speed is
-     just a number -- true while driving, and it read as a mistake while
-     looking. Two instruments of different sizes in one binnacle look like one
-     of them did not fit. */
-  #speedo { width: var(--d); height: var(--d); }
-  .dial svg { width: 100%; height: 100%; overflow: visible; }
-
-  /* The bright ring is what makes these read as instruments rather than as
-     circles drawn on the screen. */
-  .bezel { fill: none; stroke: rgba(226,236,245,.82); stroke-width: 5; }
-  /* Enough to sit the numerals against, little enough to keep the road
-     visible through the cluster -- these live over the track, not under it. */
-  .face  { fill: rgba(8,12,18,.55); }
-  .redArc { fill: none; stroke: rgba(224,31,31,.85); stroke-width: 13; }
-  .tick  { stroke: rgba(232,238,245,.55); }
-  .tick.major { stroke: #fff; }
-  /* Light weight throughout. The real cluster's numerals are thin and airy,
-     and bold digits sat on the screen like a debug overlay rather than like
-     an instrument. */
-  .num   { fill: #fff; font-size: 17px; font-weight: 300; text-anchor: middle;
-           dominant-baseline: central; font-family: inherit; letter-spacing: .5px; }
-  .num.small { font-size: 13px; fill: rgba(232,238,245,.85); }
-  .needle { stroke: #f4f7fa; stroke-width: 3; stroke-linecap: round; }
-  #tach.redline .needle { stroke: var(--danger); }
-  .hub { fill: #e2ecf5; }
-
-  /* Digital readouts, drawn into the svg before the needle so it sweeps over
-     them. Sized in user units, which scales with the dial for free. */
-  .dial .big {
-    fill: var(--fg); font-size: 40px; font-weight: 200; text-anchor: middle;
-    dominant-baseline: central; font-family: inherit; letter-spacing: 1px;
-    /* A thinner stroke than a bold face needed -- enough to hold the digits
-       off the needle, not enough to fatten them back up. */
-    paint-order: stroke; stroke: rgba(6,10,16,.5); stroke-width: 3px;
-  }
-  #tach .big { fill: var(--dim); font-size: 27px; font-weight: 300; }
-  #tach.redline .big { fill: var(--danger); }
-  .dial .cap {
-    fill: var(--dim); font-size: 11px; font-weight: 300; letter-spacing: 2px; text-anchor: middle;
-    dominant-baseline: central; font-family: inherit;
-  }
-  .dial .cap.scale { font-size: 10px; }
-
-  /* Gear strip, standing in for the real car's P R N D. Sits between the two
-     dials: it belongs with the tacho, and stacking puts
-     it exactly where the eye already travels between them. */
-  #centre {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 2px 0 3px; min-width: 92px;
-  }
-  .gearRow { display: flex; gap: 7px; align-items: baseline; }
-  .gearRow span {
-    font-size: 15px; color: rgba(232,238,245,.5); font-weight: 300;
-    text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
-  }
-  .gearRow span.on {
-    color: var(--accent); font-size: 27px; font-weight: 400;
-    text-shadow: 0 0 16px rgba(255,210,63,.55), 0 1px 3px rgba(0,0,0,.9);
-  }
-  .gearBar {
-    width: 88px; height: 3px; margin: 7px 0 5px; border-radius: 2px;
-    background: linear-gradient(90deg, #2f6ea8, #e8eef5 45%, #e8eef5 55%, #c8322c);
-  }
-  .mode { font-size: 9px; letter-spacing: 2px; color: var(--dim);
-          text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-
-  /* ---- grip: g-meter + balance, one panel bottom left ---- */
-  /* The two bottom-left panels are STACKED, not placed individually.
-     Each used to carry its own `bottom` in pixels, so any change to the type
-     in the controls list changed its height while the grip panel above stayed
-     put -- 2px apart and reading as one box the first time, 5px overlapping
-     the second. A column with a gap cannot do that. */
-  #rail {
-    position: absolute; left: 22px; bottom: 20px; width: var(--rail);
-    display: flex; flex-direction: column; gap: 12px;
-  }
-  /* Lighter than the other panels, on purpose.
-     This one sits low on the left where the road runs through it, and at the
-     shared --panel opacity it read as a hole cut in the scene rather than as
-     an instrument laid over it. The dials next to it are 0.55 and float; this
-     matches them. The thin edge is what the dials get from their bezel: it
-     keeps the panel bounded without needing a slab behind it. */
-  #grip {
-    background: rgba(8, 12, 18, .5); border-radius: 10px; overflow: hidden;
-    border: 1px solid rgba(232, 238, 245, .10);
-  }
-  #grip .head {
-    padding: 7px 12px 6px; text-align: center;
-    font-size: 12px; letter-spacing: 3px; color: var(--dim);
-    background: rgba(255,255,255,.035);
-    border-bottom: 1px solid rgba(255,255,255,.06);
+  /* Scanlines. Barely there — enough to read as a screen, not enough to
+     fight the text on top of it. */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    background: repeating-linear-gradient(
+      to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+    opacity: .5;
+    mix-blend-mode: multiply;
   }
 
-  #gmeter { position: relative; padding: 10px 12px 2px; }
-  #gmeter svg { width: 118px; height: 118px; display: block; margin: 0 auto; }
-  #gmeter .ring { fill: none; stroke: rgba(232,238,245,.30); stroke-width: 1.4; }
-  #gmeter .cross { stroke: rgba(232,238,245,.22); stroke-width: 1.4; }
-  #gDot { fill: var(--accent); }
-  #gTrail { fill: rgba(255,210,63,.22); }
-  #gLabel {
-    margin-top: 5px; text-align: center;
-    font-size: 12px; color: var(--fg); letter-spacing: .5px;
-    font-variant-numeric: tabular-nums;
-  }
-  #gLabel .neg { color: #ff8a5c; }   /* braking */
-  #gLabel .pos { color: #7ad97a; }   /* accelerating */
-  #gLabel .k { color: var(--dim); }
+  a { color: inherit; }
 
-  #balance { padding: 4px 12px 11px; }
-  #balanceBar {
-    position: relative; height: 6px; border-radius: 4px;
-    background: rgba(232,238,245,.22); overflow: hidden;
-  }
-  #balanceFill {
-    position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
-    background: var(--accent);
-  }
-  #balanceBar::after {
-    content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
-    width: 1px; background: rgba(232,238,245,.35);
-  }
-  /* Labels under the ends they describe, so which way the bar has moved needs
-     no explaining. */
-  .ends {
-    display: flex; justify-content: space-between; margin-top: 6px;
-    font-size: 11px; letter-spacing: 1px; color: rgba(232,238,245,.62);
-  }
-  #balanceText { color: var(--fg); font-weight: 600; letter-spacing: .5px; }
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
 
-  /* ---- track name / lap times / map, one panel top right ---- */
-  #info {
-    position: absolute; right: 22px; top: 16px; width: 172px;
-    background: var(--panel); border-radius: 10px; overflow: hidden;
+  .eyebrow {
+    font-size: 13px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--cyan); font-weight: 600; margin: 0 0 14px;
   }
-  #trackName {
-    padding: 7px 12px 6px; text-align: center;
-    font-size: 10.5px; letter-spacing: 3px; color: var(--accent);
-    background: rgba(255,255,255,.05);
-    border-bottom: 1px solid rgba(255,255,255,.07);
-  }
+  .eyebrow.pink { color: var(--magenta); }
 
-  #laps {
-    padding: 9px 12px 8px; text-align: right;
-    font-size: 14px; line-height: 1.7; letter-spacing: .5px;
+  h2 {
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(30px, 5vw, 48px); line-height: 1.05; letter-spacing: .01em;
+    margin: 0 0 20px;
   }
-  /* Label left, time right. This used to float the label, which works only
-     while the label fits inside its line box -- at 12.5px it became TALLER
-     than the row, spilled into the next line and shunted BEST across. */
-  #laps .row { display: flex; justify-content: space-between; align-items: baseline; }
-  #laps .k { color: var(--dim); letter-spacing: 1px; font-size: 12.5px; }
-  #laps .cur { font-size: 19px; font-weight: 700; letter-spacing: 0; margin-bottom: 2px; }
-  #laps .best { color: var(--accent); }
+  h3 {
+    font-family: var(--body); font-weight: 600; text-transform: uppercase;
+    font-size: 20px; letter-spacing: .06em; margin: 0 0 8px;
+  }
+  p { margin: 0 0 18px; color: rgba(238,242,247,.82); }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--fg); font-weight: 600; }
 
-  #minimap { padding: 2px 12px 9px; }
-  #minimap svg { width: 100%; height: 96px; display: block; overflow: visible; }
-  #mmTrack { fill: none; stroke: rgba(232,238,245,.38); stroke-width: 5;
-             stroke-linejoin: round; stroke-linecap: round; }
-  #mmDone  { fill: none; stroke: var(--accent); stroke-width: 5;
-             stroke-linejoin: round; stroke-linecap: round; }
-  #mmStart { stroke: #f2f2f2; stroke-width: 2.5; }
-  #mmDot   { fill: #fff; stroke: #10141a; stroke-width: 1.5; }
-  #mmBar {
-    position: relative; height: 4px; margin-top: 8px; border-radius: 3px;
-    background: rgba(232,238,245,.14); overflow: hidden;
-  }
-  #mmBarFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0;
-               background: var(--accent); }
-  #mmPct { margin-top: 6px; font-size: 9.5px; color: var(--dim);
-           letter-spacing: 2px; text-align: center; }
+  /* ---------------------------------------------------------------- nav */
 
-  /* ---- debug panel, top left ---- */
-  #debug {
-    position: absolute; left: 18px; top: 18px;
-    background: var(--panel); padding: 10px 14px; border-radius: 8px;
-    font-size: 11px; line-height: 1.6; white-space: pre;
-    display: none; max-height: 88vh; overflow: hidden;
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(7,8,12,.78);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
   }
-  #debug.on { display: block; }
+  nav .wrap {
+    display: flex; align-items: center; gap: 20px;
+    height: 62px;
+  }
+  nav .brand {
+    font-family: var(--mark); font-size: 15px; letter-spacing: .02em;
+    text-decoration: none; margin-right: auto; white-space: nowrap;
+  }
+  nav .brand span { color: var(--cyan); }
+  nav a.link {
+    font-size: 15px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); text-decoration: none; font-weight: 500;
+  }
+  nav a.link:hover { color: var(--fg); }
+  @media (max-width: 620px) { nav a.link.hide-sm { display: none; } }
 
-  /* ---- frame rate ---- */
-  /* Its own readout rather than a line inside the telemetry overlay, because
-     the overlay is a wall of numbers you open to read and this is a number you
-     want in the corner of your eye while judging whether a change cost
-     anything. Average AND worst: a chain that holds 90 and one that holds 90
-     while dropping to 40 twice a second report the same average and feel
-     nothing alike. */
-  #fps {
-    position: absolute; right: 18px; top: 18px;
-    background: var(--panel); padding: 5px 9px; border-radius: 7px;
-    font-size: 12px; letter-spacing: 1px; color: var(--dim);
-    display: none;
-  }
-  #fps.on { display: block; }
-  #fps b { color: var(--fg); font-weight: 600; }
-  #fps .worst { color: rgba(232,238,245,.45); }
-  #fps.slow b { color: var(--danger); }
+  /* --------------------------------------------------------------- hero */
 
-  /* ---- back to the menu, top left ---- */
-  /* Top left is the one corner with nothing in it during a lap, and it is
-     where a back control belongs on any screen. */
-  #menuBtn {
-    position: absolute; left: 22px; top: 16px;
-    font: inherit; font-size: 12.5px; letter-spacing: 2px; color: var(--dim);
-    background: var(--panel); border: 1px solid rgba(255,255,255,.10);
-    border-radius: 8px; padding: 7px 12px; cursor: pointer;
-    pointer-events: auto;   /* the HUD above it is click-through */
-    transition: color .12s, border-color .12s, background .12s;
+  header {
+    position: relative; overflow: hidden;
+    padding: clamp(56px, 11vw, 116px) 0 clamp(48px, 8vw, 84px);
   }
-  #menuBtn b { color: var(--fg); font-weight: 600; letter-spacing: 1px; }
-  #menuBtn:hover {
-    color: var(--fg); border-color: var(--accent);
-    background: rgba(255,210,63,.10);
+  /* A frame of the game behind the type, pushed almost all the way down. It is
+     there to say "this is a driving studio" at a glance, not to be looked at —
+     anything readable here competes with the headline sitting on top of it. */
+  .hero-bg {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background: url('media/vroom-alt.jpg') center 34% / cover no-repeat;
+    opacity: .17; filter: saturate(.45) contrast(1.04);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.5) 52%, transparent 92%);
+            mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.5) 52%, transparent 92%);
   }
-
-  /* ---- help, on H ----
-     It used to live permanently in the bottom-left corner, and a list of
-     seventeen keys is reference material: you read it twice in your first
-     session and then it is scenery for the rest of your life with the game.
-     Scenery that covers the road. Now it is behind H, which buys the corner
-     back and lets the list be COMPLETE and legible rather than compressed
-     into six lines that fit. */
-  #help {
-    display: none;
-    position: absolute; left: 50%; top: 42px; transform: translateX(-50%);
-    background: rgba(8, 13, 20, .92); border: 1px solid rgba(232,238,245,.12);
-    border-radius: 12px; padding: 16px 22px 18px;
-    font-size: 13px; color: var(--dim); line-height: 1.5;
-    max-width: min(720px, 92vw);
-  }
-  #help.on { display: block; }
-  #help .helpTitle {
-    text-align: center; font-size: 12px; letter-spacing: 3px;
-    color: var(--accent); margin-bottom: 12px;
-  }
-  /* Key column right-aligned against its meaning, so the eye runs down the
-     gutter instead of hunting across ragged rows. */
-  #help .helpGrid {
-    display: grid; grid-template-columns: auto 1fr auto 1fr;
-    gap: 5px 10px; align-items: baseline;
-  }
-  #help .hk { text-align: right; white-space: nowrap; }
-  #help .grp {
-    grid-column: 1 / -1; margin-top: 8px; padding-top: 7px;
-    border-top: 1px solid rgba(255,255,255,.07);
-    font-size: 11px; letter-spacing: 2px; color: rgba(232,238,245,.35);
-  }
-  #help .grp:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-  #help b { color: var(--fg); font-weight: 600; }
-
-  /* ---- race results ---- */
-  /* Modal on purpose. The race is over, nothing behind it wants the keyboard,
-     and the one thing on it that matters -- three letters -- deserves the
-     whole screen the way a cabinet gave it the whole screen. */
-  #finish {
-    display: none;
-    position: absolute; inset: 0; z-index: 8;
-    align-items: center; justify-content: center;
-    background: rgba(4, 7, 11, .82);
-    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
-    pointer-events: auto;
-  }
-  #finish.on { display: flex; flex-direction: column; }
-  #finish .fTitle {
-    font-family: var(--title); font-size: clamp(30px, 5vw, 46px);
-    color: var(--accent); letter-spacing: 1px; line-height: 1;
-    text-shadow: 0 4px 0 rgba(0,0,0,.5), 0 0 26px rgba(255,150,40,.35);
-  }
-  #finish .fWhere {
-    font-size: 13px; letter-spacing: 2.5px; color: var(--dim);
-    margin: 10px 0 14px; text-transform: uppercase;
-  }
-  /* The number you came for, and the only thing on the screen at this size. */
-  #finish .fTotal {
-    font-size: clamp(40px, 7vw, 66px); font-weight: 300; line-height: 1;
-    letter-spacing: 1px; color: var(--fg);
-  }
-  #finish .fLaps { margin: 16px 0 4px; min-width: 210px; }
-  #finish .fRow {
-    display: flex; justify-content: space-between; gap: 26px;
-    font-size: 15px; padding: 2px 0;
-  }
-  #finish .fRow .k { color: rgba(232,238,245,.42); letter-spacing: 2px; font-size: 12px; }
-  #finish .fRow .t { color: rgba(232,238,245,.8); }
-  #finish .fRow .t.hot { color: var(--accent); }
-
-  #finish .fRank { color: var(--accent); font-size: 14px; letter-spacing: 2px; margin-top: 14px; }
-  #finish .fNote { color: rgba(232,238,245,.35); font-size: 13px; letter-spacing: 1.5px; margin-top: 14px; }
-  #finish .fEntry { text-align: center; margin-top: 12px; }
-  #finish .slots { display: flex; gap: 12px; justify-content: center; margin: 10px 0 8px; }
-  #finish .slot {
-    font-family: var(--title); font-size: 38px; line-height: 1;
-    width: 46px; padding-bottom: 5px; color: rgba(232,238,245,.55);
-    border-bottom: 3px solid rgba(232,238,245,.18);
-  }
-  /* The cursor. A cabinet blinked the slot you were on and it is the only cue
-     telling you which letter the stick is about to change. */
-  #finish .slot.on {
-    color: var(--accent); border-bottom-color: var(--accent);
-    animation: slotBlink 1s steps(1, end) infinite;
-  }
-  @keyframes slotBlink { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .45 } }
-  #finish .fHint { font-size: 12px; color: rgba(232,238,245,.4); letter-spacing: .5px; }
-  #finish .fHint b { color: rgba(232,238,245,.72); font-weight: 600; }
-
-  #finish .fBoard {
-    margin-top: 18px; padding: 12px 16px; min-width: min(430px, 88vw);
-    background: rgba(8,13,20,.62); border: 1px solid rgba(255,255,255,.08);
-    border-radius: 10px;
-  }
-  #finish .bTitle {
-    font-size: 11px; letter-spacing: 3px; color: rgba(232,238,245,.38);
-    text-align: center; margin-bottom: 8px;
-  }
-  #finish .bRow {
-    display: grid; grid-template-columns: 26px 46px 1fr auto; gap: 10px;
-    font-size: 14px; padding: 2px 0; color: rgba(232,238,245,.62);
-  }
-  #finish .bRow .pos { color: rgba(232,238,245,.3); text-align: right; }
-  #finish .bRow .who { font-family: var(--title); letter-spacing: 1px; color: rgba(232,238,245,.85); }
-  #finish .bRow .car { color: rgba(232,238,245,.32); font-size: 12px; text-align: right; }
-  #finish .bRow.me { color: var(--accent); }
-  #finish .bRow.me .who, #finish .bRow.me .pos, #finish .bRow.me .car { color: var(--accent); }
-  #finish .bEmpty { text-align: center; color: rgba(232,238,245,.28); font-size: 13px; }
-
-  #finish .fActions { display: flex; gap: 12px; margin-top: 20px; }
-  #finish button {
-    font-family: var(--body); font-size: 15px; letter-spacing: 2px;
-    text-transform: uppercase; cursor: pointer;
-    padding: 9px 20px; border-radius: 8px;
-    background: rgba(255,255,255,.06); color: var(--fg);
-    border: 1px solid rgba(255,255,255,.14);
-  }
-  #finish button:hover { background: rgba(255,255,255,.12); }
-  #finish button.go { background: var(--accent); color: #10141a; border-color: var(--accent); }
-  #finish button.go:hover { background: #ffdf72; }
-  #finish button b { opacity: .55; font-weight: 600; margin-left: 6px; }
-  #finish .fHint button {
-    font-size: 12px; letter-spacing: 1px; padding: 2px 10px; border-radius: 6px;
-  }
-
-  /* One line so the panel is findable at all. Everything else moved behind H;
-     this cannot, or nobody would know H does anything. */
-  #helpHint {
-    font-size: 12px; color: rgba(232,238,245,.40); letter-spacing: 1px;
-    padding-left: 2px;
-  }
-  #helpHint b { color: rgba(232,238,245,.70); font-weight: 600; }
-
-  /* ---- toast ---- */
-  #toast {
-    position: absolute; left: 50%; top: 16%; transform: translateX(-50%);
-    font-size: 18px; letter-spacing: 1px; padding: 9px 18px;
-    background: var(--panel); border-radius: 8px; opacity: 0;
-    transition: opacity .25s;
-    /* Honours newlines so a toast can carry a short list -- the render style
-       prints its effect switchboard when you change to it. Centred, because
-       one of those lines is a heading and the rest are its contents. */
-    white-space: pre-line; text-align: center;
-  }
-  #toast.show { opacity: 1; }
-
-  /* ---- boot / press-any-button overlay ---- */
-  #boot {
-    position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center;
-    /* `safe` matters. A flex container that centres content taller than itself
-       overflows in BOTH directions, and the half that goes off the top is not
-       reachable by scrolling -- the wordmark was already losing its top edge on
-       a 900px window before the studio mark was added, which is what made it
-       obvious. `safe center` centres while it fits and falls back to start
-       when it does not, so the overflow all goes downward where the scrollbar
-       can reach it. */
-    justify-content: safe center;
-    /* Darker than the game's own #10141a, and deliberately. This screen is not
-       over a sunlit road -- it is the dark room the cabinet stands in, and the
-       cards and the wordmark have more to push against at #07080c. */
-    gap: 10px; background: #07080c; text-align: center;
-    overflow-y: auto; padding: 22px 0;
-  }
-  /* A hint of the sky the game actually renders, so the title card and the
-     first corner belong to the same world -- plus the studio's two phosphors
-     coming in from the corners. All of it is light bouncing off the wall
-     behind the cabinet, never a filled block: the surfaces have to stay black
-     enough to read six circuit cards on. */
-  #boot::before {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
+  header::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
     background:
-      radial-gradient(120% 78% at 50% 118%, rgba(255,210,63,.10), transparent 60%),
-      radial-gradient(90% 60% at 50% -14%, rgba(60,120,190,.16), transparent 62%),
-      radial-gradient(58% 44% at 6% 4%,    rgba(53,232,255,.13), transparent 66%),
-      radial-gradient(54% 42% at 96% 10%,  rgba(255,46,136,.11), transparent 64%);
+      radial-gradient(70% 52% at 18% 0%,   rgba(53,232,255,.16), transparent 64%),
+      radial-gradient(66% 56% at 92% 22%,  rgba(255,46,136,.14), transparent 62%),
+      radial-gradient(90% 60% at 50% 118%, rgba(255,210,63,.07), transparent 64%);
   }
-  /* Scanlines, on the title card only. Turning the road into a CRT costs
-     contrast at 200 km/h for nothing; turning the menu into one costs
-     nothing and is the whole point of the look. */
-  #boot::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
-    background: repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
-    opacity: .5; mix-blend-mode: multiply;
-  }
-  #boot > * { position: relative; }
+  header .wrap { position: relative; z-index: 2; }
 
-  /* ---- the studio credit, at the foot of the title card ---- */
-  /* Below the byline and deliberately quiet. A publisher card above the
-     wordmark was the wrong read: the studio is not what anyone opened this
-     page for, and putting its name where the eye lands first says otherwise.
-     Down here it is findable and out of the way, which is all it needs to be.
-     One line, and this is the only place the studio is named on this screen. */
-  /* The mark alone. It carried an "A GAME BY" label for a while, one line under
-     a byline that already opens "A game built just for fun" -- the same three
-     words twice, stacked. The mark says who made it without being told to. */
-  #studio { margin-top: 14px; }
-  #studio .mk {
+  /* The wordmark. Three stacked copies offset a pixel or two apart, the way a
+     CRT with its convergence out reproduces a white letter as a cyan edge and
+     a magenta one. The colour copies are aria-hidden so it reads once. */
+  .wordmark {
     position: relative; display: inline-block;
     font-family: var(--mark);
-    font-size: 13px; letter-spacing: .1em; line-height: 1;
-    text-decoration: none;
+    font-size: clamp(38px, 9.2vw, 96px);
+    line-height: .96; letter-spacing: -.005em;
+    margin: 0 0 6px;
   }
-  /* Three copies a pixel apart: a CRT with its convergence out, which is what
-     every white letter on a monitor looked like in 1996. The colour copies are
-     aria-hidden or a screen reader reads the studio's name three times.
+  .wordmark .ghost { position: absolute; inset: 0; pointer-events: none; }
+  .wordmark .ghost.c { color: var(--cyan);    transform: translate(-.028em, .014em); opacity: .85; }
+  .wordmark .ghost.m { color: var(--magenta); transform: translate(.028em, -.014em); opacity: .85; }
+  .wordmark .top     { position: relative; color: var(--fg); }
+  @media (prefers-reduced-motion: no-preference) {
+    .wordmark .ghost.c { animation: drift-c 7s ease-in-out infinite; }
+    .wordmark .ghost.m { animation: drift-m 7s ease-in-out infinite; }
+  }
+  @keyframes drift-c {
+    0%,100% { transform: translate(-.028em, .014em); }
+    50%     { transform: translate(-.014em, .006em); }
+  }
+  @keyframes drift-m {
+    0%,100% { transform: translate(.028em, -.014em); }
+    50%     { transform: translate(.014em, -.006em); }
+  }
 
-     Whole pixels here, not the em offsets the landing page uses. Em is right
-     for a mark that scales from 38px to 96px; this one lives between 15 and 20,
-     where .05em is two thirds of a pixel and the browser resolves the fringe
-     into a faint grey tint. A fringe you cannot see is not a fringe. */
-  #studio .ghost   { position: absolute; inset: 0; pointer-events: none;
-                     transition: opacity .16s ease; }
-  /* Sat at .6 to begin with, which made a heavy signage face the brightest
-     thing in the footer -- brighter than the byline above it, which is exactly
-     backwards. Bungee carries far more ink per point than the condensed body
-     face, so matching it by opacity means going well under. */
-  #studio .ghost.c { color: var(--cyan);    transform: translate(-1px,  .5px); opacity: .38; }
-  #studio .ghost.m { color: var(--magenta); transform: translate( 1px, -.5px); opacity: .38; }
-  #studio .top     { position: relative; color: rgba(232,238,245,.42);
-                     transition: color .16s ease; }
-  /* The fringe comes up on hover instead of drifting on its own. Down here the
-     mark should be still until somebody goes looking for it. */
-  #studio a.mk:hover .top   { color: var(--fg); }
-  #studio a.mk:hover .ghost { opacity: .95; }
+  .studio-line {
+    font-size: clamp(13px, 2.1vw, 17px); letter-spacing: .52em;
+    text-transform: uppercase; color: var(--dim);
+    margin: 0 0 clamp(30px, 5vw, 46px);
+  }
 
-  #logo { width: min(560px, 84vw); }
-  #logo svg { width: 100%; height: auto; display: block; overflow: visible; }
-  #logo .word {
-    /* A marker face already carries its own slant and weight, so the shear is
-       gentler and the tracking tighter than the monospace version needed. */
-    font-family: var(--title); font-size: 112px; font-weight: 400; letter-spacing: 2px;
-    fill: url(#chrome);
-    /* The 90s cabinet look in three parts: a hard shear so it leans into the
-       corner, a dark rim so it reads against any backdrop, and a warm glow
-       under it standing in for the bezel light. */
-    transform: skewX(-6deg); transform-origin: 168px 112px;
-    stroke: #2a1408; stroke-width: 3; paint-order: stroke fill;
-    filter: drop-shadow(0 6px 0 rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255,150,40,.42));
+  .hero-line {
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: clamp(34px, 6.6vw, 68px); line-height: 1.03;
+    max-width: 15ch; margin: 0 0 22px;
   }
-  /* Sheared to match the wordmark, or they read as three stray dashes parked
-     next to it rather than as the air it is tearing through. */
-  #logo .streak { transform: skewX(-6deg); transform-origin: 168px 112px; }
-  #logo .streak rect { fill: var(--accent); opacity: .34; }
-  #logo .streak rect:nth-child(2) { opacity: .20; }
-  #logo .streak rect:nth-child(3) { opacity: .27; }
+  .hero-line em { font-style: normal; color: var(--cyan); }
 
-  #boot .sub { color: var(--dim); font-size: 16px; letter-spacing: 3px; }
-  #boot .creed {
-    color: rgba(232,238,245,.45); font-size: 13px; letter-spacing: 2.5px;
-    margin-top: 26px;
+  .hero-sub {
+    font-size: clamp(18px, 2.5vw, 22px); color: var(--faint);
+    max-width: 46ch; margin: 0 0 34px;
   }
-  /* Credit sits under the cards rather than over them: it should be findable,
-     not the first thing between you and driving. */
-  /* Sentence case, so the wide tracking the all-caps lines above use would
-     only make it harder to read. */
-  #boot .byline {
-    margin-top: 20px; font-size: 14px; letter-spacing: .4px;
-    color: rgba(232,238,245,.38);
-  }
-  #boot .byline b { color: rgba(232,238,245,.72); font-weight: 600; }
-  #boot .byline a { color: rgba(232,238,245,.55); text-decoration: none;
-                    border-bottom: 1px solid rgba(232,238,245,.22); }
-  #boot .byline a:hover { color: var(--accent); border-color: var(--accent); }
-  #boot .prompt { color: var(--accent); font-size: 17px; letter-spacing: 2px; }
-  #boot .prompt.blink { animation: blink 1.15s ease-in-out infinite; }
-  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
-  #boot .err { color: var(--danger); font-size: 15px; max-width: 460px; line-height: 1.7; }
-  #boot.hidden { display: none; }
+  .hero-sub b { color: var(--fg); font-weight: 600; }
 
-  /* ---- track selection ---- */
-  /* Always three across.
-     This was flex-wrap over fixed-width cards, so the number per row was
-     whatever the window happened to allow -- four and two on a wide screen,
-     which reads as an accident rather than a layout. Six circuits are a 3x2
-     grid and three cars are a single row of three, at any width. */
-  #trackMenu { display: none; gap: 18px; margin-top: 8px;
-               grid-template-columns: repeat(3, minmax(0, 1fr));
-               width: min(1120px, calc(100vw - 48px)); padding: 0 24px; }
-  #trackMenu.on { display: grid; }
-  .trackCard {
-    /* Width comes from the grid column now, not from the card. */
-    width: 100%; padding: 0 0 15px; border-radius: 14px; cursor: pointer;
-    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10);
-    transition: transform .12s ease, border-color .12s ease, background .12s ease;
-    text-align: center; overflow: hidden;
-  }
-  /* .sel is the gamepad's cursor, and it has to read as strongly as hover:
-     with a pad there is no mouse pointer to tell you where you are. */
-  .trackCard:hover, .trackCard:focus, .trackCard.sel {
-    transform: translateY(-3px); border-color: var(--accent);
-    background: rgba(255,210,63,.08); outline: none;
-  }
-  .trackCard.sel { box-shadow: 0 0 0 2px var(--accent), 0 10px 30px rgba(0,0,0,.5); }
-  /* ---- gamepad binding screen ---- */
-  #padPanel {
-    position: fixed; inset: 0; z-index: 40; display: none;
-    align-items: center; justify-content: center; background: rgba(6,10,15,.82);
-  }
-  #padPanel.on { display: flex; }
-  #padPanel .box {
-    width: min(560px, 92vw); max-height: 86vh; overflow-y: auto;
-    background: #121a23; border: 1px solid #22303e; border-radius: 12px; padding: 20px 22px;
-  }
-  #padPanel h2 { margin: 0 0 3px; font-size: 18px; letter-spacing: 2px; }
-  #padPanel .sub { color: var(--dim); font-size: 14px; margin-bottom: 16px; }
-  #padPanel .row {
-    display: flex; align-items: center; gap: 12px; padding: 7px 10px;
-    border-radius: 6px; cursor: pointer; border: 1px solid transparent;
-  }
-  #padPanel .row:hover { background: rgba(255,255,255,.04); }
-  #padPanel .row.sel { border-color: var(--accent); background: rgba(255,210,63,.08); }
-  #padPanel .row.listening { border-color: var(--accent); background: rgba(255,210,63,.16); }
-  #padPanel .row .lbl { flex: 1; font-size: 16px; }
-  #padPanel .row .hint { color: var(--dim); font-size: 12.5px; display: block; }
-  #padPanel .row .key {
-    min-width: 74px; text-align: center; padding: 3px 9px; border-radius: 5px;
-    background: #1d2733; border: 1px solid #2c3a4a; font-size: 15px; color: var(--accent);
-  }
-  #padPanel .row.unbound .key { color: var(--danger); border-color: #5a2b2b; }
-  #padPanel .foot {
-    margin-top: 16px; display: flex; gap: 8px; align-items: center;
-    border-top: 1px solid #22303e; padding-top: 14px;
-  }
-  #padPanel .foot .note { flex: 1; color: var(--dim); font-size: 13px; line-height: 1.5; }
-  #padPanel button {
-    background: #1a242f; border: 1px solid #2c3a4a; color: var(--dim);
-    padding: 6px 13px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 15px;
-  }
-  #padPanel button:hover { background: #22303e; color: var(--fg); }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
-  .trackCard .swatch { height: 168px; display: block; width: 100%; line-height: 0; }
-  .trackCard .swatch svg { width: 100%; height: 100%; display: block; }
-  .trackCard .nm {
-    /* Fluid, because the grid is always three across and the cards get narrow
-       long before the window does. At a fixed 25px, MEDITERRANEAN ran past its
-       card and `overflow: hidden` quietly ate the last letter -- a circuit
-       whose name is cut off reads as a broken menu, not a narrow one. */
-    font-family: var(--title); font-size: clamp(19px, 2.3vw, 25px); font-weight: 400;
-    letter-spacing: 1px; margin-top: 12px; padding: 0 10px;
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--body); font-weight: 700; text-transform: uppercase;
+    font-size: 19px; letter-spacing: .1em;
+    padding: 13px 28px; border-radius: 4px;
+    text-decoration: none; border: 1px solid transparent;
+    transition: transform .12s ease, background .16s ease, border-color .16s ease;
   }
-  .trackCard .tag { font-size: 15px; color: var(--dim); line-height: 1.5;
-                    margin: 7px 18px 0; min-height: 34px; }
-  .trackCard .diff { font-size: 13px; letter-spacing: 3px; color: var(--accent); margin-top: 11px; }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: var(--amber); color: #10141a;
+    box-shadow: 0 0 0 1px rgba(255,210,63,.4), 0 10px 34px rgba(255,160,40,.22);
+  }
+  .btn-primary:hover { background: #ffdf72; }
+  .btn-ghost { border-color: var(--line); color: var(--fg); }
+  .btn-ghost:hover { border-color: rgba(255,255,255,.28); background: var(--panel); }
 
-  /* Car cards: same shell as the circuits, with a spec strip. The numbers are
-     the reason you would pick one, so they get their own row rather than being
-     buried in the tagline. Monospace and tabular, because they are readings. */
-  /* Taller than the circuit swatches, because these photos are close to 4:3
-     while that frame was nearly 16:9 -- fitting a 1.3 image into a 1.7 box
-     shrinks the car to the height of the box and wastes the width either side.
-     At 210px the frame is 1.68 and the car fills most of it. */
-  .carCard .carSwatch {
-    height: 210px; background: #11161d;
-    display: flex; align-items: center; justify-content: center;
-    padding: 6px;
+  /* ------------------------------------------------------------- ticker */
+
+  .ticker {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.02);
+    overflow: hidden; padding: 15px 0;
+    /* Fade the ends so items enter and leave instead of popping. */
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+            mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
   }
-  /* `contain`, so the WHOLE car is in the frame. `cover` filled it more
-     handsomely but cut the nose off one and the wing off another, and on a
-     screen whose entire job is telling three cars apart, cropping the parts
-     that tell them apart is the wrong trade.
-     The images are RGBA with transparent backgrounds, so the space either side
-     is just the swatch and reads as deliberate rather than as letterboxing. */
-  .carCard .carPic {
-    max-width: 100%; max-height: 100%; object-fit: contain; display: block;
+  .ticker-track { display: flex; width: max-content; animation: slide 42s linear infinite; }
+  .ticker:hover .ticker-track { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    .ticker { -webkit-mask-image: none; mask-image: none; }
+    .ticker-track > div:nth-child(2) { display: none; }
   }
-  .carCard .spec {
-    display: flex; justify-content: center; gap: 14px; margin-top: 10px;
-    font-size: 14px; color: var(--fg); font-variant-numeric: tabular-nums;
+  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker-group { display: flex; align-items: center; flex: 0 0 auto; }
+  .ticker-group span {
+    font-size: 14px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--dim); padding: 0 20px; white-space: nowrap;
   }
-  .carCard .spec span { color: rgba(232,238,245,.78); }
-  .carCard .tag { min-height: 46px; }
+  .ticker-group span::after {
+    content: '·'; color: rgba(255,255,255,.22); margin-left: 20px;
+  }
+
+  /* ------------------------------------------------------------ section */
+
+  section { padding: clamp(60px, 9vw, 108px) 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .lede { font-size: clamp(19px, 2.4vw, 24px); color: var(--faint); max-width: 54ch; }
+  .lede b { color: var(--fg); font-weight: 600; }
+
+  .rules { display: grid; gap: 18px; margin-top: 44px;
+           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .rule {
+    border: 1px solid var(--line); border-radius: 8px; padding: 24px;
+    background: var(--panel);
+  }
+  .rule .num {
+    font-family: var(--mark); font-size: 13px; color: var(--cyan);
+    display: block; margin-bottom: 14px; letter-spacing: .05em;
+  }
+  .rule p { font-size: 17px; color: var(--faint); }
+
+  /* -------------------------------------------------------------- games */
+
+  .game {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,210,63,.05), rgba(255,255,255,.02));
+    margin-top: 40px;
+  }
+  .game-shot {
+    display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+    border-bottom: 1px solid var(--line); background: #0d1117;
+  }
+  .game-body { padding: clamp(24px, 4vw, 40px); }
+  .game-title {
+    font-family: var(--game); font-size: clamp(38px, 6.4vw, 62px);
+    line-height: 1; margin: 0 0 4px;
+    background: linear-gradient(180deg, #fff4cf 0%, var(--amber) 44%, #f07f2a 56%, #c8322c 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    transform: skewX(-6deg); transform-origin: left bottom;
+    display: inline-block;
+  }
+  .game-tag {
+    font-size: 14px; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--amber); margin: 0 0 20px; opacity: .85;
+  }
+  .game-body > p { max-width: 62ch; }
+
+  .specs {
+    display: grid; gap: 1px; margin: 28px 0 30px;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    background: var(--line); border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden;
+  }
+  .spec { background: #0a0c11; padding: 16px 18px; }
+  .spec b {
+    display: block; font-size: 26px; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums; color: var(--fg);
+  }
+  .spec span {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim);
+  }
+
+  .game-note {
+    margin-top: 20px; font-size: 15px; letter-spacing: .04em;
+    color: rgba(238,242,247,.42);
+  }
+
+  .soon {
+    margin-top: 18px; border: 1px dashed rgba(255,255,255,.16); border-radius: 12px;
+    padding: 26px clamp(24px, 4vw, 40px); background: rgba(255,255,255,.015);
+  }
+  .soon h3 { color: var(--dim); }
+  .soon p { color: rgba(238,242,247,.5); font-size: 17px; max-width: 56ch; }
+
+  /* ---------------------------------------------------------------- who */
+
+  .split { display: grid; gap: clamp(28px, 5vw, 56px); grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+  .quote {
+    border-left: 3px solid var(--magenta); padding: 4px 0 4px 24px;
+    margin: 0 0 26px;
+  }
+  .quote p {
+    font-family: var(--body); font-weight: 600; text-transform: uppercase;
+    font-size: clamp(24px, 3.6vw, 36px); line-height: 1.14; color: var(--fg);
+  }
+
+  /* ------------------------------------------------------------- footer */
+
+  footer {
+    border-top: 1px solid var(--line); padding: 40px 0 56px;
+    color: rgba(238,242,247,.42); font-size: 15px;
+  }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: baseline; }
+  footer .brand {
+    font-family: var(--mark); font-size: 14px; color: rgba(238,242,247,.62);
+    margin-right: auto;
+  }
+  footer a { color: rgba(238,242,247,.62); }
+  footer a:hover { color: var(--fg); }
 </style>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
-    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs"
-  }
-}
-</script>
 </head>
 <body>
 
-<div id="hud">
-  <!-- Grip panel: the g-meter and the balance bar are one reading, not two --
-       where the load is, and which end is giving up first. Shares --rail with
-       the controls list directly below it: those two are stacked and so get
-       compared edge to edge, which matters more than matching the lap panel
-       diagonally opposite. -->
-  <div id="rail">
-  <div id="grip">
-    <div class="head">GRIP</div>
-
-    <div id="gmeter">
-      <svg viewBox="0 0 100 100">
-        <circle class="ring" cx="50" cy="50" r="46" />
-        <circle class="ring" cx="50" cy="50" r="30" />
-        <circle class="ring" cx="50" cy="50" r="15" />
-        <line class="cross" x1="4" y1="50" x2="96" y2="50" />
-        <line class="cross" x1="50" y1="4" x2="50" y2="96" />
-        <circle id="gTrail" cx="50" cy="50" r="0" />
-        <circle id="gDot" cx="50" cy="50" r="4.5" />
-      </svg>
-      <div id="gLabel"><span class="k">LON</span> 0.00 <span class="k">LAT</span> 0.00</div>
-    </div>
-
-    <div id="balance">
-      <div id="balanceBar"><div id="balanceFill"></div></div>
-      <div class="ends"><span>UNDER</span><span id="balanceText">NEUTRAL</span><span>OVER</span></div>
-    </div>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">MEGATRONIK<span>.</span></a>
+    <a class="link hide-sm" href="#games">Games</a>
+    <a class="link hide-sm" href="#studio">Studio</a>
+    <a class="link" href="./vroom.html">Play</a>
   </div>
-  <div id="helpHint"><b>H</b> &nbsp;controls</div>
-  </div>
+</nav>
 
-  <!-- The full key list, on H. Lives outside the rail because it is centred
-       over the road rather than stacked in the corner. -->
-  <div id="help">
-    <div class="helpTitle">CONTROLS</div>
-    <div class="helpGrid">
-      <div class="grp">DRIVING</div>
-      <span class="hk"><b>LS</b> / <b>WASD</b></span><span>steer, throttle, brake</span>
-      <span class="hk"><b data-bind="handbrake"></b> / <b>Space</b></span><span>handbrake</span>
-      <span class="hk"><b data-bind="shiftUp"></b><b data-bind="shiftDown"></b> / <b>Shift</b> <b>Ctrl</b></span><span>shift up, down</span>
-      <span class="hk"><b>M</b></span><span>manual / automatic gearbox</span>
-      <span class="hk"><b data-bind="reset"></b> / <b>R</b></span><span>put the car back on the road</span>
-      <span class="hk"><b data-bind="camera"></b> / <b>C</b></span><span>change camera</span>
+<header id="top">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap">
+    <!-- Named explicitly. aria-hidden on the colour copies is not enough on its
+         own: name-from-content still walked all three and the heading announced
+         as "MEGATRONIK MEGATRONIK MEGATRONIK". -->
+    <h1 class="wordmark" aria-label="Megatronik">
+      <span class="ghost c" aria-hidden="true">MEGATRONIK</span>
+      <span class="ghost m" aria-hidden="true">MEGATRONIK</span>
+      <span class="top">MEGATRONIK</span>
+    </h1>
+    <div class="studio-line">Studio</div>
 
-      <div class="grp">SESSION</div>
-      <span class="hk"><b>T</b> / <b>Esc</b></span><span>back to the circuits</span>
-      <span class="hk"><b>J</b></span><span>autopilot &mdash; watch it drive</span>
-      <span class="hk"><b>L</b></span><span>headlights on / off</span>
-      <span class="hk"><b>K</b></span><span>clear the skid marks</span>
-      <span class="hk"><b>V</b></span><span>sound on / off</span>
-      <span class="hk"><b>N</b></span><span>music on / off</span>
+    <p class="hero-line">Arcade games you <em>just play</em>.</p>
+    <p class="hero-sub">
+      No accounts. No subscriptions. No launcher, no season pass, no
+      forty-minute tutorial. <b>Open a page, press a button, you're driving.</b>
+    </p>
 
-      <div class="grp">SETUP AND DEBUG</div>
-      <span class="hk"><b>G</b></span><span>tuning panel</span>
-      <span class="hk"><b>B</b></span><span>gamepad bindings</span>
-      <span class="hk"><b>1</b>&ndash;<b>7</b></span><span>post-processing effects</span>
-      <span class="hk"><b>F</b></span><span>frame rate</span>
-      <span class="hk"><b>`</b></span><span>telemetry overlay</span>
-      <span class="hk"><b>P</b></span><span>physics colliders</span>
-      <span class="hk"><b>O</b></span><span>wireframe</span>
-      <span class="hk"><b>H</b></span><span>this panel</span>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="./vroom.html">Play VROOM ▸</a>
+      <a class="btn btn-ghost" href="#studio">What this is</a>
     </div>
   </div>
+</header>
 
-  <!-- Twin-dial cluster, after the real A110's: tacho left, speedo right, a
-       gear strip between them. Both dials are one SVG each so the ticks and
-       numerals can be generated from the actual tuning rather than drawn by
-       hand and left to drift from it. -->
-  <div id="dash">
-    <div class="dial" id="tach">
-      <svg viewBox="0 0 200 200">
-        <circle class="bezel" cx="100" cy="100" r="93"/>
-        <circle class="face" cx="100" cy="100" r="86"/>
-        <path id="tachRed" d="" class="redArc"/>
-        <g id="tachTicks"></g>
-        <g id="tachNums"></g>
-        <!-- Readout lives INSIDE the svg and before the needle, so the needle
-             sweeps over the number the way a real one sweeps over the dial
-             face. As an HTML layer on top it always covered the needle. -->
-        <!-- The digital rpm and its caption are gone: the needle already
-             says this, and a number restating it made the dial busy. The
-             element stays so hud.js has something to write to. -->
-        <text id="tachRpmVal" class="big" x="100" y="96" style="display:none">0</text>
-        <text class="cap scale" x="100" y="150">x1000</text>
-        <line id="tachNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
-        <circle class="hub" cx="100" cy="100" r="7"/>
-      </svg>
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <div class="ticker-group">
+      <span>NES</span><span>SNES</span><span>Mega Drive</span><span>N64</span>
+      <span>Dreamcast</span><span>PS1</span><span>PS2</span><span>PSP</span>
+      <span>Xbox</span><span>PS3</span><span>360</span><span>PS4</span>
+      <span>PS5</span><span>PC</span><span>Arcade cabinets</span>
+      <span>30 years of this</span>
     </div>
-
-    <div id="centre">
-      <div class="gearRow" id="gearRow"></div>
-      <div class="gearBar"></div>
-      <div class="mode" id="gearMode">AUTO</div>
-    </div>
-
-    <div class="dial" id="speedo">
-      <svg viewBox="0 0 200 200">
-        <circle class="bezel" cx="100" cy="100" r="93"/>
-        <circle class="face" cx="100" cy="100" r="86"/>
-        <g id="spdTicks"></g>
-        <g id="spdNums"></g>
-        <!-- Likewise the digital speed. Analog dials, nothing else. -->
-        <text id="speedVal" class="big" x="100" y="112" style="display:none">0</text>
-        <line id="spdNeedle" class="needle" x1="100" y1="100" x2="100" y2="30"/>
-        <circle class="hub" cx="100" cy="100" r="7"/>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Track name, lap times and map are one panel, not three floating boxes.
-       They are read together and belong to each other, so they share a width,
-       a background and an edge. -->
-  <div id="info">
-    <div id="trackName">—</div>
-
-    <div id="laps">
-      <div class="cur" id="lapCur">--:--.---</div>
-      <div class="row"><span class="k">LAST</span><span id="lapLast">--:--.---</span></div>
-      <div class="row"><span class="k">BEST</span><span class="best" id="lapBest">--:--.---</span></div>
-    </div>
-
-    <div id="minimap">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-        <path id="mmTrack" d=""/>
-        <path id="mmDone" d="" stroke-dasharray="0 9999"/>
-        <line id="mmStart" x1="0" y1="0" x2="0" y2="0"/>
-        <circle id="mmDot" cx="50" cy="50" r="4"/>
-      </svg>
-      <div id="mmBar"><div id="mmBarFill"></div></div>
-      <div id="mmPct">LAP 0%</div>
-    </div>
-  </div>
-
-  <div id="debug"></div>
-  <div id="fps"></div>
-
-  <!-- Pad buttons here are filled in from the live bindings, so rebinding
-       cannot leave the on-screen help telling you the wrong button. -->
-  <!-- Deliberately terse. At this width every extra word wraps to another
-       line, and the block was tall enough to collide with the grip panel. -->
-  <!-- Results, laps and the high score table. Built by src/finish.js. -->
-  <div id="finish"></div>
-
-  <!-- Getting back out. A key alone is not discoverable -- nobody guesses
-       Escape at something that never showed them a menu -- so it is a real
-       button, and the key is written on it. -->
-  <button id="menuBtn" type="button">&#8592; CIRCUITS <b>ESC</b></button>
-
-
-  <div id="toast"></div>
-</div>
-
-<!-- Title card. One screen: the name, what it is, and the circuits -- no
-     splash to click past, no menu tree. The cards are the front page, because
-     the fastest way to a game that feels like an arcade cabinet is to put the
-     track select where the attract screen would be. -->
-<div id="boot">
-  <div id="logo">
-    <!-- Drawn rather than an image file: it scales to any screen, themes off
-         the same palette as the game, and costs no request. -->
-    <svg viewBox="0 0 620 150" role="img" aria-label="VROOM">
-      <defs>
-        <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#fff4cf"/>
-          <stop offset="42%"  stop-color="#ffd23f"/>
-          <stop offset="52%"  stop-color="#f07f2a"/>
-          <stop offset="100%" stop-color="#c8322c"/>
-        </linearGradient>
-      </defs>
-      <!-- Speed lines: the wordmark is moving, and it should look like it. -->
-      <g class="streak">
-        <rect x="0"  y="46"  width="150" height="7" rx="3.5"/>
-        <rect x="26" y="70"  width="112" height="7" rx="3.5"/>
-        <rect x="4"  y="94"  width="140" height="7" rx="3.5"/>
-      </g>
-      <text class="word" x="168" y="112">VROOM</text>
-    </svg>
-  </div>
-
-  <div class="sub">PURE DRIVING</div>
-
-  <div class="prompt" id="bootPrompt">LOADING…</div>
-  <div id="trackMenu"></div>
-  <div class="err" id="bootErr"></div>
-  <!-- Under the cards, not above them. It is the reason to stay, not the
-       reason to arrive -- the circuits are what you came for, and this reads
-       better once you have seen them than as a claim made before anything. -->
-  <div class="creed">NO ACCOUNTS &nbsp;·&nbsp; NO PURCHASES &nbsp;·&nbsp; NO NONSENSE &nbsp;·&nbsp; JUST DRIVE</div>
-
-  <div class="byline">
-    A game built just for fun. &nbsp;<b>Diego Cibils, 2026.</b>
-    &nbsp;·&nbsp; <a href="./about.html">about</a>
-  </div>
-
-  <!-- The studio credit, last on the screen. -->
-  <div id="studio">
-    <a class="mk" href="./site/" aria-label="Megatronik Studio">
-      <span class="ghost c" aria-hidden="true">MEGATRONIK STUDIO</span>
-      <span class="ghost m" aria-hidden="true">MEGATRONIK STUDIO</span>
-      <span class="top">MEGATRONIK STUDIO</span>
-    </a>
-  </div>
-</div>
-
-<div id="padPanel">
-  <div class="box">
-    <h2>GAMEPAD</h2>
-    <div class="sub" id="padName">no pad detected — press a button on it</div>
-    <div id="padRows"></div>
-    <div class="foot">
-      <span class="note">
-        Pick an action, then press the button you want on the pad.
-        Navigate with the d-pad, <b>A</b> to rebind, <b>B</b> to close.
-      </span>
-      <button id="padReset">defaults</button>
-      <button id="padClose">close</button>
+    <div class="ticker-group">
+      <span>NES</span><span>SNES</span><span>Mega Drive</span><span>N64</span>
+      <span>Dreamcast</span><span>PS1</span><span>PS2</span><span>PSP</span>
+      <span>Xbox</span><span>PS3</span><span>360</span><span>PS4</span>
+      <span>PS5</span><span>PC</span><span>Arcade cabinets</span>
+      <span>30 years of this</span>
     </div>
   </div>
 </div>
 
-<script type="module">
-  import { boot } from './src/main.js';
-  boot().catch((err) => {
-    console.error(err);
-    document.getElementById('bootPrompt').textContent = 'FAILED TO START';
-    document.getElementById('bootPrompt').classList.remove('blink');
-    document.getElementById('bootErr').textContent = String(err && err.stack || err);
-  });
-</script>
+<section id="studio">
+  <div class="wrap">
+    <p class="eyebrow">What this is</p>
+    <h2>Bringing back the game<br>you could just start</h2>
+    <p class="lede">
+      Somewhere between the arcade and now, games got heavy. Megatronik Studio
+      makes the other kind: <b>small, fast, finished games</b> you open and play,
+      built with the feel of a 90s cabinet and the reach of a modern browser.
+    </p>
+
+    <div class="rules">
+      <div class="rule">
+        <span class="num">01</span>
+        <h3>Four seconds to fun</h3>
+        <p>
+          The arcade contract: coin in, and a few seconds later you are already
+          playing. No sign-in, no lobby, no shop standing between you and the
+          first corner.
+        </p>
+      </div>
+      <div class="rule">
+        <span class="num">02</span>
+        <h3>Nothing to buy</h3>
+        <p>
+          No accounts, no subscriptions, no currency, no battle pass, nothing
+          to unlock. The moment a game gets a store, it stops being about the
+          game and starts being about the store.
+        </p>
+      </div>
+      <div class="rule">
+        <span class="num">03</span>
+        <h3>Real physics. Arcade fun.</h3>
+        <p>
+          Anyone should be playing inside ten seconds — and underneath, an
+          honest simulation, so a 300 hp coupé and a hypercar are two
+          genuinely different animals rather than the same one with a bigger
+          number on it.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="games">
+  <div class="wrap">
+    <p class="eyebrow">Games</p>
+    <h2>Out now</h2>
+    <p class="lede">One game so far, and it is finished enough to lose an evening to.</p>
+
+    <article class="game">
+      <img class="game-shot" src="media/vroom-hero.jpg" alt="VROOM: a low-poly race car mid-corner on a circuit, with speedometer and tachometer on screen." loading="lazy" width="1600" height="900">
+      <div class="game-body">
+        <h3 class="game-title">VROOM</h3>
+        <p class="game-tag">Arcade driving · Play in browser · Free</p>
+        <p>
+          Pick a circuit, pick a car, drive. Flat-shaded and readable like the
+          racers it comes from — and underneath, four wheels on four springs,
+          weight that moves when you brake, and tyres that give up gradually
+          instead of all at once. Every car is built from the real one's torque
+          curve, gearing and drag, then measured in the running game to make
+          sure it does what the card says.
+        </p>
+        <p>
+          It is not trying to be Gran Turismo and it is not trying to be
+          Assetto Corsa. A real car, in an arcade world: six cars across five
+          drivetrain layouts, six circuits, and nothing to set up before you
+          are allowed to move.
+        </p>
+
+        <div class="specs">
+          <div class="spec"><b>6</b><span>Cars</span></div>
+          <div class="spec"><b>6</b><span>Circuits</span></div>
+          <div class="spec"><b>0</b><span>Accounts</span></div>
+          <div class="spec"><b>Free</b><span>Forever</span></div>
+        </div>
+
+        <div class="cta-row">
+          <a class="btn btn-primary" href="./vroom.html">Play now ▸</a>
+          <a class="btn btn-ghost" href="./about.html">About VROOM</a>
+        </div>
+        <!-- Said out loud because the alternative is somebody opening it on a
+             phone, finding nothing to press, and deciding it is broken. -->
+        <p class="game-note">Keyboard or gamepad, in a desktop browser. Touch controls are on the list.</p>
+      </div>
+    </article>
+
+    <div class="soon">
+      <h3>Next up</h3>
+      <p>
+        Whatever turns out to be fun. Same rules: small, finished, free, and
+        playable in the time it takes to decide you want to play something.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="who">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Who</p>
+        <h2>One person,<br>making all of it</h2>
+        <p>
+          Megatronik Studio is one man. Design, code, physics, art, audio, this
+          page. I have been playing games for thirty years — NES, SNES,
+          Dreamcast, PS2, PS3, PSP, PS4, PS5, Xbox, PC, and most of what came in
+          between — and at some point wanting to make one stopped being a
+          someday thing.
+        </p>
+        <p>
+          The studio is also how I learn. Every game gets me a little further
+          into rendering, physics, feel and the strange craft of making a
+          machine enjoyable to operate. I write down what I figure out and ship
+          the thing either way.
+        </p>
+      </div>
+      <div>
+        <p class="eyebrow pink">On AI</p>
+        <div class="quote">
+          <p>AI can't make something fun.<br>That part is still mine.</p>
+        </div>
+        <p>
+          I use AI heavily — code, assets, all of it. It lets one person build
+          at a scale that used to need a team, and I am not going to pretend
+          otherwise.
+        </p>
+        <p>
+          But fun is not a thing you can prompt for. It comes from playing the
+          build for the hundredth time, moving a number by two hundredths,
+          driving the same corner until it feels right, and watching someone
+          else pick up the controller and seeing the exact moment they get
+          bored. That is the job, and it is still a human doing it.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="brand">MEGATRONIK STUDIO</span>
+    <span>Built by Diego Cibils</span>
+    <a href="./vroom.html">Play VROOM</a>
+    <a href="./about.html">About</a>
+  </div>
+</footer>
+
 </body>
 </html>

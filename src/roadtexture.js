@@ -43,9 +43,14 @@ const SETS = {
     // number to change -- it is metres of ground per repeat, and it is the
     // vendor's figure rather than anything derived.
     tile: 2.0,
+    // Colour stays 2K -- it is the one map you look at directly. Normal and
+    // gloss are 1K, because they carry measurements rather than something the
+    // eye reads for detail, and at 2 m per repeat on a surface seen at a
+    // grazing angle nobody can tell. The normal map alone was 8.9 MB, a third
+    // of everything a visitor downloads in a session; it is 0.8 MB now.
     map: 'asphalt_col_2k.jpg',
-    normalMap: 'asphalt_nrm_2k.jpg',
-    roughnessMap: { file: 'asphalt_gloss_2k.jpg', invert: true },
+    normalMap: 'asphalt_nrm_1k.jpg',
+    roughnessMap: { file: 'asphalt_gloss_1k.jpg', invert: true },
   },
   dirt: {
     tile: 3.0,

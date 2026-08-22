@@ -450,7 +450,7 @@ needs.
 
 ---
 
-Reference implementations: [`site/index.html`](../site/index.html) uses every
-token and component above and nothing that is not here.
-[`index.html`](../index.html) shows the same system applied to a running game,
-including where it stops.
+Reference implementations: [`index.html`](../index.html) -- the studio landing
+page, now the site root -- uses every token and component above and nothing
+that is not here. [`vroom.html`](../vroom.html) shows the same system applied to
+a running game, including where it stops.

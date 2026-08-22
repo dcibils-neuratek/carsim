@@ -18,8 +18,14 @@ for nothing a player would ever see.
 cd /Users/diego/Code/Carsim && python3 tools/serve.py 8000
 ```
 
-Then open <http://localhost:8000>. It has to be served over HTTP; opening
-`index.html` from the filesystem will fail on ES module CORS.
+Then open <http://localhost:8000/vroom.html>. It has to be served over HTTP;
+opening the file from the filesystem will fail on ES module CORS.
+
+`/` is the Megatronik Studio landing page and `/vroom.html` is the game. That
+split is for hosting: a static host serves whatever is at the root, and the
+studio is the front door. The game keeps its place at the repo root under a
+different name rather than moving into a subfolder, so every `./src/` and
+`./assets/` path inside it is untouched.
 
 Use `tools/serve.py` rather than `python3 -m http.server`: it disables caching.
 The stock server lets the browser cache ES modules, so an edit under `src/` can

@@ -17,3 +17,10 @@ node_modules/
 # originals locally to re-export from; they have no business in the repo.
 assets/cars/*[!d].glb
 !assets/cars/*-optimized.glb
+
+# Texture maps this material has no slot for: ambient occlusion does nothing on
+# a surface with no creases, displacement needs tessellation the road ribbon
+# does not have, and reflectivity belongs to a specular workflow. They are kept
+# on disk beside the three that ARE used, and not shipped -- 7.6 MB of every
+# visitor's download for maps nothing fetches.
+assets/textures/asphalt/
