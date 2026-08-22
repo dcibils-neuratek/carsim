@@ -144,7 +144,10 @@ export class TouchControls {
     for (const a of actions) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = a.label;
+      // A label may be a function, so a toggle can report the state it is in
+      // NOW rather than the one it was in when the menu was built.
+      b._label = a.label;
+      b.textContent = typeof a.label === 'function' ? a.label() : a.label;
       b.addEventListener('click', () => {
         a.run();
         // Anything that toggles wants its label refreshed; anything that acts
@@ -157,6 +160,12 @@ export class TouchControls {
 
   _toggleMenu(force) {
     const open = force ?? !this.menu.classList.contains('on');
+    // Re-read every dynamic label on the way open.
+    if (open) {
+      for (const b of this.menu.children) {
+        if (typeof b._label === 'function') b.textContent = b._label();
+      }
+    }
     this.menu.classList.toggle('on', open);
     this.menuBtn.classList.toggle('on', open);
     // Hands off the wheel while the menu is up, or the car keeps whatever

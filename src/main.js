@@ -34,6 +34,7 @@ import { GhostLap } from './ghost.js';
 import { Race } from './race.js';
 import { Headlights } from './headlights.js';
 import { TouchControls, touchLikely } from './touch.js';
+import { HandlingAssist } from './assist.js';
 import { FinishScreen } from './finish.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
@@ -425,10 +426,15 @@ export async function boot() {
   // controls are just something covering the road. The keyboard stays live
   // throughout either way.
   const touch = new TouchControls(document.getElementById('touch'));
+  // On by default wherever the controls are, off everywhere else, and
+  // toggleable either way from the menu. A pad connecting turns it off with
+  // them: a stick has the precision the assist exists to replace.
+  const assist = new HandlingAssist(TUNING);
   const syncTouch = () => {
     const want = touchLikely() && !input.hasGamepad;
     if (want === touch.enabled) return;
     touch.setEnabled(want);
+    assist.setOn(want);
     document.getElementById('hud')?.classList.toggle('compact', want);
   };
 
@@ -681,6 +687,8 @@ export async function boot() {
   // moment the menu opens rather than baked in, so a toggle shows its CURRENT
   // state instead of the state it had when the game booted.
   touch.setActions([
+    { label: () => `Assist: ${assist.on ? 'on' : 'off'}`,
+      run: () => hud.toast(assist.toggle() ? 'assist on — more lock and grip' : 'assist off — raw car') },
     { label: 'FPS counter', run: () => hud.toggleFps() },
     { label: 'Headlights', run: () => hud.toast(headlights?.toggle() ? 'headlights on' : 'headlights off') },
     { label: 'Camera', run: () => hud.toast(`camera: ${carCamera.cycle()}`) },
@@ -818,7 +826,7 @@ export async function boot() {
       get vehicle() { return vehicle; },
       get car() { return car; },
       track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks, smoke,
-      lapTimer, race, finishScreen, restartRace, touch,
+      lapTimer, race, finishScreen, restartRace, touch, assist,
       get headlights() { return headlights; },
     },
   });
