@@ -41,6 +41,74 @@ export function fitFov(fovDeg, aspect) {
   return (2 * Math.atan(horizontal / aspect) * 180) / Math.PI;
 }
 
+/**
+ * Framing for a screen you hold in your hands.
+ *
+ * The car reads right on a monitor and small on a phone, and the aspect ratio
+ * is not the reason -- `fitFov` above already holds the horizontal view
+ * steady, so the car covers the same 17% of the frame at 16:9 as it does at a
+ * phone's 2.17:1. Measured, not assumed: both came back 17.1%.
+ *
+ * What differs is the frame itself. Ninety-odd degrees of view spread across a
+ * 15 cm panel held at arm's length puts the car at about half the angular size
+ * it has on a monitor, which is why the identical picture reads as "too far
+ * away" on one screen and not on the other. So this is not a correction to
+ * anything; it is a different framing for a different display.
+ *
+ * The aim point is the part that makes it work. Dropping it BELOW the car
+ * pitches the view down, which on a wide-short frame is most of the win: the
+ * old framing spends its top half on sky and leaves the car sitting on the
+ * bottom edge, so zooming in at that pitch pushes the rear bumper out of shot
+ * before the car ever gets usefully bigger. Pitched down, the horizon moves to
+ * a quarter from the top, the car climbs into the frame, and there is room to
+ * come closer. On a 874x402 viewport that takes the car from 17% of the width
+ * to 26%.
+ *
+ * accelPullMax falls with the distance it is added to. The camera runs up on
+ * the car under braking, and 0.9 m of that out of 5.85 crops the rear bumper;
+ * 0.6 keeps the whole car in frame at full brakes, measured rather than
+ * guessed -- the worst case is a 30%-wide car with its lowest corner still
+ * inside the viewport.
+ */
+export const HANDHELD_FRAMING = {
+  fovBase: 52,        // 62 on a monitor
+  distance: 5.85,     // 6.8 -- for a reference-length car; see REFERENCE_HALF_LENGTH
+  height: 1.85,       // 1.95
+  lookAhead: 10,      // 12
+  lookHeight: -1.6,   // 1.0 -- under the car, so the view tips down about 9 deg
+  accelPullMax: 0.6,  // 0.9
+};
+
+/**
+ * Swap the handheld framing in, in place.
+ *
+ * In place and once, at boot, rather than as a multiplier inside update():
+ * TUNING is what the tuning panel edits and what everything else reads, and a
+ * hidden factor applied downstream would make every slider on that panel lie
+ * about the camera you are actually looking through.
+ */
+export function applyHandheldFraming(tuning = TUNING) {
+  Object.assign(tuning.camera, HANDHELD_FRAMING);
+}
+
+/**
+ * The chassis half-length the camera distances were chosen against.
+ *
+ * carmodel.js scales every model so its length is exactly
+ * `chassis.halfLength * 2` and centres it on the origin, which makes
+ * halfLength the distance from the car's origin to its rear bumper -- no
+ * measuring of the mesh required, and it is already stated per car.
+ *
+ * The garage spans 1.94 m of half-length for the Mini to 2.65 for the SC18.
+ * At a fixed camera distance that 0.7 m comes straight off the gap between the
+ * lens and the rear bumper, which is the one part of the car nothing else is
+ * holding in frame -- so the Lamborghini has been driving around with its
+ * diffuser cropped off the bottom of the screen while the Mini sits in clear
+ * air. Adding the difference back keeps the REAR of every car in the same
+ * place, and lets the ones that really are bigger look bigger.
+ */
+const REFERENCE_HALF_LENGTH = 2.10;
+
 export const CAMERA_MODES = ['chase', 'hood', 'orbit'];
 
 export class CarCamera {
@@ -221,7 +289,9 @@ export class CarCamera {
       vehicle.lastAccel * c.accelPull, -c.accelPullMax, c.accelPullMax,
     );
     this._pull += (pullTarget - this._pull) * Math.min(c.accelPullRate * dt, 1);
-    const distance = c.distance + this._pull;
+    const distance = c.distance
+      + (TUNING.chassis.halfLength - REFERENCE_HALF_LENGTH)
+      + this._pull;
 
     this._desired.set(
       carPos.x - dirX * distance,

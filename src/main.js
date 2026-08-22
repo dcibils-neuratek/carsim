@@ -14,7 +14,7 @@ import { initPhysics, RAPIER, FixedStepper, PhysicsDebug } from './physics.js';
 import { Track, sampleCircuit } from './track.js';
 import { Vehicle } from './vehicle.js';
 import { Input } from './input.js';
-import { CarCamera } from './camera.js';
+import { CarCamera, applyHandheldFraming } from './camera.js';
 import { Hud } from './hud.js';
 import { LapTimer, SECTORS, formatTime } from './laptimer.js';
 import { createGui } from './gui.js';
@@ -439,6 +439,21 @@ export async function boot() {
   // Choosing the other way round would be picking blind.
   const carDef = await chooseCar(input, trackDef);
   applyCarTuning(TUNING, carDef);
+
+  // How the car is FRAMED follows the screen, not the controls.
+  //
+  // Deliberately not `touchLikely() && !hasGamepad`, which is the rule for the
+  // on-screen buttons: pairing a Bluetooth pad to a phone puts the controls
+  // away, and does nothing at all about the phone still being a phone-sized
+  // screen held at arm's length. The buttons are about how you drive; this is
+  // about how far away everything looks.
+  //
+  // After applyCarTuning, so a car's overrides cannot land on top of it. None
+  // of them touch the camera today, and this should not quietly depend on that
+  // staying true.
+  const framing = new URLSearchParams(location.search).get('framing');
+  const handheld = framing ? framing === 'handheld' : touchLikely();
+  if (handheld) applyHandheldFraming(TUNING);
 
   await stage(prompt, 'STARTING PHYSICS');
 
