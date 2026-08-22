@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 
 import { TUNING, loadTuning } from './tuning.js';
-import { createRenderer, createScene, createCarMesh, updateSunTarget } from './scene.js';
+import { createRenderer, createScene, createCarMesh, updateSunTarget, keepSkyWithCamera } from './scene.js';
 import { setMaxAnisotropy } from './roadtexture.js';
 import { initPhysics, RAPIER, FixedStepper, PhysicsDebug } from './physics.js';
 import { Track, sampleCircuit } from './track.js';
@@ -32,6 +32,7 @@ import { CARS, getCar, applyCarTuning, carStats } from './cars.js';
 import { Autopilot } from './autopilot.js';
 import { GhostLap } from './ghost.js';
 import { Race } from './race.js';
+import { Headlights } from './headlights.js';
 import { FinishScreen } from './finish.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
@@ -387,7 +388,7 @@ export async function boot() {
   // The one line that stops a tiled road turning into crawling noise at
   // distance. Told once; the track asks for its surface long after this.
   setMaxAnisotropy(renderer.capabilities.getMaxAnisotropy());
-  const { scene, sun } = createScene(trackDef);
+  const { scene, sun, sky } = createScene(trackDef);
   const camera = new THREE.PerspectiveCamera(
     TUNING.camera.fovBase, window.innerWidth / window.innerHeight, 0.2, 3000,
   );
@@ -429,6 +430,8 @@ export async function boot() {
   const stepper = new FixedStepper();
 
   let vehicle = new Vehicle(world, RAPIER, track.spawnAt(SPAWN_PROGRESS));
+  /** @type {Headlights|null} — created by mountCar, rebuilt with the mesh. */
+  let headlights = null;
   let car = mountCar(scene, null);
 
   /**
@@ -565,6 +568,12 @@ export async function boot() {
     }
     for (const wheel of built.wheelMeshes) built.group.add(wheel);
     targetScene.add(built.group);
+    // Bolted to the car's own group, so they follow it without any per-frame
+    // work. Rebuilt with the mesh because the old ones went with the old group.
+    const wasOn = headlights?.on ?? (trackDef.headlights ?? false);
+    headlights?.dispose();
+    headlights = new Headlights(built.group, TUNING, built.frontLampMats ?? [], { scene, camera });
+    headlights.setOn(wasOn);
     return built;
   }
 
@@ -688,6 +697,7 @@ export async function boot() {
       const on = panel?.classList.toggle('on');
       if (hint) hint.style.opacity = on ? '0.25' : '';
     }
+    if (e.code === 'KeyF') hud.toggleFps();
     if (e.code === 'Backquote') hud.toast(hud.toggleDebug() ? 'debug on' : 'debug off');
     if (e.code === 'KeyG') gui._hidden ? gui.show() : gui.hide();
     if (e.code === 'KeyP') hud.toast(debug.toggle() ? 'colliders on' : 'colliders off');
@@ -712,6 +722,7 @@ export async function boot() {
       const changed = toggleEffect(Number(e.code.slice(5)) - 1);
       if (changed) hud.toast(`${changed.label} ${changed.on ? 'on' : 'off'}`);
     }
+    if (e.code === 'KeyL') hud.toast(headlights?.toggle() ? 'headlights on' : 'headlights off');
     if (e.code === 'KeyK') { skidmarks.clear(); smoke.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
     if (e.code === 'KeyN') {
@@ -732,6 +743,7 @@ export async function boot() {
       get car() { return car; },
       track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks, smoke,
       lapTimer, race, finishScreen, restartRace,
+      get headlights() { return headlights; },
     },
   });
 
@@ -841,7 +853,7 @@ export async function boot() {
 
     // --- render ---
     vehicle.syncMesh(car.group, car.wheelMeshes, stepper.alpha, car.bodyGroup);
-    car.setBrakeLights?.(vehicle.braking);
+    car.setBrakeLights?.(vehicle.braking, headlights?.on ?? false);
     skidmarks.update(vehicle);
     smoke.update(dt, vehicle);
     audio.update(vehicle, dt);
@@ -916,6 +928,7 @@ export async function boot() {
     carCamera.look(dt, state.lookX || 0, state.lookY || 0);
     carCamera.update(dt, car.group, vehicle);
     updateSunTarget(sun, carPos);
+    keepSkyWithCamera(sky, camera);
     debug.update(world);
 
     hud.update(dt, vehicle, lapTimer);

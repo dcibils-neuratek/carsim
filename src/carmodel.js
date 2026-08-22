@@ -28,7 +28,13 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 // And the lights did not because the name was the other way round. Matching
 // only `rear.?light` misses `Light_Rear` and `LightBump_rear`, which is how
 // this model spells it, so both orders are matched now.
-const TAIL_NAME = /\btail|rear.?light|light.{0,6}rear|brake.?light|stop.?light/i;
+// `RED_GLASS` is what the Alpine calls its rear lenses -- no "tail", no
+// "rear", nothing the rest of this pattern would ever have caught, which is
+// why its brake lights were a no-op.
+/** Anything that might be a lamp; which END it is on decides what colour. */
+const LIGHT_NAME = /light|lamp/i;
+
+const TAIL_NAME = /\btail|rear.?light|light.{0,6}rear|brake.?light|stop.?light|red.?glass|red.?lens/i;
 const WHEEL_NAME = /tire|tyre|wheel|rim/i;
 
 export async function loadCarModel(url) {
@@ -345,6 +351,55 @@ function geometricWheelTest(parts) {
  * Build the render car from a loaded model, matched to the tuned dimensions.
  * Returns the same shape as scene.js createCarMesh().
  */
+
+/**
+ * Cut a mesh in half along the car's Z axis, front from rear.
+ *
+ * Needed because a lamp is not always a mesh. The Alpine exports every lamp on
+ * the car as ONE mesh with ONE material spanning nose to tail, so neither the
+ * name nor the mesh's own bounding box can tell a headlight from a tail light
+ * -- and a single material cannot be warm white at one end and red at the
+ * other. Splitting by triangle centroid gives two meshes that can be lit
+ * independently, at the cost of a few dozen duplicated vertices on a part that
+ * is a few hundred triangles to begin with.
+ *
+ * Returns null when every triangle falls on one side, which is the common case
+ * for a model that already separates its lamps -- there is nothing to split.
+ */
+function splitMeshAtZ(mesh, z0 = 0) {
+  const src = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+  const pos = src.getAttribute('position');
+  const tris = pos.count / 3;
+  const front = [];
+  const rear = [];
+  for (let t = 0; t < tris; t++) {
+    const i = t * 3;
+    const cz = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+    (cz > z0 ? front : rear).push(t);
+  }
+  if (!front.length || !rear.length) return null;
+
+  const build = (list) => {
+    const geo = new THREE.BufferGeometry();
+    for (const name of Object.keys(src.attributes)) {
+      const a = src.getAttribute(name);
+      const out = new a.array.constructor(list.length * 3 * a.itemSize);
+      let w = 0;
+      for (const t of list) {
+        for (let k = 0; k < 3; k++) {
+          const v = t * 3 + k;
+          for (let c = 0; c < a.itemSize; c++) out[w++] = a.array[v * a.itemSize + c];
+        }
+      }
+      geo.setAttribute(name, new THREE.BufferAttribute(out, a.itemSize));
+    }
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+    return geo;
+  };
+  return { front: build(front), rear: build(rear) };
+}
+
 export function buildCarFromModel(loaded, tuning, palette, yaw = 0, paint = null) {
   const { bodyParts, wheelGeoms } = loaded;
   const all = bodyParts.map((p) => p.geo).concat(wheelGeoms);
@@ -606,18 +661,61 @@ export function buildCarFromModel(loaded, tuning, palette, yaw = 0, paint = null
   // cluster by name and driving ITS emissive. Nothing in this model is named
   // for its lights, so setBrakeLights is a no-op here and the hook stays for
   // when a model arrives that is.
-  const tailMats = bodyMeshes
-    .filter((m) => TAIL_NAME.test(m.name))
-    .map((m) => m.material);
+  // Lamps, split by WHICH END OF THE CAR THEY ARE ON rather than by name.
+  //
+  // Names do not carry the answer. The Alpine puts every lamp on the car --
+  // both headlights and both tail lights -- on one material called
+  // `Alpine_A110_2018LightA_Material`, so no pattern can tell the white end
+  // from the red one, and driving that material warm-white for the headlights
+  // lit the rear clusters white too. Geometry does carry the answer: forward is
+  // +Z, so a lamp behind the origin is a tail light. Where one material serves
+  // both ends it is cloned, because a shared material cannot be two colours.
+  const frontMeshes = [];
+  const rearMeshes = [];
+  for (const mesh of bodyMeshes.filter((m) => LIGHT_NAME.test(m.name ?? ''))) {
+    mesh.geometry.computeBoundingBox();
+    const bb = mesh.geometry.boundingBox;
+    const parts = (bb.min.z < 0 && bb.max.z > 0) ? splitMeshAtZ(mesh) : null;
+    if (!parts) {
+      // Already one end or the other.
+      ((bb.min.z + bb.max.z) / 2 > 0 ? frontMeshes : rearMeshes).push(mesh);
+      continue;
+    }
+    // Replace the one mesh with two, so each end can carry its own material.
+    const rear = new THREE.Mesh(parts.rear, mesh.material.clone());
+    rear.name = `${mesh.name}__rear`;
+    rear.castShadow = mesh.castShadow;
+    mesh.geometry = parts.front;
+    mesh.parent?.add(rear);
+    bodyMeshes.push(rear);
+    frontMeshes.push(mesh);
+    rearMeshes.push(rear);
+  }
 
-  const setBrakeLights = (on) => {
+  const frontLampMats = [...new Set(frontMeshes.map((m) => m.material))].filter(Boolean);
+  const tailMats = [...new Set([
+    ...rearMeshes.map((m) => m.material),
+    ...bodyMeshes.filter((m) => TAIL_NAME.test(m.name ?? '')).map((m) => m.material),
+  ])].filter(Boolean);
+
+  /**
+   * @param {boolean} braking
+   * @param {boolean} [running]  headlights on -- the rear lamps light too
+   *
+   * Three levels, not two. A car at night has its tail lamps lit whenever the
+   * headlights are on, and they go BRIGHTER under braking; that step from dim
+   * red to bright red is the whole signal, and without the dim state there is
+   * nothing for the bright one to be brighter than.
+   */
+  const setBrakeLights = (braking, running = false) => {
+    const level = braking ? 2.4 : (running ? 0.75 : 0.0);
     for (const m of tailMats) {
       m.emissive?.setHex(0xff2222);
-      m.emissiveIntensity = on ? 1.7 : 0.0;
+      m.emissiveIntensity = level;
     }
   };
 
-  return { group, bodyGroup, wheelMeshes, bodyMesh, bodyMeshes, setBrakeLights, tailMats };
+  return { group, bodyGroup, wheelMeshes, bodyMesh, bodyMeshes, setBrakeLights, tailMats, frontLampMats };
 }
 
 /**

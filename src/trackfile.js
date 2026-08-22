@@ -170,6 +170,11 @@ export function validateTrackFile(raw, source = 'track file') {
     throw new TrackFormatError('"environment.sun.position" must be [x, y, z]');
   }
 
+  if (raw.environment.headlights !== undefined
+      && typeof raw.environment.headlights !== 'boolean') {
+    throw new TrackFormatError('"environment.headlights" must be true or false');
+  }
+
   if (raw.environment.ambient !== undefined) {
     const amb = raw.environment.ambient;
     if (typeof amb !== 'object' || amb === null || Array.isArray(amb)) {
@@ -282,6 +287,11 @@ export function normaliseTrack(raw) {
     // the ratio between this and the sun is what sets how deep a shadow goes,
     // which reads as the hour far more strongly than the sun's colour does.
     // Omitted means the old fixed 1.15, i.e. midday.
+    // Whether a circuit starts with the lights on. L overrides it either way
+    // at any time -- this only decides what you arrive to, and arriving at a
+    // night circuit in the dark with the lights off is not a choice anyone
+    // wanted to make.
+    headlights: raw.environment.headlights === true,
     ambient: raw.environment.ambient ? {
       intensity: raw.environment.ambient.intensity,
       ...(raw.environment.ambient.sky

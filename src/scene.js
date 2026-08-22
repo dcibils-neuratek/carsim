@@ -48,7 +48,8 @@ export function createScene(def) {
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(pal.horizon, def.fog.near, def.fog.far);
 
-  scene.add(createSky(pal));
+  const sky = createSky(pal);
+  scene.add(sky);
   scene.add(createHorizonRange(def));
   scene.environment = createEnvironment(pal);
 
@@ -110,7 +111,18 @@ export function createScene(def) {
   scene.add(sun);
   scene.add(sun.target);
 
-  return { scene, sun };
+  return { scene, sun, sky };
+}
+
+/**
+ * Keep the sky centred on the camera.
+ *
+ * A sky is at infinity. Anchoring one to the world origin works only while the
+ * world is smaller than the sphere, which stopped being true the moment a
+ * circuit grew past a kilometre from the origin.
+ */
+export function keepSkyWithCamera(sky, camera) {
+  if (sky) sky.position.copy(camera.position);
 }
 
 // Keep the shadow frustum centred on the car.
@@ -166,7 +178,16 @@ function createEnvironment(pal) {
 }
 
 function createSky(pal) {
-  const geo = new THREE.SphereGeometry(1600, 24, 14);
+  // 2600, and it follows the camera -- see keepSkyWithCamera.
+  //
+  // It was 1600 and pinned to the world origin, which is a sky you can DRIVE
+  // OUT OF. Mediterranean is 2085 m across with its centre well off the
+  // origin, so a third of the lap sat outside the sphere, and from outside a
+  // BackSide sphere there is nothing to see: the sky read as a hard black
+  // wedge cut out of the horizon. Comfortably inside the camera's 3000 m far
+  // plane, so widening it costs no depth precision -- and depth precision here
+  // is not spare, the terrain clears the road by as little as 8 mm.
+  const geo = new THREE.SphereGeometry(2600, 24, 14);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -211,6 +232,21 @@ function createSky(pal) {
 // no collision -- it sits well beyond anywhere the car can reach.
 /** Clear air between the outermost part of the circuit and the skyline. */
 const RIDGE_MARGIN = 250;
+
+/**
+ * How many slots wide each ridge triangle is drawn.
+ *
+ * One slot each made a COMB, not a mountain range: the base of a triangle was
+ * the circumference divided by the count, and on Mountains that was 89 m
+ * against peaks 980 m tall -- an 11:1 spike. Real mountains run nearer 0.3:1.
+ *
+ * Spanning several slots decouples the two: `count` still sets how many peaks
+ * there are, while the width of each is this multiple of the spacing, so they
+ * overlap into a massif the way a range actually does. Fixing it by dropping
+ * the count instead would have bought width at the price of a skyline you
+ * could see the polygons in.
+ */
+const RIDGE_SPAN = 5;
 
 /**
  * Where the skyline ring actually sits, as { cx, cz, radius, inner }.
@@ -267,10 +303,13 @@ function createHorizonRange(def) {
     return seed / 4294967296;
   };
 
+  const step = (Math.PI * 2) / count;
   for (let i = 0; i < count; i++) {
-    const a0 = (i / count) * Math.PI * 2;
-    const a1 = ((i + 1) / count) * Math.PI * 2;
-    const am = (a0 + a1) / 2;
+    // Centred on its slot and widened outward, so peaks stay evenly spaced
+    // while their skirts overlap their neighbours'.
+    const am = (i + 0.5) * step;
+    const a0 = am - (step * RIDGE_SPAN) / 2;
+    const a1 = am + (step * RIDGE_SPAN) / 2;
     const h = hMin + rand() * (hMax - hMin);
     const r = radius + (rand() - 0.5) * jitter;
     positions.push(
@@ -416,7 +455,11 @@ export function createCarMesh(tuning) {
 
   // Same hook the GLB path exposes, so the frame loop drives brake lights
   // through one call whichever car it is looking at.
-  const setBrakeLights = (on) => { tailMat.emissiveIntensity = on ? 1.7 : 0.35; };
+  // Same three levels as the modelled cars: dim red with the headlights on,
+  // bright red under braking, and a little glow otherwise so the shape reads.
+  const setBrakeLights = (braking, running = false) => {
+    tailMat.emissiveIntensity = braking ? 1.7 : (running ? 0.9 : 0.35);
+  };
 
   return { group: car, bodyGroup, wheelMeshes, tailMat, setBrakeLights };
 }

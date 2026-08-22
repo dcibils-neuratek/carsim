@@ -17,6 +17,21 @@ export class CarCamera {
     this.camera = camera;
     this.groundHeightAt = groundHeightAt || (() => -Infinity);
     this.mode = 'chase';
+    /**
+     * The bonnet view, in car-local metres.
+     *
+     * Measured against the model rather than guessed at. Sampling the body's
+     * height along its own Z puts the bonnet between z +2.0 and +1.0, the
+     * windscreen base at about +0.9, and the ROOF at y 0.52 -- which is how it
+     * became clear that the first attempt at 1.16 was sitting two thirds of a
+     * metre above the roof, looking down on the car from outside it.
+     *
+     * This sits on the cowl: just behind where the bonnet ends, a little above
+     * it, aimed far enough ahead to keep the horizon high in the frame. From
+     * there the bonnet stretches away below and you can read the nose against
+     * an apex, which is the entire reason to drive from inside the car.
+     */
+    this.hood = { y: 0.46, z: 0.80, ahead: 40, aheadY: 0.30, fov: 8 };
     // Right stick look-around, in radians off the chase camera's own heading.
     // Kept separate from `mode` so it layers on top of normal following rather
     // than replacing it: let go and the view eases back behind the car.
@@ -94,13 +109,14 @@ export class CarCamera {
     }
 
     if (this.mode === 'hood') {
-      this._desired.set(0, 0.62, 0.20).applyQuaternion(carGroup.quaternion).add(carPos);
+      const h = this.hood;
+      this._desired.set(0, h.y, h.z).applyQuaternion(carGroup.quaternion).add(carPos);
       this.camera.position.copy(this._desired);
       this._fwd.set(0, 0, 1).applyQuaternion(carGroup.quaternion);
-      this._target.copy(carPos).addScaledVector(this._fwd, 40).setY(carPos.y + 1.0);
+      this._target.copy(carPos).addScaledVector(this._fwd, h.ahead).setY(carPos.y + h.aheadY);
       this.camera.up.set(0, 1, 0).applyQuaternion(carGroup.quaternion);
       this.camera.lookAt(this._target);
-      this._setFov(c.fovBase + 4, vehicle, dt);
+      this._setFov(c.fovBase + h.fov, vehicle, dt);
       return;
     }
 

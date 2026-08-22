@@ -294,6 +294,24 @@
   }
   #debug.on { display: block; }
 
+  /* ---- frame rate ---- */
+  /* Its own readout rather than a line inside the telemetry overlay, because
+     the overlay is a wall of numbers you open to read and this is a number you
+     want in the corner of your eye while judging whether a change cost
+     anything. Average AND worst: a chain that holds 90 and one that holds 90
+     while dropping to 40 twice a second report the same average and feel
+     nothing alike. */
+  #fps {
+    position: absolute; right: 18px; top: 18px;
+    background: var(--panel); padding: 5px 9px; border-radius: 7px;
+    font-size: 12px; letter-spacing: 1px; color: var(--dim);
+    display: none;
+  }
+  #fps.on { display: block; }
+  #fps b { color: var(--fg); font-weight: 600; }
+  #fps .worst { color: rgba(232,238,245,.45); }
+  #fps.slow b { color: var(--danger); }
+
   /* ---- back to the menu, top left ---- */
   /* Top left is the one corner with nothing in it during a lap, and it is
      where a back control belongs on any screen. */
@@ -745,6 +763,7 @@
       <div class="grp">SESSION</div>
       <span class="hk"><b>T</b> / <b>Esc</b></span><span>back to the circuits</span>
       <span class="hk"><b>J</b></span><span>autopilot &mdash; watch it drive</span>
+      <span class="hk"><b>L</b></span><span>headlights on / off</span>
       <span class="hk"><b>K</b></span><span>clear the skid marks</span>
       <span class="hk"><b>V</b></span><span>sound on / off</span>
       <span class="hk"><b>N</b></span><span>music on / off</span>
@@ -753,6 +772,7 @@
       <span class="hk"><b>G</b></span><span>tuning panel</span>
       <span class="hk"><b>B</b></span><span>gamepad bindings</span>
       <span class="hk"><b>1</b>&ndash;<b>7</b></span><span>post-processing effects</span>
+      <span class="hk"><b>F</b></span><span>frame rate</span>
       <span class="hk"><b>`</b></span><span>telemetry overlay</span>
       <span class="hk"><b>P</b></span><span>physics colliders</span>
       <span class="hk"><b>O</b></span><span>wireframe</span>
@@ -830,6 +850,7 @@
   </div>
 
   <div id="debug"></div>
+  <div id="fps"></div>
 
   <!-- Pad buttons here are filled in from the live bindings, so rebinding
        cannot leave the on-screen help telling you the wrong button. -->
