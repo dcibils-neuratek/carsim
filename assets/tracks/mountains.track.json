@@ -19,7 +19,7 @@
     },
     "surface": {
       "roadGrip": 0.92,
-      "grassGrip": 0.3
+      "grassGrip": 0.58
     },
     "controlPoints": [
       [
@@ -190,10 +190,10 @@
       "clearance": 22
     },
     "ridges": {
-      "count": 84,
+      "count": 40,
       "height": [
-        420,
-        980
+        200,
+        470
       ],
       "radius": 1180,
       "jitter": 300

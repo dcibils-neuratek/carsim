@@ -12,7 +12,8 @@
   ],
   "road": {
     "surface": {
-      "roadGrip": 0.97
+      "roadGrip": 0.97,
+      "grassGrip": 0.62
     },
     "controlPoints": [
       [0, 0, -829.9],
