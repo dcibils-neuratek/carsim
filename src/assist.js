@@ -92,3 +92,30 @@ export class HandlingAssist {
 
   toggle() { return this.setOn(!this.on); }
 }
+
+/**
+ * Where the player's standing choice lives.
+ *
+ * It has to outlive the page, because going back to the circuits is a full
+ * reload -- `location.search = ''` -- so a choice held only in memory would be
+ * thrown away every single time somebody changed track. Turning the assist off
+ * and then picking another circuit would silently turn it back on.
+ */
+const PREF_KEY = 'vroom.assist';
+
+/**
+ * @returns {boolean|null} null when the player has never said, meaning the
+ *   game should decide from the input device.
+ */
+export function assistPreference() {
+  try {
+    const v = localStorage.getItem(PREF_KEY);
+    return v === null ? null : v === 'on';
+  } catch {
+    return null;   // private browsing, or storage disabled
+  }
+}
+
+export function setAssistPreference(on) {
+  try { localStorage.setItem(PREF_KEY, on ? 'on' : 'off'); } catch { /* not fatal */ }
+}

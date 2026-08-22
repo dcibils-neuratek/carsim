@@ -34,9 +34,64 @@ import { GhostLap } from './ghost.js';
 import { Race } from './race.js';
 import { Headlights } from './headlights.js';
 import { TouchControls, touchLikely } from './touch.js';
-import { HandlingAssist } from './assist.js';
+import { HandlingAssist, assistPreference, setAssistPreference } from './assist.js';
 import { FinishScreen } from './finish.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
+
+/**
+ * `?touch=1`, `?assist=0` and so on: force either one, on either device.
+ *
+ * Auto-detection is right for players and useless for testing. The touch
+ * controls could not be tried on a desktop at all, and the assist could only
+ * be reached through a menu that only exists once the controls are up -- so
+ * the two things most in need of a side-by-side comparison were the two that
+ * could not be compared. A query parameter survives a reload and travels in a
+ * link, which a key press does not.
+ *
+ * @returns {boolean|null} null when the parameter is absent, meaning "decide".
+ */
+function forced(name) {
+  const v = new URLSearchParams(location.search).get(name);
+  if (v === null) return null;
+  return v !== '0' && v !== 'false' && v !== 'off';
+}
+
+/**
+ * What the assist will do on this load, before the car exists to be told.
+ *
+ * Order matters and it runs most-explicit first: a toggle made this session, a
+ * parameter in the link, the choice the player last made and had remembered,
+ * and only then a guess from the input device.
+ */
+function assistDefault() {
+  return forced('assist') ?? assistPreference() ?? touchLikely();
+}
+
+/**
+ * The assist switch on the title card.
+ *
+ * Wired here rather than with the rest of the game because it has to work
+ * before there is a car: the menu is the natural place to decide how the car
+ * should drive, and on a phone it is the only place, since Y is not a key
+ * anybody has. It writes the stored preference and nothing else -- the car
+ * reads that when it is built.
+ */
+function wireBootOptions() {
+  const btn = document.getElementById('assistOpt');
+  if (!btn) return;
+  const value = btn.querySelector('.v');
+  let on = assistDefault();
+  const paint = () => {
+    btn.setAttribute('aria-pressed', String(on));
+    value.textContent = on ? 'ON' : 'OFF';
+  };
+  btn.addEventListener('click', () => {
+    on = !on;
+    setAssistPreference(on);
+    paint();
+  });
+  paint();
+}
 
 const SPAWN_PROGRESS = 0.985;   // just before the start line
 const STUCK_SECONDS = 2.5;
@@ -370,6 +425,7 @@ export async function boot() {
   // Input comes up before the menu, not with the car: the menu is the first
   // thing a player touches and it has to be reachable from the pad.
   const input = new Input();
+  wireBootOptions();
   // Available from the menu onward: a player whose pad does not do what they
   // expect should not have to start a race to fix it.
   const padPanel = new PadPanel(input);
@@ -428,25 +484,12 @@ export async function boot() {
   const touch = new TouchControls(document.getElementById('touch'));
   const assist = new HandlingAssist(TUNING);
 
-  /**
-   * `?touch=1`, `?assist=0` and so on: force either one, on either device.
-   *
-   * Auto-detection is right for players and useless for testing. The touch
-   * controls could not be tried on a desktop at all, and the assist could only
-   * be reached through a menu that only exists once the controls are up -- so
-   * the two things most in need of a side-by-side comparison were the two that
-   * could not be compared. A query parameter survives a reload and travels in a
-   * link, which a key press does not.
-   *
-   * @returns {boolean|null} null when the parameter is absent, meaning "decide".
-   */
-  const forced = (name) => {
-    const v = new URLSearchParams(location.search).get(name);
-    if (v === null) return null;
-    return v !== '0' && v !== 'false' && v !== 'off';
-  };
   const forceTouch = forced('touch');
   const forceAssist = forced('assist');
+  // Read once, not per frame: syncTouch runs every frame and localStorage is
+  // synchronous. Nothing can change it while the game is up anyway -- the
+  // switch that writes it lives on the title card, which is gone by now.
+  const storedAssist = assistPreference();
 
   /**
    * Set once the player toggles the assist by hand, and never cleared.
@@ -467,13 +510,16 @@ export async function boot() {
     // can be driven assisted -- which is the only way to tell what the assist
     // is actually doing. It follows the controls only until somebody says
     // otherwise.
-    const wantAssist = assistChosen ?? forceAssist ?? wantTouch;
+    const wantAssist = assistChosen ?? forceAssist ?? storedAssist ?? wantTouch;
     if (wantAssist !== assist.on) assist.setOn(wantAssist);
   };
 
   const toggleAssist = () => {
     assistChosen = !assist.on;
     assist.setOn(assistChosen);
+    // Remembered, so the switch on the title card agrees with the car you just
+    // got out of -- and so going back to the circuits does not undo it.
+    setAssistPreference(assistChosen);
     hud.toast(assistChosen
       ? 'assist ON — more lock, more grip, counter-steer help'
       : 'assist OFF — the raw car');
@@ -1108,7 +1154,7 @@ export async function boot() {
   // out is the difference between tuning it and guessing at it.
   window.__carsim = {
     vehicle, track, audio, hud, camera: carCamera, renderer, scene, cam: camera, car: () => car,
-    skidmarks, smoke, lapTimer, ghost, race,
+    skidmarks, smoke, lapTimer, ghost, race, assist, touch,
     get ghostCar() { return ghostCar; },
     get tyreAudio() { return tyreAudio; },
   };

@@ -819,6 +819,37 @@
   #boot .err { color: var(--danger); font-size: 15px; max-width: 460px; line-height: 1.7; }
   #boot.hidden { display: none; }
 
+  /* ---- boot options ---- */
+  /* Only up while the cards are, keyed off the menu's own state rather than a
+     class of its own: there is nothing to set during "LOADING CIRCUITS…", and
+     one source of truth is one fewer thing to leave switched on by accident. */
+  #bootOpts { display: none; gap: 14px; margin-top: 20px;
+              align-items: center; justify-content: center; flex-wrap: wrap; }
+  #trackMenu.on ~ #bootOpts { display: flex; }
+  #bootOpts button {
+    font: inherit; font-size: 13px; letter-spacing: 2px;
+    display: flex; align-items: center; gap: 12px; cursor: pointer;
+    /* Comfortably past the 44px touch target: this is meant to be tapped with
+       a thumb on the same phone the assist exists for. */
+    padding: 12px 20px; min-height: 44px; border-radius: 999px;
+    color: rgba(232,238,245,.55);
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.12);
+    transition: border-color .12s ease, background .12s ease, color .12s ease;
+  }
+  #bootOpts button:hover, #bootOpts button:focus {
+    outline: none; border-color: var(--accent); color: rgba(232,238,245,.82);
+  }
+  /* The state reads off the value, not off the label, so a glance at the word
+     ON tells you where you are without parsing the sentence around it. */
+  #bootOpts .v { font-weight: 700; color: rgba(232,238,245,.35); }
+  #bootOpts button[aria-pressed="true"] {
+    background: rgba(255,210,63,.10); border-color: rgba(255,210,63,.45);
+  }
+  #bootOpts button[aria-pressed="true"] .v { color: var(--accent); }
+  #bootOpts .why { font-size: 12px; letter-spacing: 1.6px;
+                   color: rgba(232,238,245,.28); }
+
   /* ---- track selection ---- */
   /* Always three across.
      This was flex-wrap over fixed-width cards, so the number per row was
@@ -983,9 +1014,9 @@
       <span class="hk"><b>T</b> / <b>Esc</b></span><span>back to the circuits</span>
       <span class="hk"><b>J</b></span><span>autopilot &mdash; watch it drive</span>
       <span class="hk"><b>L</b></span><span>headlights on / off</span>
-      <span class="hk"><b>Y</b></span><span>handling assist &mdash; more lock and grip</span>
+      <span class="hk"><b>Y</b></span><span>handling assist &mdash; more lock and grip, remembered</span>
       <div class="grp">ON A PHONE</div>
-      <span class="hk">left half</span><span>drag anywhere to steer &mdash; where you touch is centre</span>
+      <span class="hk">bottom left</span><span>drag to steer &mdash; where you touch is centre</span>
       <span class="hk">right</span><span>GO, BRAKE, HAND</span>
       <span class="hk">pad</span><span>connect one over Bluetooth and these disappear</span>
 
@@ -1130,6 +1161,17 @@
 
   <div class="prompt" id="bootPrompt">LOADING…</div>
   <div id="trackMenu"></div>
+  <!-- The one setting worth putting on the front page.
+       The assist changes how the car drives more than anything else here, and
+       until now it was reachable only by pressing Y or by opening a menu that
+       only exists once the touch controls are up -- which is to say, not at
+       all on the two devices most likely to want it changed. -->
+  <div id="bootOpts">
+    <button id="assistOpt" type="button" aria-pressed="false">
+      <span>HANDLING ASSIST</span><span class="v">OFF</span>
+    </button>
+    <span class="why">MORE LOCK, MORE GRIP, A HAND ON THE SLIDE</span>
+  </div>
   <div class="err" id="bootErr"></div>
   <!-- Under the cards, not above them. It is the reason to stay, not the
        reason to arrive -- the circuits are what you came for, and this reads
