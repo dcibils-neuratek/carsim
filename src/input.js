@@ -86,6 +86,9 @@ export class Input {
     return null;
   }
 
+  /** True while a pad is connected -- the touch controls hide themselves. */
+  get hasGamepad() { return this._findGamepad() !== null; }
+
   update(dt) {
     const s = this.state;
     s.shiftUp = s.shiftDown = s.reset = s.camera = s.toggleGearbox = false;
@@ -281,7 +284,15 @@ export class Input {
 // Deadzone, then x*|x|^e. The exponent gives fine control near center without
 // costing any lock at full deflection -- the thing that makes a 24 mm stick
 // usable for steering at all.
-function applySteerCurve(rawValue) {
+/**
+ * The stick curve, exported because touch needs the same one.
+ *
+ * A phone that shaped its input differently from a pad would be a different
+ * car, tuned twice -- and the deadzone here matters MORE on glass than on a
+ * stick, because a thumb resting on a screen has no spring returning it to
+ * centre and no detent telling it when it is there.
+ */
+export function applySteerCurve(rawValue) {
   const { deadzone, inputExponent } = TUNING.steering;
   const sign = Math.sign(rawValue);
   const mag = Math.abs(rawValue);

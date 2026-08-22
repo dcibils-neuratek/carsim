@@ -33,6 +33,7 @@ import { Autopilot } from './autopilot.js';
 import { GhostLap } from './ghost.js';
 import { Race } from './race.js';
 import { Headlights } from './headlights.js';
+import { TouchControls, touchLikely } from './touch.js';
 import { FinishScreen } from './finish.js';
 import { listEffects, toggleEffect, loadEffects, renderFrame, resetPostHistory } from './post/post.js';
 
@@ -420,6 +421,20 @@ export async function boot() {
     console.warn(`no car model at ${carDef.file}, using the procedural car:`, err);
   }
 
+  // Touch controls, and the compact HUD that makes room for them.
+  //
+  // Enabled on a coarse pointer with NO gamepad attached: phones and tablets
+  // pair Bluetooth pads happily, and when one is connected the on-screen
+  // controls are just something covering the road. The keyboard stays live
+  // throughout either way.
+  const touch = new TouchControls(document.getElementById('touch'));
+  const syncTouch = () => {
+    const want = touchLikely() && !input.hasGamepad;
+    if (want === touch.enabled) return;
+    touch.setEnabled(want);
+    document.getElementById('hud')?.classList.toggle('compact', want);
+  };
+
   const hud = new Hud();
   hud.setTrackName(trackDef.name);
   hud.buildMinimap(track.points);
@@ -742,7 +757,7 @@ export async function boot() {
       get vehicle() { return vehicle; },
       get car() { return car; },
       track, trackDef, world, TUNING, hud, scene, camera, carCamera, renderer, skidmarks, smoke,
-      lapTimer, race, finishScreen, restartRace,
+      lapTimer, race, finishScreen, restartRace, touch,
       get headlights() { return headlights; },
     },
   });
@@ -770,6 +785,11 @@ export async function boot() {
     last = now;
 
     const state = input.update(dt);
+    // After the keyboard and pad, so a finger wins over a stick that is not
+    // being held -- and before anything reads the state.
+    syncTouch();
+    touch.update(dt);
+    touch.apply(state);
 
     if (!started) {
       started = true;

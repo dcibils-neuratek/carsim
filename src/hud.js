@@ -179,6 +179,10 @@ export class Hud {
     // block stays the width of the binnacle at every screen size -- --d is
     // clamped between 112 and 186 px and moves with the viewport.
     const wrap = document.createElement('div');
+    // Named so the compact HUD can hide it. Everything else in the binnacle is
+    // addressable from CSS and this was not, which made "hide the power bars on
+    // a phone" a change to this function rather than to a stylesheet.
+    wrap.id = 'power';
     wrap.style.cssText = 'width:var(--d);margin-top:8px;display:flex;'
       + 'flex-direction:column;gap:4px';
 
