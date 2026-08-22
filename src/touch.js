@@ -70,9 +70,14 @@ export class TouchControls {
         <button class="tBtn tBrake" data-t="brake" type="button">BRAKE</button>
         <button class="tBtn tGas" data-t="throttle" type="button">GO</button>
       </div>
-      <button class="tBtn tHand" data-t="handbrake" type="button">HAND</button>`;
+      <button class="tBtn tHand" data-t="handbrake" type="button">HAND</button>
+      <button class="tMenuBtn" type="button" aria-label="options">&#8942;</button>
+      <div class="tMenu"></div>`;
 
     this.knob = this.el.querySelector('.tKnob');
+    this.menu = this.el.querySelector('.tMenu');
+    this.menuBtn = this.el.querySelector('.tMenuBtn');
+    this.menuBtn.addEventListener('click', () => this._toggleMenu());
     const pad = this.el.querySelector('.tPad');
 
     // Pointer events rather than touch events: one code path covers finger,
@@ -120,6 +125,43 @@ export class TouchControls {
       // sticks on and the car drives itself into the scenery.
       btn.addEventListener('pointerleave', off);
     }
+  }
+
+  /**
+   * Everything that was only reachable by pressing a key.
+   *
+   * Every toggle in this game -- the frame counter, the headlights, the
+   * camera, a respawn -- is bound to a letter, which on a phone means it does
+   * not exist. Handed in as a map rather than imported, because touch.js has
+   * no business knowing what a headlight is; it knows how to put a label under
+   * a thumb.
+   *
+   * @param {{label: string, run: () => void}[]} actions
+   */
+  setActions(actions) {
+    this._actions = actions;
+    this.menu.innerHTML = '';
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a.label;
+      b.addEventListener('click', () => {
+        a.run();
+        // Anything that toggles wants its label refreshed; anything that acts
+        // wants the menu out of the way. Closing covers both.
+        this._toggleMenu(false);
+      });
+      this.menu.append(b);
+    }
+  }
+
+  _toggleMenu(force) {
+    const open = force ?? !this.menu.classList.contains('on');
+    this.menu.classList.toggle('on', open);
+    this.menuBtn.classList.toggle('on', open);
+    // Hands off the wheel while the menu is up, or the car keeps whatever
+    // input was held when it opened.
+    if (open) this.reset();
   }
 
   setEnabled(on) {

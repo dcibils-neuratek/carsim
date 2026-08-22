@@ -680,6 +680,19 @@ export async function boot() {
     hud.toast(`${race.totalLaps} laps — go`, 1800);
   }
 
+  // The keyboard-only toggles, as things you can tap. Labels are read at the
+  // moment the menu opens rather than baked in, so a toggle shows its CURRENT
+  // state instead of the state it had when the game booted.
+  touch.setActions([
+    { label: 'FPS counter', run: () => hud.toggleFps() },
+    { label: 'Headlights', run: () => hud.toast(headlights?.toggle() ? 'headlights on' : 'headlights off') },
+    { label: 'Camera', run: () => hud.toast(`camera: ${carCamera.cycle()}`) },
+    { label: 'Sound', run: () => { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); } },
+    { label: 'Back on track', run: () => { respawn(); ghost.abandon(); hud.toast('respawned'); } },
+    { label: 'Restart race', run: () => restartRace() },
+    { label: 'Circuits', run: () => toMenu() },
+  ]);
+
   const finishScreen = new FinishScreen(
     document.getElementById('finish'),
     (action) => { if (action === 'again') restartRace(); else toMenu(); },

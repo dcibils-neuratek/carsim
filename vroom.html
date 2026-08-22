@@ -297,6 +297,39 @@
   }
   #debug.on { display: block; }
 
+  /* The options menu. Every toggle in this game is bound to a letter, which on
+     a phone means it is unreachable -- this is the way in. */
+  #touch .tMenuBtn {
+    position: absolute; top: 8px; right: 10px;
+    -webkit-appearance: none; appearance: none; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 10px;
+    border: 1px solid rgba(232,238,245,.18);
+    background: rgba(8,13,20,.6); color: rgba(232,238,245,.7);
+    font-size: 20px; line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #touch .tMenuBtn.on { border-color: var(--accent); color: var(--accent); }
+  #touch .tMenu {
+    display: none;
+    position: absolute; top: 54px; right: 10px;
+    background: rgba(8,13,20,.94); border: 1px solid rgba(232,238,245,.14);
+    border-radius: 12px; padding: 6px; gap: 4px;
+    flex-direction: column; min-width: 168px;
+    max-height: calc(100% - 70px); overflow-y: auto;
+  }
+  #touch .tMenu.on { display: flex; }
+  #touch .tMenu button {
+    -webkit-appearance: none; appearance: none; cursor: pointer;
+    font-family: var(--body); font-size: 15px; letter-spacing: 1.5px;
+    text-transform: uppercase; text-align: left;
+    /* 44 px is the smallest thing a thumb hits reliably. */
+    padding: 11px 14px; min-height: 44px;
+    border: 0; border-radius: 8px;
+    background: rgba(255,255,255,.05); color: var(--fg);
+    -webkit-tap-highlight-color: transparent;
+  }
+  #touch .tMenu button:active { background: rgba(255,210,63,.22); }
+
   /* ---- compact HUD, for touch ---- */
   /* Applied whenever the touch controls are up, not at a breakpoint. The
      constraint is not "small screen", it is "the bottom two thirds now belong
@@ -324,7 +357,7 @@
   #hud.compact .gearBar { display: none; }
 
   #hud.compact #info {
-    top: 8px; right: 10px;
+    top: 8px; right: 58px;
     padding: 6px 10px; min-width: 0;
   }
   #hud.compact #trackName { display: none; }

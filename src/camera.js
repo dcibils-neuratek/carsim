@@ -10,6 +10,37 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TUNING } from './tuning.js';
 
+
+/**
+ * The aspect ratio the FOV figures in TUNING were chosen at.
+ *
+ * Everything about the framing -- how much car, how much road, how far ahead
+ * you can see -- was settled on a desktop window somewhere near 16:9.
+ */
+const REFERENCE_ASPECT = 16 / 9;
+
+/**
+ * Hold the HORIZONTAL field of view steady as the window gets wider.
+ *
+ * three's `fov` is VERTICAL, so a wider window does not show more of the same
+ * picture -- it keeps the vertical framing and adds width, which pushes
+ * everything toward the middle of a bigger frame. A phone in landscape is
+ * about 2.2:1 against a desktop's 1.8, and at a fixed vertical FOV that turns
+ * a 92 degree horizontal view into 102: the car is the same height on screen
+ * and looks small, because the frame around it grew.
+ *
+ * So above the reference aspect the vertical FOV is narrowed by exactly enough
+ * to hold the horizontal view where it was. Below it nothing happens: a
+ * narrower window than the reference already shows less, and cropping it
+ * further would be taking away road you need.
+ */
+export function fitFov(fovDeg, aspect) {
+  if (!(aspect > REFERENCE_ASPECT)) return fovDeg;
+  const half = (fovDeg * Math.PI) / 360;
+  const horizontal = Math.tan(half) * REFERENCE_ASPECT;
+  return (2 * Math.atan(horizontal / aspect) * 180) / Math.PI;
+}
+
 export const CAMERA_MODES = ['chase', 'hood', 'orbit'];
 
 export class CarCamera {
@@ -297,7 +328,7 @@ export class CarCamera {
   _setFov(base, vehicle, dt) {
     const c = TUNING.camera;
     const speedFrac = Math.min(Math.abs(vehicle.speed) / 72, 1);
-    const target = base + c.fovGain * speedFrac * speedFrac;
+    const target = fitFov(base + c.fovGain * speedFrac * speedFrac, this.camera.aspect);
     this.camera.fov += (target - this.camera.fov) * Math.min(3.5 * dt, 1);
     this.camera.updateProjectionMatrix();
   }
