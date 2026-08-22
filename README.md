@@ -36,6 +36,25 @@ Add `?capture=1` to the URL to enable `preserveDrawingBuffer`, which is needed
 for screenshots and canvas readback. It's off by default because it forces an
 extra copy every frame.
 
+## Deploy
+
+Cloudflare Workers Static Assets, `npx wrangler deploy`, assets directory `.`.
+No build step -- the no-npm choice is what makes that possible.
+
+Two files control it and both are committed:
+
+- `wrangler.jsonc` pins the project settings. Wrangler generates one when it is
+  missing, which makes the deploy depend on whatever it inferred that day.
+- `.assetsignore` decides what is NOT uploaded. Without it wrangler uploads the
+  repository, `.git` included, and fails on a 46.8 MiB pack file against a
+  25 MiB per-asset limit.
+
+**Retrying a failed deployment replays the same commit**, so a fix that has been
+pushed since will not be in it. Trigger a new deployment from the branch, or
+push again. Two things in the log say the config was picked up: there is no
+"Create wrangler.jsonc" line, and the file count is well under the 163 that a
+full repository upload reports.
+
 ## Tests
 
 ```bash
