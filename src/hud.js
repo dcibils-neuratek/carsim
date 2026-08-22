@@ -117,6 +117,12 @@ export class Hud {
       gearRow: document.getElementById('gearRow'),
       gearMode: document.getElementById('gearMode'),
       tachRpmVal: document.getElementById('tachRpmVal'),
+      mini: document.getElementById('mini'),
+      miniRevFill: document.getElementById('miniRevFill'),
+      miniRevRed: document.getElementById('miniRevRed'),
+      miniSpeed: document.getElementById('miniSpeed'),
+      miniGear: document.getElementById('miniGear'),
+      miniMode: document.getElementById('miniMode'),
       gDot: document.getElementById('gDot'),
       gTrail: document.getElementById('gTrail'),
       gLabel: document.getElementById('gLabel'),
@@ -138,6 +144,10 @@ export class Hud {
     this._toastTimer = null;
     this._fps = 60;
     this._fpsOn = false;
+    // Which cluster is on screen. Kept as a flag rather than read back off the
+    // class, so the per-frame update can skip whichever one is hidden instead
+    // of writing to both.
+    this._compact = false;
     this._displaySpeed = 0;
     this._gx = 0;
     this._gy = 0;
@@ -378,6 +388,14 @@ export class Hud {
       max: this._speedMax, step: 30, minorPer: 3, labelEvery, small: true,
     });
     this._tachMax = maxK * 1000;
+
+    // The same red zone on the digital rev bar, from the same `t0` as the arc
+    // above rather than from redlineRpm -- which sits at 97% of the dial on
+    // this engine and would have painted a three-pixel sliver nobody could
+    // see. The flash at the actual limiter is what tells you to shift; this
+    // band is the warning that it is coming. Placed here rather than in the
+    // markup because the engine is retuned per car.
+    this.el.miniRevRed.style.left = `${(t0 * 100).toFixed(1)}%`;
   }
 
   /** Point a needle at a 0..1 fraction of its dial. */
@@ -407,7 +425,13 @@ export class Hud {
     for (const span of this._gearSpans) {
       span.classList.toggle('on', span.dataset.g === current);
     }
-    this.el.gearMode.textContent = TUNING.transmission.automatic ? 'AUTO' : 'MANUAL';
+    const mode = TUNING.transmission.automatic ? 'AUTO' : 'MANUAL';
+    this.el.gearMode.textContent = mode;
+    // One glyph rather than the whole strip: R N 1 2 3 4 5 with one lit is a
+    // lovely thing to look at and needs a second to read, and the only
+    // question being asked is which gear am I in.
+    this.el.miniGear.textContent = current;
+    this.el.miniMode.textContent = mode;
   }
 
   setTrackName(name) { this.el.trackName.textContent = name.toUpperCase(); }
@@ -486,6 +510,19 @@ export class Hud {
       : `LAP ${pct}`;
   }
 
+  /**
+   * Swap between the dials and the digital cluster.
+   *
+   * Called by whoever decides the touch controls are up, because the reason
+   * the dials go is that the screen is small and being held, which is the same
+   * reason the buttons appear.
+   */
+  setCompact(on) {
+    this._compact = !!on;
+    document.getElementById('hud')?.classList.toggle('compact', this._compact);
+    return this._compact;
+  }
+
   toggleFps() {
     this._fpsOn = !this._fpsOn;
     this.el.fps.classList.toggle('on', this._fpsOn);
@@ -539,13 +576,20 @@ export class Hud {
     const kmh = Math.abs(this._displaySpeed);
     this.el.speedVal.textContent = Math.round(kmh);
     this._setNeedle(this.el.spdNeedle, kmh / this._speedMax);
+    if (this._compact) this.el.miniSpeed.textContent = Math.round(kmh);
 
     this.setPower(vehicle);
 
     const e = TUNING.engine;
     this._setNeedle(this.el.tachNeedle, vehicle.rpm / this._tachMax);
     this.el.tachRpmVal.textContent = Math.round(vehicle.rpm);
-    this.el.tach.classList.toggle('redline', vehicle.rpm >= e.redlineRpm - 120);
+    const nearRedline = vehicle.rpm >= e.redlineRpm - 120;
+    this.el.tach.classList.toggle('redline', nearRedline);
+    if (this._compact) {
+      const revs = THREE_clamp(vehicle.rpm / this._tachMax, 0, 1);
+      this.el.miniRevFill.style.width = `${(revs * 100).toFixed(1)}%`;
+      this.el.mini.classList.toggle('redline', nearRedline);
+    }
     this._updateGears(vehicle);
 
     this._updateGMeter(dt, vehicle);

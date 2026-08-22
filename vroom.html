@@ -363,16 +363,58 @@
      other reason to know exists. */
   #hud.compact #power { display: none !important; }
 
-  /* Dials side by side along the top rather than stacked down the right, and
-     small enough to read at a glance rather than to admire. */
-  #hud.compact #dash {
-    right: auto; bottom: auto;
-    left: 50%; top: calc(8px + env(safe-area-inset-top)); transform: translateX(-50%);
-    flex-direction: row; align-items: center; gap: 10px;
-    --d: clamp(64px, 21vh, 96px);
+  /* The dials go away entirely and #mini takes the top strip. Shrinking them
+     was the first attempt and it does not work: the face is drawn on a 200
+     unit viewBox, so at 90 px across the numerals are five pixels tall and
+     the needle is two pixels wide. */
+  #hud.compact #dash { display: none; }
+  #hud.compact #mini { display: block; }
+
+  /* ---- digital cluster ---- */
+  #mini {
+    display: none;
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: calc(6px + env(safe-area-inset-top));
+    padding: 7px 14px 6px; border-radius: 12px;
+    background: var(--panel);
+    text-align: center;
   }
-  #hud.compact #centre { order: 2; }
-  #hud.compact .gearBar { display: none; }
+  /* The rev bar. Full width of the block and the first thing in it, because
+     it is the only one of the three you watch CONTINUOUSLY -- speed and gear
+     are glanced at, revs are tracked. */
+  #mini .revs {
+    position: relative; overflow: hidden;
+    width: clamp(150px, 34vw, 210px); height: 6px; border-radius: 3px;
+    background: rgba(255,255,255,.10);
+  }
+  #mini .revs i { position: absolute; top: 0; bottom: 0; display: block; }
+  /* Where the redline starts, set once per car by hud.js -- the engine is
+     retuned per car and a painted-on mark would start lying immediately. */
+  #mini .revs .red { right: 0; background: rgba(255,77,77,.55); }
+  #mini .revs .fill {
+    left: 0; width: 0; border-radius: 3px;
+    background: var(--accent);
+    /* No transition: this follows the engine, and 100 ms of easing on a bar
+       you use to time a shift is 100 ms of lie. */
+  }
+  #mini.redline .revs .fill { background: var(--danger); }
+  #mini .read {
+    display: flex; align-items: baseline; justify-content: center; gap: 6px;
+    margin-top: 4px;
+  }
+  /* Big enough to read without looking away from the road for longer than a
+     glance. Everything else on this block is support for this number. */
+  #mini .spd { font-size: clamp(26px, 8vh, 38px); font-weight: 600; line-height: 1;
+               letter-spacing: .5px; }
+  #mini .unit { font-size: 11px; letter-spacing: 1.5px; color: var(--dim); }
+  #mini .gear {
+    min-width: 1.5em; margin-left: 6px; padding: 1px 6px; border-radius: 6px;
+    font-size: clamp(19px, 5.6vh, 26px); font-weight: 700; line-height: 1.15;
+    color: var(--accent); background: rgba(255,210,63,.12);
+  }
+  #mini.redline .gear { color: var(--danger); background: rgba(255,77,77,.16); }
+  #mini .mode { font-size: 9px; letter-spacing: 2px; color: rgba(232,238,245,.32);
+                margin-top: 2px; }
 
   #hud.compact #info {
     top: calc(8px + env(safe-area-inset-top));
@@ -386,6 +428,16 @@
   #hud.compact #menuBtn {
     top: calc(8px + env(safe-area-inset-top));
     left: calc(10px + env(safe-area-inset-left)); font-size: 11px; padding: 5px 9px; }
+  /* Out from under the lap times. #fps is pinned 18px from the top right,
+     which is empty on a desktop and is exactly where #info moves to once the
+     HUD goes compact -- so the counter drew on top of the lap panel, and the
+     one readout you turn on to answer a question became unreadable at the
+     moment you asked it. Under the circuits button instead, which is the only
+     corner the compact HUD leaves alone. */
+  #hud.compact #fps {
+    right: auto; left: calc(10px + env(safe-area-inset-left));
+    top: calc(42px + env(safe-area-inset-top));
+  }
   /* The key hints on these are meaningless without a keyboard. */
   #hud.compact #menuBtn b { display: none; }
 
@@ -1083,6 +1135,28 @@
         <circle class="hub" cx="100" cy="100" r="7"/>
       </svg>
     </div>
+  </div>
+
+  <!-- The same three readings, for a screen you hold in your hand.
+       A 200-unit dial face drawn 90 px across has about six pixels between
+       one numeral and the next, and a needle two pixels wide pointing between
+       them. It is legible sitting still and unreadable at speed, which is the
+       only time anybody looks at it. So on a phone the dials are replaced
+       rather than shrunk: a number for the speed, a glyph for the gear, and a
+       bar for the revs -- because what the tacho is actually FOR is knowing
+       when to shift, and a bar filling toward a red mark says that in one
+       glance where a needle sweeping a scale asks you to read a scale. -->
+  <div id="mini">
+    <!-- Fill first, red band over it: the other order lets the amber paint
+         straight over the warning zone, so between entering the red and the
+         limiter flash there is nothing on screen saying you are in it. -->
+    <div class="revs"><i class="fill" id="miniRevFill"></i><i class="red" id="miniRevRed"></i></div>
+    <div class="read">
+      <span class="spd" id="miniSpeed">0</span>
+      <span class="unit">KM/H</span>
+      <span class="gear" id="miniGear">N</span>
+    </div>
+    <div class="mode" id="miniMode">AUTO</div>
   </div>
 
   <!-- Track name, lap times and map are one panel, not three floating boxes.

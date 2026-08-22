@@ -519,7 +519,9 @@ export async function boot() {
     const wantTouch = forceTouch ?? (touchLikely() && !input.hasGamepad);
     if (wantTouch !== touch.enabled) {
       touch.setEnabled(wantTouch);
-      document.getElementById('hud')?.classList.toggle('compact', wantTouch);
+      // Same call swaps the dials for the digital cluster: both changes have
+      // the same cause, which is that the screen is small and being held.
+      hud.setCompact(wantTouch);
     }
     // Independent of the controls, so a phone can be driven raw and a desktop
     // can be driven assisted -- which is the only way to tell what the assist
