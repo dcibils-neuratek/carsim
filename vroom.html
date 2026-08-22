@@ -400,6 +400,15 @@
   /* The steering pad is deliberately enormous and nearly invisible. It is a
      RELATIVE control: wherever the thumb lands becomes centre, so its job is
      to be impossible to miss rather than to be looked at. */
+  /* A CORNER control, the size of the pedals, not half the screen.
+     It was 52% wide by 58% tall, which sounds generous and is the opposite:
+     a thumb resting in the middle of that area sits over the car and the road
+     you are trying to look at, and you cannot see what you are driving at.
+     A phone held in landscape puts the left thumb in the bottom-left corner,
+     so that is where the zone belongs.
+     Making it small costs nothing, because setPointerCapture keeps the drag
+     alive outside the element -- this decides where a steer can BEGIN, not how
+     far it can travel. */
   #touch .tPad {
     position: absolute;
     left: env(safe-area-inset-left);
@@ -407,18 +416,20 @@
        system gesture, so steering from there pulls up the app switcher
        instead of turning the car. */
     bottom: max(12px, env(safe-area-inset-bottom));
-    width: 52%; height: 58%;
-    border-top-right-radius: 26px;
-    background: linear-gradient(to top right, rgba(255,255,255,.05), transparent 70%);
+    width: clamp(150px, 42vh, 240px);
+    height: clamp(118px, 36vh, 190px);
+    border-radius: 0 26px 0 0;
+    background: linear-gradient(to top right, rgba(255,255,255,.055), transparent 78%);
   }
   #touch .tHint {
-    position: absolute; left: 20px; bottom: 14px;
+    position: absolute; left: 14px; bottom: 8px;
     font-size: 10px; letter-spacing: 3px; color: rgba(232,238,245,.22);
   }
   /* Shows where the wheel is once you are holding it, and nothing before. */
   #touch .tKnob {
-    position: absolute; left: 50%; bottom: 26%;
-    width: 62px; height: 62px; border-radius: 50%;
+    position: absolute; left: 50%; bottom: 50%;
+    width: clamp(52px, 15vh, 76px); height: clamp(52px, 15vh, 76px);
+    border-radius: 50%;
     border: 2px solid rgba(232,238,245,.16);
     transform: translate(-50%, -50%);
     transition: border-color .15s ease, background .15s ease;
@@ -972,10 +983,15 @@
       <span class="hk"><b>T</b> / <b>Esc</b></span><span>back to the circuits</span>
       <span class="hk"><b>J</b></span><span>autopilot &mdash; watch it drive</span>
       <span class="hk"><b>L</b></span><span>headlights on / off</span>
+      <span class="hk"><b>Y</b></span><span>handling assist &mdash; more lock and grip</span>
       <div class="grp">ON A PHONE</div>
       <span class="hk">left half</span><span>drag anywhere to steer &mdash; where you touch is centre</span>
       <span class="hk">right</span><span>GO, BRAKE, HAND</span>
       <span class="hk">pad</span><span>connect one over Bluetooth and these disappear</span>
+
+      <div class="grp">TESTING</div>
+      <span class="hk"><b>?touch=1</b></span><span>force the on-screen controls on any device</span>
+      <span class="hk"><b>?assist=0</b></span><span>force the assist off, phone included</span>
       <span class="hk"><b>K</b></span><span>clear the skid marks</span>
       <span class="hk"><b>V</b></span><span>sound on / off</span>
       <span class="hk"><b>N</b></span><span>music on / off</span>

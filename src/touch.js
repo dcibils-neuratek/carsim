@@ -19,8 +19,15 @@
 
 import { applySteerCurve } from './input.js';
 
-/** How far the thumb travels for full lock, as a fraction of the short edge. */
-const STEER_TRAVEL = 0.30;
+/**
+ * How far the thumb travels for full lock, as a fraction of the short edge.
+ *
+ * 0.22, not 0.30. A thumb anchored in the bottom corner of a phone sweeps
+ * comfortably through maybe a fifth of the screen before the hand has to move,
+ * and asking for more than it can reach means full lock is only available to
+ * someone willing to let go of the phone.
+ */
+const STEER_TRAVEL = 0.22;
 
 /** Ramp rates, matching the keyboard's so a touch car drives like a key car. */
 const PEDAL_RATE = 4.5;

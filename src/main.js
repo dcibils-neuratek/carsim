@@ -426,16 +426,58 @@ export async function boot() {
   // controls are just something covering the road. The keyboard stays live
   // throughout either way.
   const touch = new TouchControls(document.getElementById('touch'));
-  // On by default wherever the controls are, off everywhere else, and
-  // toggleable either way from the menu. A pad connecting turns it off with
-  // them: a stick has the precision the assist exists to replace.
   const assist = new HandlingAssist(TUNING);
+
+  /**
+   * `?touch=1`, `?assist=0` and so on: force either one, on either device.
+   *
+   * Auto-detection is right for players and useless for testing. The touch
+   * controls could not be tried on a desktop at all, and the assist could only
+   * be reached through a menu that only exists once the controls are up -- so
+   * the two things most in need of a side-by-side comparison were the two that
+   * could not be compared. A query parameter survives a reload and travels in a
+   * link, which a key press does not.
+   *
+   * @returns {boolean|null} null when the parameter is absent, meaning "decide".
+   */
+  const forced = (name) => {
+    const v = new URLSearchParams(location.search).get(name);
+    if (v === null) return null;
+    return v !== '0' && v !== 'false' && v !== 'off';
+  };
+  const forceTouch = forced('touch');
+  const forceAssist = forced('assist');
+
+  /**
+   * Set once the player toggles the assist by hand, and never cleared.
+   *
+   * Without it, auto-detection would quietly undo the choice the moment
+   * anything re-evaluated -- turning the assist back on for someone who had
+   * just decided they wanted it off.
+   */
+  let assistChosen = null;
+
   const syncTouch = () => {
-    const want = touchLikely() && !input.hasGamepad;
-    if (want === touch.enabled) return;
-    touch.setEnabled(want);
-    assist.setOn(want);
-    document.getElementById('hud')?.classList.toggle('compact', want);
+    const wantTouch = forceTouch ?? (touchLikely() && !input.hasGamepad);
+    if (wantTouch !== touch.enabled) {
+      touch.setEnabled(wantTouch);
+      document.getElementById('hud')?.classList.toggle('compact', wantTouch);
+    }
+    // Independent of the controls, so a phone can be driven raw and a desktop
+    // can be driven assisted -- which is the only way to tell what the assist
+    // is actually doing. It follows the controls only until somebody says
+    // otherwise.
+    const wantAssist = assistChosen ?? forceAssist ?? wantTouch;
+    if (wantAssist !== assist.on) assist.setOn(wantAssist);
+  };
+
+  const toggleAssist = () => {
+    assistChosen = !assist.on;
+    assist.setOn(assistChosen);
+    hud.toast(assistChosen
+      ? 'assist ON — more lock, more grip, counter-steer help'
+      : 'assist OFF — the raw car');
+    return assistChosen;
   };
 
   const hud = new Hud();
@@ -687,8 +729,7 @@ export async function boot() {
   // moment the menu opens rather than baked in, so a toggle shows its CURRENT
   // state instead of the state it had when the game booted.
   touch.setActions([
-    { label: () => `Assist: ${assist.on ? 'on' : 'off'}`,
-      run: () => hud.toast(assist.toggle() ? 'assist on — more lock and grip' : 'assist off — raw car') },
+    { label: () => `Assist: ${assist.on ? 'on' : 'off'}`, run: () => toggleAssist() },
     { label: 'FPS counter', run: () => hud.toggleFps() },
     { label: 'Headlights', run: () => hud.toast(headlights?.toggle() ? 'headlights on' : 'headlights off') },
     { label: 'Camera', run: () => hud.toast(`camera: ${carCamera.cycle()}`) },
@@ -806,6 +847,7 @@ export async function boot() {
       const changed = toggleEffect(Number(e.code.slice(5)) - 1);
       if (changed) hud.toast(`${changed.label} ${changed.on ? 'on' : 'off'}`);
     }
+    if (e.code === 'KeyY') toggleAssist();
     if (e.code === 'KeyL') hud.toast(headlights?.toggle() ? 'headlights on' : 'headlights off');
     if (e.code === 'KeyK') { skidmarks.clear(); smoke.clear(); hud.toast('skidmarks cleared'); }
     if (e.code === 'KeyV') { audio.setMuted(!audio.muted); hud.toast(audio.muted ? 'sound off' : 'sound on'); }
