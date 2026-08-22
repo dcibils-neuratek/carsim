@@ -567,8 +567,8 @@
   },
   "terrain": {
     "hills": {
-      "amplitude": 1.2,
-      "scale": 1.1
+      "amplitude": 3.6,
+      "scale": 1.4
     },
     "envelope": {
       "slope": 0.07,
