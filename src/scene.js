@@ -233,20 +233,11 @@ function createSky(pal) {
 /** Clear air between the outermost part of the circuit and the skyline. */
 const RIDGE_MARGIN = 250;
 
-/**
- * How many slots wide each ridge triangle is drawn.
- *
- * One slot each made a COMB, not a mountain range: the base of a triangle was
- * the circumference divided by the count, and on Mountains that was 89 m
- * against peaks 980 m tall -- an 11:1 spike. Real mountains run nearer 0.3:1.
- *
- * Spanning several slots decouples the two: `count` still sets how many peaks
- * there are, while the width of each is this multiple of the spacing, so they
- * overlap into a massif the way a range actually does. Fixing it by dropping
- * the count instead would have bought width at the price of a skyline you
- * could see the polygons in.
- */
-const RIDGE_SPAN = 5;
+// Peaks are sunk this far below zero so they rise out of the terrain rather
+// than balancing on it -- the ground out at the horizon is not flat.
+const RIDGE_BASE_Y = -60;
+
+const UP = new THREE.Vector3(0, 1, 0);
 
 /**
  * Where the skyline ring actually sits, as { cx, cz, radius, inner }.
@@ -274,28 +265,63 @@ export function ridgeRing(def) {
   return { cx, cz, radius, inner: radius - jitter / 2, reach };
 }
 
+/**
+ * One mountain, as a unit shape: height 1, nominal base radius 1.
+ *
+ * A cone is a pyramid, and a ring of pyramids is what the last version looked
+ * like, because every face was the same size and every silhouette was two
+ * straight lines meeting at a point. Mountains are not that. What makes one
+ * read as a mountain is IRREGULARITY in three specific places, and all three
+ * are cheap:
+ *
+ *   - the footprint is not a circle, so the base wanders in and out
+ *   - the apex is not above the centre, so one flank is long and one is short
+ *   - there is a shoulder between base and peak at a varying height, which is
+ *     what turns a straight slope into a ridgeline with a break in it
+ *
+ * Built per peak rather than instanced for exactly that reason: instancing can
+ * only vary the transform, and a transform cannot make two pyramids different
+ * mountains. Forty peaks at ~40 triangles each is 1600 triangles for the whole
+ * horizon, which is nothing.
+ */
+function mountainShape(rand, segments) {
+  const baseR = [];
+  const shoulderR = [];
+  const shoulderY = [];
+  for (let i = 0; i < segments; i++) {
+    baseR.push(0.65 + rand() * 0.7);
+    shoulderR.push(0.28 + rand() * 0.3);
+    shoulderY.push(0.3 + rand() * 0.28);
+  }
+  // Off-centre, which is what gives a mountain a face and a back.
+  const ax = (rand() - 0.5) * 0.5;
+  const az = (rand() - 0.5) * 0.5;
+
+  const tri = [];
+  const at = (i, ring) => {
+    const a = ((i % segments) / segments) * Math.PI * 2;
+    if (ring === 0) return [Math.cos(a) * baseR[i % segments], 0, Math.sin(a) * baseR[i % segments]];
+    const r = shoulderR[i % segments];
+    return [Math.cos(a) * r + ax * 0.5, shoulderY[i % segments], Math.sin(a) * r + az * 0.5];
+  };
+  const apex = [ax, 1, az];
+
+  for (let i = 0; i < segments; i++) {
+    const b0 = at(i, 0), b1 = at(i + 1, 0);
+    const s0 = at(i, 1), s1 = at(i + 1, 1);
+    tri.push(...b0, ...b1, ...s1);   // skirt
+    tri.push(...b0, ...s1, ...s0);
+    tri.push(...s0, ...s1, ...apex); // cap
+  }
+  return tri;
+}
+
 function createHorizonRange(def) {
-  const positions = [];
   const count = def.scenery.ridgeCount;
   const [hMin, hMax] = def.scenery.ridgeHeight;
   const jitter = def.scenery.ridgeJitter;
-
-  // Centred on the CIRCUIT, and never smaller than the circuit.
-  //
-  // This ring used to be centred on the world origin at a radius typed into
-  // the track file, and both halves of that were wrong. No circuit here is
-  // centred on the origin -- they sit up to 550 m off it -- and the authored
-  // radii were smaller than the distance the layout actually reaches, so five
-  // of the six had a mountain standing on the road. It is only a skyline mesh
-  // with no collider, so the car drove through it, which is worse than hitting
-  // it: you cannot see where you are going and nothing explains why.
-  //
-  // Control points bound the built centreline rather than tracking it, because
-  // a uniform cubic B-spline passes INSIDE its controls -- so measuring the
-  // footprint from them is conservative in the direction that matters.
-  // Jitter pulls a peak INWARD by up to half its range, so the floor has to
-  // clear the track by the margin plus that.
   const { cx, cz, radius } = ridgeRing(def);
+
   // Deterministic pseudo-random so the skyline is the same every run.
   let seed = 1337;
   const rand = () => {
@@ -303,30 +329,51 @@ function createHorizonRange(def) {
     return seed / 4294967296;
   };
 
+  const verts = [];
   const step = (Math.PI * 2) / count;
   for (let i = 0; i < count; i++) {
-    // Centred on its slot and widened outward, so peaks stay evenly spaced
-    // while their skirts overlap their neighbours'.
     const am = (i + 0.5) * step;
-    const a0 = am - (step * RIDGE_SPAN) / 2;
-    const a1 = am + (step * RIDGE_SPAN) / 2;
-    const h = hMin + rand() * (hMax - hMin);
     const r = radius + (rand() - 0.5) * jitter;
-    positions.push(
-      cx + Math.cos(a0) * radius, -20, cz + Math.sin(a0) * radius,
-      cx + Math.cos(a1) * radius, -20, cz + Math.sin(a1) * radius,
-      cx + Math.cos(am) * r, h, cz + Math.sin(am) * r,
-    );
+    const h = hMin + rand() * (hMax - hMin);
+    // Half again as wide as tall, roughly what a real range looks like from a
+    // valley floor and what stops peaks reading as spikes.
+    const base = h * (0.75 + rand() * 0.45);
+    const px = cx + Math.cos(am) * r;
+    const pz = cz + Math.sin(am) * r;
+    const yaw = rand() * Math.PI * 2;
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+
+    const shape = mountainShape(rand, 7 + Math.floor(rand() * 3));
+    for (let v = 0; v < shape.length; v += 3) {
+      const x = shape[v] * base;
+      const y = shape[v + 1] * (h - RIDGE_BASE_Y);
+      const z = shape[v + 2] * base;
+      verts.push(
+        px + x * cos - z * sin,
+        RIDGE_BASE_Y + y,
+        pz + x * sin + z * cos,
+      );
+    }
   }
 
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   geo.computeVertexNormals();
-  const mat = new THREE.MeshBasicMaterial({
-    color: def.palette.ridge, side: THREE.DoubleSide, fog: false,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
+
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: def.palette.ridge, flatShading: true, roughness: 1, metalness: 0,
+    // Still out of the fog: these sit past every circuit's fog far plane, and
+    // letting them fade leaves the horizon empty rather than distant.
+    fog: false,
+  }));
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  mesh.frustumCulled = false;
   mesh.renderOrder = 0;
+  // A headlight has no business reaching the horizon. The instanced-mesh test
+  // in Headlights._restrictTo cannot see this one, so it says so itself.
+  mesh.userData.skipHeadlights = true;
   return mesh;
 }
 

@@ -126,6 +126,7 @@ export class Headlights {
       l.target.layers.enable(HEADLIGHT_LAYER);
     }
     scene.traverse((o) => {
+      if (o.userData?.skipHeadlights) return;
       if (o.isMesh && !o.isInstancedMesh) o.layers.enable(HEADLIGHT_LAYER);
     });
     carGroup.traverse((o) => { if (o.isMesh) o.layers.enable(HEADLIGHT_LAYER); });
