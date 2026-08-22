@@ -131,8 +131,8 @@
   },
   "terrain": {
     "hills": {
-      "amplitude": 5.5,
-      "scale": 1.2
+      "amplitude": 6.5,
+      "scale": 1.4
     },
     "envelope": {
       "slope": 0.2,

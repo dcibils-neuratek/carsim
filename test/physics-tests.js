@@ -264,12 +264,25 @@ async function testTrackFiles(r) {
     'forest inherits width, curbs, scenery and skidmark colour');
 
   // ...and a track that overrides one key of a nested group must keep its
-  // siblings. Mountains sets terrain.envelope only; hills comes from defaults.
+  // siblings. Mountains states terrain.envelope AND terrain.hills, and both
+  // have to survive the merge with the defaults intact.
+  //
+  // Asserts that each value is the track's OWN rather than naming the numbers.
+  // It named them once and broke the moment the hills were retuned for looks,
+  // which is a test failing for a reason that has nothing to do with what it
+  // is checking -- the mechanism is "an override reaches the runtime and does
+  // not clobber its siblings", and that is what this now says.
   const mountains = getTrack('mountains');
+  const mtnSrc = mountains.source.terrain;
+  const defaults = getTrack('forest');
   r.check('nested override keeps siblings',
-    mountains.envSlope === 0.20 && mountains.roadClearance === 0.30 &&
-    mountains.hills.scale === 1.2,
-    'envelope overridden, hills its own, neither clobbered');
+    mountains.envSlope === mtnSrc.envelope.slope
+    && mountains.roadClearance === mtnSrc.envelope.roadClearance
+    && mountains.hills.scale === mtnSrc.hills.scale
+    && mountains.hills.amplitude === mtnSrc.hills.amplitude
+    && mountains.envSlope !== defaults.envSlope,
+    `envelope ${mountains.envSlope}/${mountains.roadClearance} and hills `
+    + `${mountains.hills.amplitude}/${mountains.hills.scale}, none clobbered`);
 
   r.check('colour round trip', formatColor(parseColor('#74b6e8', 'x')) === '#74b6e8');
 

@@ -478,8 +478,8 @@
   },
   "terrain": {
     "hills": {
-      "amplitude": 3.0,
-      "scale": 1.6
+      "amplitude": 4.2,
+      "scale": 1.8
     },
     "envelope": {
       "roadClearance": 0.35

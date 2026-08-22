@@ -246,8 +246,18 @@ const UP = new THREE.Vector3(0, 1, 0);
  * the closest a peak can come to the ring's centre once jitter has pulled it
  * in, and that is the number a circuit has to stay clear of.
  */
+/** Widest a peak's skirt can be, as a multiple of its height. */
+const RIDGE_BASE_MAX = 1.2;
+
 export function ridgeRing(def) {
   const jitter = def.scenery.ridgeJitter;
+  const [, hMax] = def.scenery.ridgeHeight;
+  // A peak is not a point. Solid mountains have a SKIRT, and on Mountains that
+  // skirt is 560 m of it -- so peaks whose centres cleared the circuit by 250 m
+  // still had their lower slopes standing across the road. The flat triangles
+  // this replaced were only ever as wide as one ring slot, which is why the
+  // ring radius never had to account for width before.
+  const skirt = hMax * RIDGE_BASE_MAX;
   const pts = def.controlPoints ?? [];
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const [x, , z] of pts) {
@@ -261,8 +271,10 @@ export function ridgeRing(def) {
   let reach = 0;
   for (const [x, , z] of pts) reach = Math.max(reach, Math.hypot(x - cx, z - cz));
 
-  const radius = Math.max(def.scenery.ridgeRadius, reach + RIDGE_MARGIN + jitter / 2);
-  return { cx, cz, radius, inner: radius - jitter / 2, reach };
+  const radius = Math.max(def.scenery.ridgeRadius, reach + RIDGE_MARGIN + jitter / 2 + skirt);
+  // `inner` is the nearest any PART of the range can come to the centre: the
+  // ring, less the inward half of the jitter, less the skirt.
+  return { cx, cz, radius, inner: radius - jitter / 2 - skirt, reach, skirt };
 }
 
 /**
@@ -337,7 +349,7 @@ function createHorizonRange(def) {
     const h = hMin + rand() * (hMax - hMin);
     // Half again as wide as tall, roughly what a real range looks like from a
     // valley floor and what stops peaks reading as spikes.
-    const base = h * (0.75 + rand() * 0.45);
+    const base = h * (0.75 + rand() * (RIDGE_BASE_MAX - 0.75));
     const px = cx + Math.cos(am) * r;
     const pz = cz + Math.sin(am) * r;
     const yaw = rand() * Math.PI * 2;
@@ -363,6 +375,16 @@ function createHorizonRange(def) {
 
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     color: def.palette.ridge, flatShading: true, roughness: 1, metalness: 0,
+    // Emissive at the SAME colour, which is aerial perspective rather than a
+    // cheat. Lit alone, these went black on Mountains: the sun there is 78
+    // degrees up and the sky fill is the lowest in the game, so a cone's flanks
+    // -- which face sideways -- catch almost nothing and the range read as a
+    // row of holes cut in the sky. Real distant mountains do the opposite and
+    // wash out toward the haze whatever the sun is doing. This puts a floor
+    // under them at 55% of their own colour, so the sun still models the form
+    // on top of it instead of deciding whether there is any form at all.
+    emissive: def.palette.ridge,
+    emissiveIntensity: 0.55,
     // Still out of the fog: these sit past every circuit's fog far plane, and
     // letting them fade leaves the horizon empty rather than distant.
     fog: false,
