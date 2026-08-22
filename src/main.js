@@ -383,7 +383,7 @@ export async function boot() {
   const carDef = await chooseCar(input, trackDef);
   applyCarTuning(TUNING, carDef);
 
-  prompt.textContent = 'LOADING PHYSICS…';
+  await stage(prompt, 'STARTING PHYSICS');
 
   const renderer = createRenderer();
   // The one line that stops a tiled road turning into crawling noise at
@@ -395,10 +395,7 @@ export async function boot() {
   );
 
   const world = await initPhysics();
-  prompt.textContent = 'BUILDING TRACK…';
-  // Yield a frame so the loading text actually paints before the track build
-  // blocks the thread for a few hundred milliseconds.
-  await nextFrame();
+  await stage(prompt, 'BUILDING TRACK');
 
   const track = new Track(world, RAPIER, scene, trackDef);
   const debug = new PhysicsDebug(scene);
@@ -413,7 +410,7 @@ export async function boot() {
 
   // The car model is optional: if it's missing or malformed the game still runs
   // on the procedural car, so a bad asset can never stop you driving.
-  prompt.textContent = `${carDef.name.toUpperCase()} — LOADING…`;
+  await stage(prompt, `LOADING ${carDef.name.toUpperCase()}`);
   let carModel = null;
   try {
     carModel = await loadCarModel(carDef.file);
@@ -826,6 +823,28 @@ export async function boot() {
     },
   });
 
+  // Compile every shader before saying GO.
+  //
+  // three builds a material's GPU program the first time it is DRAWN, and this
+  // scene has a lot of materials -- so without this the first seconds of play
+  // are spent compiling, one stall per material, while the car sits there
+  // apparently frozen. It is the same total work either way; the difference is
+  // whether it happens behind a screen that says it is loading or after one
+  // that says GO.
+  //
+  // compileAsync yields between programs so the page stays alive; compile()
+  // is the synchronous fallback for anything that lacks it.
+  await stage(prompt, 'PREPARING GRAPHICS');
+  try {
+    if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+    else renderer.compile(scene, camera);
+  } catch (err) {
+    // Never fatal: a shader that will not precompile still compiles on first
+    // draw, which is exactly where it was before.
+    console.warn('shader precompile skipped:', err);
+  }
+
+  prompt.classList.remove('working');
   prompt.textContent = `${trackDef.name.toUpperCase()} — GO`;
   prompt.classList.add('blink');
 
@@ -1049,4 +1068,21 @@ export async function boot() {
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
+/**
+ * Announce a loading stage and let it paint.
+ *
+ * Setting textContent and then immediately doing several hundred milliseconds
+ * of synchronous work means the text never appears: the browser needs a frame
+ * to draw it and the main thread is busy. Every stage was written that way, so
+ * the screen simply sat there -- the messages existed and nobody ever saw
+ * them, which reads as a hang rather than as loading.
+ *
+ * Bundling the yield into the announcement makes that impossible to forget.
+ */
+async function stage(prompt, text) {
+  prompt.textContent = text;
+  prompt.classList.add('working');
+  await nextFrame();
 }

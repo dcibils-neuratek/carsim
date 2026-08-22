@@ -769,6 +769,41 @@
   #boot .byline a:hover { color: var(--accent); border-color: var(--accent); }
   #boot .prompt { color: var(--accent); font-size: 17px; letter-spacing: 2px; }
   #boot .prompt.blink { animation: blink 1.15s ease-in-out infinite; }
+
+  /* Something that MOVES while loading.
+     Text alone cannot tell you the difference between "working" and "hung",
+     and the stages here are long enough on a phone that the difference is the
+     only thing you want to know. This is CSS, so it keeps animating even while
+     the main thread is blocked building the track -- which is exactly the
+     moment a spinner driven by JS would freeze and prove nothing. */
+  #boot .prompt.working::after {
+    content: ''; display: inline-block; vertical-align: middle;
+    width: 13px; height: 13px; margin-left: 10px;
+    border: 2px solid rgba(255,210,63,.25);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* A bar that fills once per stage, so a long stage still shows progress even
+     though nothing can report a real percentage from inside a blocking call. */
+  #boot .prompt.working {
+    position: relative;
+    padding-bottom: 10px;
+  }
+  #boot .prompt.working::before {
+    content: ''; position: absolute; left: 50%; bottom: 0;
+    width: 150px; height: 2px; margin-left: -75px;
+    border-radius: 1px;
+    background: linear-gradient(90deg,
+      transparent, var(--accent), transparent) 0 0 / 50% 100% no-repeat;
+    background-color: rgba(255,255,255,.07);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0%   { background-position: -75px 0; }
+    100% { background-position: 150px 0; }
+  }
   @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
   #boot .err { color: var(--danger); font-size: 15px; max-width: 460px; line-height: 1.7; }
   #boot.hidden { display: none; }
