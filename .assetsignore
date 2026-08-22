@@ -1,0 +1,34 @@
+# What Cloudflare must NOT upload.
+#
+# The deploy runs `wrangler deploy` with the assets directory set to the repo
+# root, so without this it uploads the repository itself -- including .git,
+# whose pack file is 46.8 MiB against a 25 MiB per-asset limit. That is the
+# error this file exists to fix, and it fails the build rather than shipping
+# something broken, which is the good version of that problem.
+#
+# Same syntax as .gitignore. Everything not listed here ships.
+
+# The repository and the tooling around it.
+.git
+.gitignore
+.assetsignore
+.claude
+.DS_Store
+wrangler.jsonc
+wrangler.toml
+
+# 54 MB of engine recordings, untracked and sitting on disk. Not part of the
+# game -- the samples it actually plays live in assets/audio/.
+engine-audio-master
+
+# Written for whoever is working on this, not for whoever is playing it.
+README.md
+docs
+
+# Development tools. The physics suite and the track editor are how the game
+# gets made, not part of it; the measurement tool likewise. Delete a line here
+# to put any of them back on the public site.
+test.html
+test
+editor.html
+tools

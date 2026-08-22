@@ -1,6 +1,6 @@
 # Megatronik Studio — landing page
 
-One self-contained `index.html`. No build step, no dependencies beyond Google
+One self-contained `index.html`, at the site root. No build step, no dependencies beyond Google
 Fonts, same as the rest of the project. Open it over HTTP alongside the game:
 
 ```bash
@@ -24,7 +24,7 @@ from what the game actually looks like without someone noticing.
 
 ## Links out
 
-`../index.html` (play) and `../about.html` (about VROOM) are relative, so the
+`vroom.html` (play) and `../about.html` (about VROOM) are relative, so the
 folder can be moved or served from a subpath without editing anything.
 
 ## If this becomes the front door

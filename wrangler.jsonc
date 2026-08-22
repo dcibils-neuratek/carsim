@@ -1,0 +1,15 @@
+{
+  // Committed rather than generated. Wrangler writes this itself on the first
+  // deploy if it is missing, which means the build depends on whatever it
+  // guessed that day; pinning it makes the deploy reproducible.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "megatronik",
+  "compatibility_date": "2026-08-20",
+  "observability": { "enabled": true },
+  "assets": {
+    // The repo root: index.html is the studio landing page and vroom.html is
+    // the game, both sitting beside the src/ and assets/ they load. What is
+    // kept OUT of the upload is in .assetsignore.
+    "directory": "."
+  }
+}
