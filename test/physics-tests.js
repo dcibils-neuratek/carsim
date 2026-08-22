@@ -252,14 +252,16 @@ async function testTrackFiles(r) {
       bad.length ? bad.map(([k]) => k).join(', ') : `${Object.keys(p).length} colours`);
   }
 
-  // Defaults must actually reach a file that doesn't restate them: forest
-  // declares nothing but control points, so every other value it has is
-  // inherited. If merging broke, this is where it shows.
+  // Defaults must actually reach a file that doesn't restate them. Forest is
+  // the sparsest circuit -- it states control points, its grip and its hour,
+  // and inherits everything else. It used to state nothing but the points, and
+  // this check asserted on its grass grip until the grip spread gave it one of
+  // its own; the keys below are ones it still says nothing about.
   const forest = getTrack('forest');
   r.check('defaults merge into a sparse file',
-    forest.halfWidth === 6.0 && forest.scenery.treeCount === 620 &&
-    forest.surface.grassGrip === 0.45 && forest.palette.skidmark === 0x101216,
-    'forest inherits width, scenery, grip and skidmark colour');
+    forest.halfWidth === 6.0 && forest.curbWidth === 1.4 &&
+    forest.scenery.treeCount === 620 && forest.palette.skidmark === 0x101216,
+    'forest inherits width, curbs, scenery and skidmark colour');
 
   // ...and a track that overrides one key of a nested group must keep its
   // siblings. Mountains sets terrain.envelope only; hills comes from defaults.
@@ -338,6 +340,7 @@ export async function runAll(el) {
   await testHandbrakeUnderPower(ctx, r);
   await testStaysStoppedOnTheBrake(ctx, r);
   testSceneryClear(ctx.track, getTrack('forest'), r, ' — forest');
+  testVergeGrip(r);
   await testLap(ctx, r, ' — forest');
   testLeaderboard(r);
   await testRace(ctx, r);
@@ -1316,6 +1319,39 @@ function testSceneryClear(track, def, r, label = '') {
   // Beyond merely not touching: a peak close enough to loom over the road
   // reads as scenery that got loose, even when it is technically outside.
   r.check('the skyline keeps its distance', worst > 120, `${worst.toFixed(0)} m of clear air`);
+}
+
+/**
+ * A verge has to cost you and still be driveable.
+ *
+ * `grassGrip` is an ABSOLUTE grip on the same scale as the road, not a
+ * fraction of it -- which is easy to misread when they sit next to each other
+ * in the file, and did get misread: verges ran 0.22 to 0.45 against roads of
+ * 0.87 to 1.05, putting every one of them below the grip of the SNOW
+ * circuit's road. Two wheels off was not a penalty, it was the end of the lap.
+ *
+ * A ratio rather than a drive, deliberately. The obvious test -- put the car
+ * on the grass and steer back -- was written first and turned out to measure
+ * the harness: the car spawned inside the terrain and sat at 0 km/h, which
+ * reads exactly like "still cannot recover" and would have been believed. This
+ * asserts the rule itself, which is the thing that was wrong.
+ */
+function testVergeGrip(r) {
+  r.section('verge grip');
+  for (const id of TRACK_IDS) {
+    const def = getTrack(id);
+    const road = def.surface.roadGrip;
+    const grass = def.surface.grassGrip;
+    const ratio = grass / road;
+    r.check(`${id}: the verge is slower than the road`, ratio < 0.9,
+      `${grass} vs ${road} (${(ratio * 100).toFixed(0)}%)`);
+    r.check(`${id}: the verge is still driveable`, ratio >= 0.55,
+      `${(ratio * 100).toFixed(0)}% of road grip`);
+  }
+  // The blend at the edge matters as much as the number: a step change means
+  // the car snaps loose the instant a wheel crosses the line.
+  r.check('the track edge blends rather than steps',
+    TUNING.surfaces.edgeBlend >= 0.4, `${TUNING.surfaces.edgeBlend} m of blend`);
 }
 
 async function testLap(ctx, r, label = '') {

@@ -104,6 +104,7 @@ function buildDial(ticksEl, numsEl, { max, step, minorPer, labelEvery, small }) 
 export class Hud {
   constructor() {
     this.el = {
+      fps: document.getElementById('fps'),
       tach: document.getElementById('tach'),
       tachRed: document.getElementById('tachRed'),
       tachTicks: document.getElementById('tachTicks'),
@@ -136,6 +137,7 @@ export class Hud {
     };
     this._toastTimer = null;
     this._fps = 60;
+    this._fpsOn = false;
     this._displaySpeed = 0;
     this._gx = 0;
     this._gy = 0;
@@ -480,6 +482,12 @@ export class Hud {
       : `LAP ${pct}`;
   }
 
+  toggleFps() {
+    this._fpsOn = !this._fpsOn;
+    this.el.fps.classList.toggle('on', this._fpsOn);
+    return this._fpsOn;
+  }
+
   toggleDebug() {
     this.el.debug.classList.toggle('on');
     return this.el.debug.classList.contains('on');
@@ -511,6 +519,15 @@ export class Hud {
       this._fpsMin = this._fpsWorst;
       this._fpsWorst = instant;
       this._fpsWindow = 0;
+    }
+
+    if (this._fpsOn) {
+      const worst = this._fpsMin ?? this._fps;
+      this.el.fps.innerHTML =
+        `<b>${this._fps.toFixed(0)}</b> FPS <span class="worst">· ${worst.toFixed(0)} low</span>`;
+      // Red below 50: that is where a dropped frame starts being something you
+      // feel in a corner rather than something you only see in a number.
+      this.el.fps.classList.toggle('slow', this._fps < 50);
     }
 
     // Smooth the needle a touch; raw per-step speed flickers the last digit.
